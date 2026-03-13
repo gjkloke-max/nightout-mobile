@@ -1,0 +1,18 @@
+[Unit]
+Description=Expo Dev Server (nightout-mobile staging)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/pulse-mobile
+Environment="REACT_NATIVE_PACKAGER_HOSTNAME=expo.techies.com"
+Environment="REACT_NATIVE_PACKAGER_PORT=443"
+Environment="EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0"
+Environment="NODE_ENV=development"
+ExecStart=/usr/bin/npx expo start
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

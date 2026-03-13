@@ -1,5 +1,13 @@
 import { supabase } from '../lib/supabase'
 
+export async function createNotification(userId, type, payload = {}) {
+  if (!userId || !type || !supabase) return { success: false, error: 'Invalid' }
+  const { error } = await supabase
+    .from('notifications')
+    .insert({ user_id: userId, type, payload })
+  return { success: !error, error: error?.message }
+}
+
 export async function getNotifications(userId, limit = 50) {
   if (!userId || !supabase) return []
   const { data } = await supabase
