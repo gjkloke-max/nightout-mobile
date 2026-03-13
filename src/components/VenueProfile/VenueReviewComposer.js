@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
-import { colors, fontSizes, fontWeights, spacing } from '../../theme'
+import { colors, fontSizes, fontFamilies, spacing } from '../../theme'
 
 const MAX_PHOTOS = 5
 
@@ -143,26 +143,27 @@ const styles = StyleSheet.create({
   container: { paddingHorizontal: spacing.base, paddingVertical: spacing.lg },
   title: {
     fontSize: fontSizes.lg,
-    fontWeight: fontWeights.semibold,
+    fontFamily: fontFamilies.frauncesSemiBold,
     color: colors.textPrimary,
     marginBottom: spacing.lg,
   },
   form: {},
   field: { marginBottom: spacing.lg },
-  label: { fontSize: fontSizes.sm, color: colors.textSecondary, marginBottom: spacing.xs },
+  label: { fontSize: fontSizes.sm, fontFamily: fontFamilies.interMedium, color: colors.textSecondary, marginBottom: spacing.xs },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.sm,
     fontSize: fontSizes.base,
+    fontFamily: fontFamilies.inter,
     color: colors.textPrimary,
     backgroundColor: colors.backgroundElevated,
   },
   textArea: { minHeight: 100, textAlignVertical: 'top' },
   photosRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  photoPreview: { width: 72, height: 72, borderRadius: 8, overflow: 'hidden', position: 'relative' },
+  photoPreview: { width: 72, height: 72, borderRadius: 12, overflow: 'hidden', position: 'relative' },
   photoImg: { width: '100%', height: '100%' },
   photoRemove: {
     position: 'absolute',
@@ -179,33 +180,33 @@ const styles = StyleSheet.create({
   photoAdd: {
     width: 72,
     height: 72,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  photoAddText: { fontSize: fontSizes.sm, color: colors.textMuted },
-  errorText: { fontSize: fontSizes.sm, color: colors.error, marginBottom: spacing.sm },
+  photoAddText: { fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.textMuted },
+  errorText: { fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.error, marginBottom: spacing.sm },
   actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
   btnSecondary: {
     flex: 1,
     paddingVertical: spacing.sm,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
   },
-  btnSecondaryText: { fontSize: fontSizes.base, color: colors.textPrimary },
+  btnSecondaryText: { fontSize: fontSizes.base, fontFamily: fontFamilies.interMedium, color: colors.textPrimary },
   btnPrimary: {
     flex: 1,
     paddingVertical: spacing.sm,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: colors.accent,
     alignItems: 'center',
   },
   btnDisabled: { opacity: 0.7 },
-  btnPrimaryText: { fontSize: fontSizes.base, color: colors.textOnDark, fontWeight: '600' },
+  btnPrimaryText: { fontSize: fontSizes.base, fontFamily: fontFamilies.interSemiBold, color: colors.textOnDark },
 })

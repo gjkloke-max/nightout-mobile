@@ -1,6 +1,16 @@
 /**
- * Typography — readable, editorial.
+ * Typography — Figma design: Fraunces (headings), Inter (body).
  */
+
+export const fontFamilies = {
+  fraunces: 'Fraunces_700Bold',
+  frauncesSemiBold: 'Fraunces_600SemiBold',
+  frauncesRegular: 'Fraunces_400Regular',
+  inter: 'Inter_400Regular',
+  interMedium: 'Inter_500Medium',
+  interSemiBold: 'Inter_600SemiBold',
+  interBold: 'Inter_700Bold',
+}
 
 export const fontSizes = {
   xs: 12,

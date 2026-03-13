@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native'
-import { colors, fontSizes, fontWeights, spacing, borderRadius } from '../theme'
+import { Image as ImageIcon } from 'lucide-react-native'
+import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes } from '../theme'
 
 function getVenueTypeName(venue) {
   const vt = Array.isArray(venue?.venue_type) ? venue.venue_type[0] : venue?.venue_type
@@ -26,7 +27,7 @@ export default function VenueCard({ venue, onPress }) {
           <Image source={{ uri: photoUrl }} style={styles.image} resizeMode="cover" />
         ) : (
           <View style={styles.imagePlaceholder}>
-            <Text style={styles.placeholderText}>📷</Text>
+            <ImageIcon size={40} color={colors.textMuted} strokeWidth={1.5} />
           </View>
         )}
       </View>
@@ -65,7 +66,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  placeholderText: { fontSize: 32, opacity: 0.5 },
   content: { padding: spacing.base },
   name: {
     fontSize: fontSizes.lg,

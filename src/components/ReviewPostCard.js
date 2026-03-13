@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { View, Text, StyleSheet, Pressable, Image, TextInput } from 'react-native'
+import { Heart, MapPin, MessageCircle } from 'lucide-react-native'
 import { likeReview, unlikeReview } from '../services/reviewLikes'
 import { addComment, getCommentsWithProfiles } from '../services/reviewComments'
-import { colors, fontSizes, fontWeights, spacing } from '../theme'
+import { colors, fontSizes, fontWeights, spacing, iconSizes } from '../theme'
 
 function displayName(p) {
   if (!p) return 'Anonymous'
@@ -84,7 +85,9 @@ export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVe
           {venue?.primary_photo_url ? (
             <Image source={{ uri: venue.primary_photo_url }} style={styles.venueThumbImg} />
           ) : (
-            <Text style={styles.venuePlaceholder}>📍</Text>
+            <View style={styles.venuePlaceholder}>
+              <MapPin size={iconSizes.card} color={colors.textMuted} strokeWidth={1.5} />
+            </View>
           )}
         </View>
         <View style={styles.venueInfo}>
@@ -100,11 +103,16 @@ export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVe
 
       <View style={styles.actions}>
         <Pressable style={styles.actionBtn} onPress={handleLike}>
-          <Text style={styles.actionIcon}>{liked ? '❤️' : '♡'}</Text>
+          <Heart
+            size={iconSizes.card}
+            color={liked ? colors.error : colors.textMuted}
+            fill={liked ? colors.error : 'transparent'}
+            strokeWidth={2}
+          />
           <Text style={styles.actionText}>{likeCount}</Text>
         </Pressable>
         <Pressable style={styles.actionBtn} onPress={loadComments}>
-          <Text style={styles.actionIcon}>💬</Text>
+          <MessageCircle size={iconSizes.card} color={colors.textMuted} strokeWidth={2} />
           <Text style={styles.actionText}>{comments.length}</Text>
         </Pressable>
       </View>
@@ -161,7 +169,7 @@ const styles = StyleSheet.create({
   authorName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
   time: { fontSize: fontSizes.xs, color: colors.textMuted },
   venueRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm, backgroundColor: colors.surface, borderRadius: 8, overflow: 'hidden' },
-  venueThumb: { width: 56, height: 56, backgroundColor: colors.surfaceLight },
+  venueThumb: { width: 56, height: 56, backgroundColor: colors.surfaceLight, alignItems: 'center', justifyContent: 'center' },
   venueThumbImg: { width: '100%', height: '100%' },
   venuePlaceholder: { fontSize: 24, textAlign: 'center', lineHeight: 56 },
   venueInfo: { flex: 1, padding: spacing.sm },
@@ -171,7 +179,6 @@ const styles = StyleSheet.create({
   reviewText: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 22, marginBottom: spacing.md },
   actions: { flexDirection: 'row', gap: spacing.lg },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  actionIcon: { fontSize: 18 },
   actionText: { fontSize: fontSizes.sm, color: colors.textMuted },
   comments: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight },
   comment: { marginBottom: spacing.sm },

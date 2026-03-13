@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native'
-import { colors, fontSizes, fontWeights, spacing } from '../../theme'
+import { colors, fontSizes, fontFamilies, spacing } from '../../theme'
 import { deriveCrowdSentiment } from '../../utils/venueProfileUtils'
 
 export default function VenueCrowdSentimentSection({ venue, reviews = [] }) {
@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
   container: { paddingHorizontal: spacing.base, paddingVertical: spacing.lg },
   title: {
     fontSize: fontSizes.base,
-    fontWeight: fontWeights.semibold,
+    fontFamily: fontFamilies.frauncesSemiBold,
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
@@ -38,10 +38,8 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.xs,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceLight,
   },
-  chipText: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  chipText: { fontSize: fontSizes.sm, fontFamily: fontFamilies.interMedium, color: colors.textPrimary },
 })

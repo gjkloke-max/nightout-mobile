@@ -1,0 +1,10 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Left person (circle) -->
+  <g transform="translate(3, 5) scale(1.7)">
+    <path d="M4.99989 8.99989C7.20903 8.99989 8.99989 7.20903 8.99989 4.99989C8.99989 2.79075 7.20903 0.999891 4.99989 0.999891C2.79075 0.999891 0.999891 2.79075 0.999891 4.99989C0.999891 7.20903 2.79075 8.99989 4.99989 8.99989Z" stroke="currentColor" stroke-width="0.65" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <!-- Right person (circle) -->
+  <g transform="translate(11, 5) scale(1.7)">
+    <path d="M5.77485 10.1739C8.2049 10.1739 10.1748 8.20415 10.1748 5.77436C10.1748 3.34458 8.2049 1.37485 5.77485 1.37485C3.3448 1.37485 1.37485 3.34458 1.37485 5.77436C1.37485 8.20415 3.3448 10.1739 5.77485 10.1739Z" stroke="currentColor" stroke-width="0.65" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

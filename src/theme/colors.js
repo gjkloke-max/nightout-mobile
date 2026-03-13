@@ -1,35 +1,35 @@
 /**
- * Design system colors — neutral, elevated, premium.
- * Charcoal, slate, warm gray, taupe, stone, soft cream.
+ * Design system colors — Figma NewCo design + neutral fallbacks.
+ * Purple accent (#7f22fe), charcoal, zinc grays.
  */
 
 export const colors = {
   // Backgrounds
-  background: '#F7F5F2',       // soft cream
+  background: '#FAFAFA',
   backgroundElevated: '#FFFFFF',
-  backgroundMuted: '#EDEAE6', // warm gray
-  backgroundDark: '#2D2A26',  // charcoal
-  surface: '#E8E5E0',       // stone
-  surfaceLight: '#F0EDE8',   // taupe
+  backgroundMuted: '#F4F4F5',
+  backgroundDark: '#18181B',
+  surface: '#F4F4F5',
+  surfaceLight: '#FAFAFA',
 
   // Text
-  textPrimary: '#1A1918',
-  textSecondary: '#5C5854',
-  textMuted: '#8A8580',
-  textOnDark: '#F7F5F2',
+  textPrimary: '#18181B',
+  textSecondary: '#71717B',
+  textMuted: '#9F9FA9',
+  textOnDark: '#FFFFFF',
 
-  // Accents (tasteful, sparse)
-  accent: '#4A7C59',         // muted green
-  accentPressed: '#3D6A4A',
-  accentMuted: 'rgba(74, 124, 89, 0.12)',
-  link: '#4A7C59',
+  // Accents (Figma purple)
+  accent: '#7F22FE',
+  accentPressed: '#6D1ED9',
+  accentMuted: 'rgba(127, 34, 254, 0.12)',
+  link: '#7F22FE',
 
   // Semantic
-  success: '#4A7C59',
-  error: '#B85450',
+  success: '#00BC7D',
+  error: '#FB2C36',
   warning: '#C4A35A',
 
   // Borders
-  border: '#D9D5D0',
-  borderLight: '#E8E5E0',
+  border: '#E4E4E7',
+  borderLight: '#E4E4E7',
 }

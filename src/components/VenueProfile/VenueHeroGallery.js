@@ -1,42 +1,68 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { View, ScrollView, Image, Pressable, StyleSheet, Dimensions, Text } from 'react-native'
-import { colors, spacing } from '../../theme'
+import { Bookmark, Image as ImageIcon } from 'lucide-react-native'
+import { colors, spacing, iconSizes } from '../../theme'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const GALLERY_HEIGHT = 240
 
-export default function VenueHeroGallery({ photos = [], onPhotoClick }) {
+export default function VenueHeroGallery({ photos = [], onPhotoClick, onToggleFavorite, isFavorited, togglingFavorite }) {
   const scrollRef = useRef(null)
+  const [currentIndex, setCurrentIndex] = useState(0)
 
   if (!photos?.length) {
     return (
       <View style={[styles.container, styles.empty]}>
         <View style={styles.placeholder}>
-          <Text style={styles.placeholderIcon}>📷</Text>
+          <ImageIcon size={48} color={colors.textMuted} strokeWidth={1.5} />
         </View>
       </View>
     )
   }
 
   return (
-    <ScrollView
-      ref={scrollRef}
-      horizontal
-      pagingEnabled
-      showsHorizontalScrollIndicator={false}
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-    >
-      {photos.map((url, i) => (
-        <Pressable key={i} style={[styles.slide, { width: SCREEN_WIDTH }]} onPress={() => onPhotoClick?.(i)}>
-          <Image source={{ uri: url }} style={styles.image} resizeMode="cover" />
+    <View style={styles.wrapper}>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        onMomentumScrollEnd={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH)
+          setCurrentIndex(Math.min(idx, photos.length - 1))
+        }}
+      >
+        {photos.map((url, i) => (
+          <Pressable key={i} style={[styles.slide, { width: SCREEN_WIDTH }]} onPress={() => onPhotoClick?.(i)}>
+            <Image source={{ uri: url }} style={styles.image} resizeMode="cover" />
+          </Pressable>
+        ))}
+      </ScrollView>
+      <View style={styles.counter}>
+        <Text style={styles.counterText}>{currentIndex + 1}/{photos.length}</Text>
+      </View>
+      {onToggleFavorite && (
+        <Pressable
+          style={styles.saveBtn}
+          onPress={() => onToggleFavorite()}
+          disabled={togglingFavorite}
+        >
+          <Bookmark
+            size={iconSizes.button}
+            color={colors.textPrimary}
+            fill={isFavorited ? colors.textPrimary : 'transparent'}
+            strokeWidth={2}
+          />
         </Pressable>
-      ))}
-    </ScrollView>
+      )}
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
+  wrapper: { position: 'relative' },
   container: { flexGrow: 0 },
   empty: { height: GALLERY_HEIGHT, backgroundColor: colors.surface },
   scrollContent: {},
@@ -47,5 +73,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  placeholderIcon: { fontSize: 48 },
+  counter: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    right: spacing.base,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  counterText: { fontSize: 12, color: '#fff' },
+  saveBtn: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.base,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnText: { fontSize: 18 },
 })

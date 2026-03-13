@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { View, Text, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native'
 import { useRoute, useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -11,12 +11,12 @@ import AddToListModal from '../components/AddToListModal'
 import VenueHeroGallery from '../components/VenueProfile/VenueHeroGallery'
 import VenuePhotoViewer from '../components/VenueProfile/VenuePhotoViewer'
 import VenueHeader from '../components/VenueProfile/VenueHeader'
-import VenueEditorialSummary from '../components/VenueProfile/VenueEditorialSummary'
 import VenueActionBar from '../components/VenueProfile/VenueActionBar'
 import VenueCrowdSentimentSection from '../components/VenueProfile/VenueCrowdSentimentSection'
 import VenueReviewList from '../components/VenueProfile/VenueReviewList'
 import VenueReviewComposer from '../components/VenueProfile/VenueReviewComposer'
-import { colors, fontSizes, spacing } from '../theme'
+import { X } from 'lucide-react-native'
+import { colors, fontSizes, fontFamilies, spacing, iconSizes } from '../theme'
 
 export default function VenueProfileScreen() {
   const route = useRoute()
@@ -34,6 +34,8 @@ export default function VenueProfileScreen() {
   const [addToListVenue, setAddToListVenue] = useState(null)
   const [photoViewerIndex, setPhotoViewerIndex] = useState(null)
   const [showReviewComposer, setShowReviewComposer] = useState(false)
+  const scrollRef = useRef(null)
+  const reviewsLayoutRef = useRef({ y: 0 })
 
   useEffect(() => {
     if (!venueId) return
@@ -180,28 +182,32 @@ export default function VenueProfileScreen() {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Pressable style={[styles.closeBtn, { top: insets.top + 8 }]} onPress={() => navigation.goBack()}>
-          <Text style={styles.closeText}>×</Text>
+        <Pressable style={[styles.closeBtn, { top: insets.top + 12 }]} onPress={() => navigation.goBack()}>
+          <X size={iconSizes.header} color={colors.textPrimary} strokeWidth={2} />
         </Pressable>
 
-        <VenueHeroGallery photos={photos} onPhotoClick={(i) => setPhotoViewerIndex(i)} />
+        <VenueHeroGallery
+          photos={photos}
+          onPhotoClick={(i) => setPhotoViewerIndex(i)}
+          onToggleFavorite={() => handleToggleFavorite(venue.venue_id)}
+          isFavorited={favoriteVenueIds.has(venue.venue_id)}
+          togglingFavorite={togglingFavorite === venue.venue_id}
+        />
 
         <VenueHeader
           venue={venue}
-          user={user}
-          onAddToList={handleAddToList}
-          onToggleFavorite={handleToggleFavorite}
-          isFavorited={favoriteVenueIds.has(venue.venue_id)}
-          togglingFavorite={togglingFavorite}
+          reviewCount={venueReviews.length}
+          onReviewsClick={() => scrollRef.current?.scrollTo({ y: reviewsLayoutRef.current.y, animated: true })}
         />
-
-        <VenueEditorialSummary venue={venue} />
 
         <VenueActionBar
           venue={venue}
           user={user}
           onAddToList={handleAddToList}
           onReview={() => setShowReviewComposer(true)}
+          onToggleFavorite={handleToggleFavorite}
+          isFavorited={favoriteVenueIds.has(venue.venue_id)}
+          togglingFavorite={togglingFavorite}
           hasUserReview={!!userReview}
         />
 
@@ -217,12 +223,14 @@ export default function VenueProfileScreen() {
 
         <VenueCrowdSentimentSection venue={venue} reviews={venueReviews} />
 
-        <VenueReviewList
+        <View onLayout={(e) => { reviewsLayoutRef.current.y = e.nativeEvent.layout.y }}>
+          <VenueReviewList
           reviews={venueReviews}
           loading={loadingReviews}
           userReview={userReview}
           onReviewClick={() => setShowReviewComposer(true)}
         />
+        </View>
       </ScrollView>
 
       {photoViewerIndex != null && photos.length > 0 ? (
@@ -252,14 +260,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: spacing.base,
     zIndex: 10,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.95)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  closeText: { color: '#fff', fontSize: 28, lineHeight: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
   loadingText: { marginTop: spacing.md, fontSize: fontSizes.sm, color: colors.textMuted },
   error: { fontSize: fontSizes.base, color: colors.textSecondary, marginBottom: spacing.lg },

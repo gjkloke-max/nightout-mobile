@@ -15,7 +15,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { sendConciergeMessage } from '../lib/conciergeApi'
 import VenueCard from '../components/VenueCard'
-import { colors, fontSizes, fontWeights, spacing } from '../theme'
+import { Send } from 'lucide-react-native'
+import { colors, fontSizes, fontWeights, spacing, iconSizes } from '../theme'
 
 const SUGGESTED_PROMPTS = [
   "What's your vibe?",
@@ -217,7 +218,7 @@ export default function ChatScreen() {
           onPress={handleSend}
           disabled={!input.trim() || loading}
         >
-          <Text style={styles.sendBtnText}>Send</Text>
+          <Send size={iconSizes.button} color={colors.textOnDark} strokeWidth={2} />
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -299,13 +300,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   sendBtn: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.base,
     paddingVertical: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 22,
     backgroundColor: colors.accent,
     justifyContent: 'center',
     minHeight: 44,
   },
   sendBtnDisabled: { opacity: 0.5 },
-  sendBtnText: { fontSize: fontSizes.base, color: colors.textOnDark, fontWeight: fontWeights.semibold },
 })

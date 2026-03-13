@@ -24,7 +24,8 @@ import {
 } from '../services/follows'
 import { useDebounce } from '../hooks/useDebounce'
 import ReviewPostCard from '../components/ReviewPostCard'
-import { colors, fontSizes, fontWeights, spacing, borderRadius } from '../theme'
+import { Search } from 'lucide-react-native'
+import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes } from '../theme'
 
 function displayName(p) {
   if (!p) return 'Anonymous'
@@ -128,6 +129,7 @@ export default function SocialScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.searchRow}>
+        <Search size={iconSizes.inline} color={colors.textMuted} strokeWidth={2} style={styles.searchIcon} />
         <TextInput
           style={styles.searchBar}
           placeholder="Search for friends by name..."
@@ -228,12 +230,24 @@ export default function SocialScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  searchRow: { padding: spacing.base },
-  searchBar: {
-    height: 44,
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.base,
+    gap: spacing.sm,
     backgroundColor: colors.surfaceLight,
     borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.base,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: spacing.base,
+    marginBottom: spacing.sm,
+  },
+  searchIcon: { marginRight: spacing.sm },
+  searchBar: {
+    flex: 1,
+    height: 40,
+    paddingHorizontal: 0,
+    backgroundColor: 'transparent',
     fontSize: fontSizes.base,
     color: colors.textPrimary,
   },

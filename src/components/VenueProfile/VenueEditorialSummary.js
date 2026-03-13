@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native'
-import { colors, fontSizes, spacing } from '../../theme'
+import { colors, fontSizes, fontFamilies, spacing } from '../../theme'
 import { truncateToWords } from '../../utils/venueProfileUtils'
 
 export default function VenueEditorialSummary({ venue }) {
@@ -19,6 +19,6 @@ export default function VenueEditorialSummary({ venue }) {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: spacing.base, paddingVertical: spacing.sm },
-  text: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 22 },
+  container: { paddingHorizontal: spacing.base, paddingVertical: spacing.md },
+  text: { fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.textSecondary, lineHeight: 22 },
 })

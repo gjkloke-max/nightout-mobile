@@ -9,13 +9,14 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native'
+import { X } from 'lucide-react-native'
 import {
   getListsForAddModal,
   createList,
   addVenueToList,
 } from '../utils/venueLists'
 import CreateListModal from './CreateListModal'
-import { colors, fontSizes, fontWeights, spacing } from '../theme'
+import { colors, fontSizes, fontWeights, spacing, iconSizes } from '../theme'
 
 export default function AddToListModal({ isOpen, onClose, venueId, venueName, onAdded }) {
   const [lists, setLists] = useState([])
@@ -85,7 +86,7 @@ export default function AddToListModal({ isOpen, onClose, venueId, venueName, on
             <View style={styles.header}>
               <Text style={styles.title}>Add to list</Text>
               <Pressable onPress={onClose} style={styles.closeBtn}>
-                <Text style={styles.closeText}>×</Text>
+                <X size={iconSizes.card} color={colors.textPrimary} strokeWidth={2} />
               </Pressable>
             </View>
             <ScrollView style={styles.body}>

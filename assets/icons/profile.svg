@@ -1,0 +1,10 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Head silhouette - left curve (chin to top-left) -->
+  <g transform="translate(8, 6) scale(2.5)">
+    <path d="M4.00013 6.87013V4.87013C3.99947 3.98386 3.70449 3.12291 3.1615 2.42245C2.61851 1.72199 1.85826 1.2217 1.00013 1.00013" stroke="currentColor" stroke-width="0.35" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <!-- Head silhouette - right curve (chin to top-right) -->
+  <g transform="translate(8, 6) scale(2.5)">
+    <path d="M1.00013 1.00013C1.86055 1.22043 2.62317 1.72083 3.16777 2.42244C3.71237 3.12405 4.00798 3.98696 4.00798 4.87513C4.00798 5.7633 3.71237 6.62621 3.16777 7.32782C2.62317 8.02943 1.86055 8.52983 1.00013 8.75013" stroke="currentColor" stroke-width="0.35" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

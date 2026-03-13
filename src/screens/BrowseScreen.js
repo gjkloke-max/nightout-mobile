@@ -11,7 +11,8 @@ import {
   Keyboard,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
-import { colors, fontSizes, fontWeights, spacing, borderRadius } from '../theme'
+import { Search } from 'lucide-react-native'
+import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes } from '../theme'
 import { bm25Search } from '../lib/searchApi'
 import { fetchVenuesByIds, searchVenuesByName } from '../lib/venueService'
 import VenueCard from '../components/VenueCard'
@@ -126,9 +127,11 @@ export default function BrowseScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.searchRow}>
-        <TextInput
-          style={styles.searchBar}
-          placeholder="Search venues, neighborhoods..."
+        <View style={styles.searchInputWrapper}>
+          <Search size={iconSizes.inline} color={colors.textMuted} strokeWidth={2} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchBar}
+            placeholder="Search venues, neighborhoods..."
           placeholderTextColor={colors.textMuted}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -136,6 +139,7 @@ export default function BrowseScreen() {
           returnKeyType="search"
           editable={!loading}
         />
+        </View>
         <TouchableOpacity
           style={[styles.searchButton, loading && styles.searchButtonDisabled]}
           onPress={handleSubmit}
@@ -215,12 +219,23 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     alignItems: 'center',
   },
-  searchBar: {
+  searchInputWrapper: {
     flex: 1,
-    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.backgroundElevated,
     borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingHorizontal: spacing.base,
+  },
+  searchIcon: { marginRight: spacing.sm },
+  searchBar: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
     fontSize: fontSizes.base,
     color: colors.textPrimary,
   },
