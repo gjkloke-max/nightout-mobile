@@ -11,6 +11,8 @@ import {
   Platform,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 import { sendConciergeMessage } from '../lib/conciergeApi'
 import VenueCard from '../components/VenueCard'
 import { colors, fontSizes, fontWeights, spacing } from '../theme'
@@ -28,8 +30,12 @@ const INITIAL_MESSAGE = {
   content: "Hello! I'm your concierge assistant. I can help you find the perfect venues based on reviews from our community. What are you looking for today?",
 }
 
+const isMoreFollowUp = (msg) =>
+  /^(more|additional|other|another|different|more options|give me more|show me more|any others?|what else)\s*$/i.test((msg || '').trim())
+
 export default function ChatScreen() {
   const navigation = useNavigation()
+  const { user } = useAuth()
   const [messages, setMessages] = useState([INITIAL_MESSAGE])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -58,10 +64,39 @@ export default function ChatScreen() {
       content: typeof m.content === 'string' ? m.content : '',
     }))
 
+    let userHome = null
+    if (user?.id && supabase) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('home_neighborhood_name, home_lat, home_lng')
+        .eq('id', user.id)
+        .single()
+      if (profile && (profile.home_lat != null || profile.home_lng != null)) {
+        userHome = {
+          homeNeighborhoodName: profile.home_neighborhood_name ?? null,
+          lat: profile.home_lat != null ? parseFloat(profile.home_lat) : null,
+          lng: profile.home_lng != null ? parseFloat(profile.home_lng) : null,
+        }
+      }
+    }
+
+    const introducedVenueIds = []
+    messages.forEach((m) => {
+      if (m.role === 'assistant' && Array.isArray(m.venues)) {
+        m.venues.forEach((v) => {
+          const vid = v?.venue_id ?? v?.venueId
+          if (vid != null && !introducedVenueIds.includes(vid)) introducedVenueIds.push(vid)
+        })
+      }
+    })
+    const excludeVenueIds = isMoreFollowUp(text) && introducedVenueIds.length > 0 ? introducedVenueIds : []
+
     const { data, error: err } = await sendConciergeMessage({
       message: text,
       conversationHistory,
       userPreferences: null,
+      userHome,
+      excludeVenueIds,
     })
 
     setLoading(false)

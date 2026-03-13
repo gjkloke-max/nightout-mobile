@@ -6,21 +6,38 @@
 import { supabase } from './supabase'
 import { config } from './config'
 
-export async function sendConciergeMessage({ message, conversationHistory = [], userPreferences = null }) {
+export async function sendConciergeMessage({
+  message,
+  conversationHistory = [],
+  userPreferences = null,
+  userHome = null,
+  excludeVenueIds = [],
+}) {
   const searchApiUrl = (config.searchApiUrl || '').replace(/\/$/, '')
   const supabaseUrl = config.supabaseUrl
 
   // Prefer concierge proxy when Search API URL is set (mobile can reach server directly; avoids Supabase->server timeout)
   if (searchApiUrl) {
     try {
+      const body = {
+        message: (message || '').trim(),
+        conversationHistory: conversationHistory.map((m) => ({ role: m.role, content: m.content || '' })),
+        userPreferences: userPreferences || null,
+      }
+      if (userHome && (userHome.lat != null || userHome.lng != null)) {
+        body.userHome = {
+          homeNeighborhoodName: userHome.homeNeighborhoodName ?? null,
+          lat: userHome.lat ?? null,
+          lng: userHome.lng ?? null,
+        }
+      }
+      if (Array.isArray(excludeVenueIds) && excludeVenueIds.length > 0) {
+        body.excludeVenueIds = excludeVenueIds
+      }
       const res = await fetch(`${searchApiUrl}/api/concierge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: (message || '').trim(),
-          conversationHistory: conversationHistory.map((m) => ({ role: m.role, content: m.content || '' })),
-          userPreferences: userPreferences || null,
-        }),
+        body: JSON.stringify(body),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
