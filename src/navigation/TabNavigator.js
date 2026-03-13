@@ -62,7 +62,7 @@ const screenOptions = ({ navigation }) => ({
 function BrowseStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen name="BrowseMain" component={BrowseScreen} options={{ title: 'Browse' }} />
+      <Stack.Screen name="BrowseMain" component={BrowseScreen} options={{ title: '' }} />
     </Stack.Navigator>
   )
 }
@@ -70,7 +70,7 @@ function BrowseStack() {
 function ChatStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen name="ChatMain" component={ChatScreen} options={{ title: 'Concierge' }} />
+      <Stack.Screen name="ChatMain" component={ChatScreen} options={{ title: '' }} />
     </Stack.Navigator>
   )
 }
@@ -78,7 +78,7 @@ function ChatStack() {
 function SocialStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen name="SocialMain" component={SocialScreen} options={{ title: 'Social' }} />
+      <Stack.Screen name="SocialMain" component={SocialScreen} options={{ title: '' }} />
     </Stack.Navigator>
   )
 }
@@ -86,7 +86,7 @@ function SocialStack() {
 function ProfileStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen name="ProfileMain" component={ProfileScreen} options={{ title: 'Profile' }} />
+      <Stack.Screen name="ProfileMain" component={ProfileScreen} options={{ title: '' }} />
       <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ title: 'List' }} />
     </Stack.Navigator>
   )

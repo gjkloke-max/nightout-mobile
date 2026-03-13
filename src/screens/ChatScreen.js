@@ -7,10 +7,11 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { sendConciergeMessage } from '../lib/conciergeApi'
@@ -36,12 +37,29 @@ const isMoreFollowUp = (msg) =>
 
 export default function ChatScreen() {
   const navigation = useNavigation()
+  const insets = useSafeAreaInsets()
   const { user } = useAuth()
   const [messages, setMessages] = useState([INITIAL_MESSAGE])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
   const scrollRef = useRef(null)
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    )
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    )
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [])
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -134,11 +152,7 @@ export default function ChatScreen() {
   const hasMessages = messages.length > 1 || (messages[0]?.role === 'user')
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
+    <View style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.headerTitle}>Concierge</Text>
         <Pressable onPress={handleNewChat} style={styles.newChatBtn} hitSlop={12}>
@@ -148,7 +162,7 @@ export default function ChatScreen() {
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
         keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
@@ -200,7 +214,10 @@ export default function ChatScreen() {
           </View>
         ) : null}
       </ScrollView>
-      <View style={styles.inputRow}>
+      <View style={[
+        styles.inputRow,
+        { bottom: keyboardHeight, paddingBottom: Math.max(spacing.base, keyboardHeight > 0 ? spacing.base : insets.bottom) },
+      ]}>
         <TextInput
           style={styles.input}
           value={input}
@@ -221,7 +238,7 @@ export default function ChatScreen() {
           <Send size={iconSizes.button} color={colors.textOnDark} strokeWidth={2} />
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   )
 }
 
@@ -277,10 +294,13 @@ const styles = StyleSheet.create({
   },
   promptText: { fontSize: fontSizes.sm, color: colors.textPrimary },
   inputRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'flex-end',
     padding: spacing.base,
-    paddingBottom: spacing.lg,
+    paddingTop: spacing.md,
     backgroundColor: colors.backgroundElevated,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,

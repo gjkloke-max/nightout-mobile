@@ -6,6 +6,7 @@ export const fontFamilies = {
   fraunces: 'Fraunces_700Bold',
   frauncesSemiBold: 'Fraunces_600SemiBold',
   frauncesRegular: 'Fraunces_400Regular',
+  frauncesItalic: 'Fraunces_400Regular_Italic',
   inter: 'Inter_400Regular',
   interMedium: 'Inter_500Medium',
   interSemiBold: 'Inter_600SemiBold',

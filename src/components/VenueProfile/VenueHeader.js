@@ -61,8 +61,7 @@ const styles = StyleSheet.create({
   status: { fontSize: fontSizes.sm, fontFamily: fontFamilies.interSemiBold, color: colors.warning, marginBottom: spacing.sm },
   description: {
     fontSize: fontSizes.base,
-    fontFamily: fontFamilies.frauncesRegular,
-    fontStyle: 'italic',
+    fontFamily: fontFamilies.frauncesItalic,
     color: colors.textPrimary,
     marginTop: spacing.sm,
     lineHeight: 22,

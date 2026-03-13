@@ -20,5 +20,5 @@ export default function VenueEditorialSummary({ venue }) {
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: spacing.base, paddingVertical: spacing.md },
-  text: { fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.textSecondary, lineHeight: 22 },
+  text: { fontSize: fontSizes.sm, fontFamily: fontFamilies.frauncesItalic, color: colors.textSecondary, lineHeight: 22 },
 })

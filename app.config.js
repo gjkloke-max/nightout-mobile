@@ -23,6 +23,7 @@ module.exports = {
     },
     android: {
       usesCleartextTraffic: true,
+      softwareKeyboardLayoutMode: 'resize',
       adaptiveIcon: {
         backgroundColor: '#F7F5F2',
         foregroundImage: './assets/android-icon-foreground.png',

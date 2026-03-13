@@ -1,10 +1,12 @@
 import { useRef, useState } from 'react'
 import { View, ScrollView, Image, Pressable, StyleSheet, Dimensions, Text } from 'react-native'
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg'
 import { Bookmark, Image as ImageIcon } from 'lucide-react-native'
 import { colors, spacing, iconSizes } from '../../theme'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const GALLERY_HEIGHT = 240
+const FADE_HEIGHT = 80
 
 export default function VenueHeroGallery({ photos = [], onPhotoClick, onToggleFavorite, isFavorited, togglingFavorite }) {
   const scrollRef = useRef(null)
@@ -40,6 +42,17 @@ export default function VenueHeroGallery({ photos = [], onPhotoClick, onToggleFa
           </Pressable>
         ))}
       </ScrollView>
+      <View style={styles.fadeOverlay} pointerEvents="none">
+        <Svg width={SCREEN_WIDTH} height={FADE_HEIGHT} style={styles.fadeSvg}>
+          <Defs>
+            <LinearGradient id="fade" x1="0" y1="0" x2="0" y2={FADE_HEIGHT} gradientUnits="userSpaceOnUse">
+              <Stop offset="0" stopColor={colors.background} stopOpacity="0" />
+              <Stop offset="1" stopColor={colors.background} stopOpacity="1" />
+            </LinearGradient>
+          </Defs>
+          <Rect x={0} y={0} width={SCREEN_WIDTH} height={FADE_HEIGHT} fill="url(#fade)" />
+        </Svg>
+      </View>
       <View style={styles.counter}>
         <Text style={styles.counterText}>{currentIndex + 1}/{photos.length}</Text>
       </View>
@@ -68,6 +81,14 @@ const styles = StyleSheet.create({
   scrollContent: {},
   slide: { height: GALLERY_HEIGHT, backgroundColor: colors.surface },
   image: { width: '100%', height: '100%' },
+  fadeOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: FADE_HEIGHT,
+  },
+  fadeSvg: { position: 'absolute', bottom: 0, left: 0 },
   placeholder: {
     flex: 1,
     alignItems: 'center',

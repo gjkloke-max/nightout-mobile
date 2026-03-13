@@ -10,6 +10,7 @@ import AppNavigator from './src/navigation/AppNavigator'
 function AppContent() {
   const [fontsLoaded] = useFonts({
     Fraunces_400Regular: require('@expo-google-fonts/fraunces/400Regular').Fraunces_400Regular,
+    Fraunces_400Regular_Italic: require('@expo-google-fonts/fraunces/400Regular_Italic').Fraunces_400Regular_Italic,
     Fraunces_600SemiBold: require('@expo-google-fonts/fraunces/600SemiBold').Fraunces_600SemiBold,
     Fraunces_700Bold: require('@expo-google-fonts/fraunces/700Bold').Fraunces_700Bold,
     Inter_400Regular: require('@expo-google-fonts/inter/400Regular').Inter_400Regular,
