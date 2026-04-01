@@ -18,8 +18,9 @@ export const colors = {
   textMuted: '#9F9FA9',
   textOnDark: '#FFFFFF',
 
-  // Accents (Figma purple)
+  // Accents — primary app purple; profile screens also use profileAccent (NewCo burgundy)
   accent: '#7F22FE',
+  profileAccent: '#8B1D3D',
   accentPressed: '#6D1ED9',
   accentMuted: 'rgba(127, 34, 254, 0.12)',
   link: '#7F22FE',

@@ -36,15 +36,24 @@ function dedupeByVenueId(rows) {
   })
 }
 
+function venueIdKey(id) {
+  const n = parseInt(String(id), 10)
+  return Number.isNaN(n) ? null : n
+}
+
 function mergeVenueDetails(apiRows, supabaseVenues) {
   const byId = new Map()
-  ;(supabaseVenues || []).forEach((v) => byId.set(v.venue_id, v))
+  ;(supabaseVenues || []).forEach((v) => {
+    const k = venueIdKey(v.venue_id)
+    if (k != null) byId.set(k, v)
+  })
   return (apiRows || []).map((r) => {
-    const details = byId.get(r.venue_id) || {}
+    const k = venueIdKey(r.venue_id)
+    const details = (k != null ? byId.get(k) : null) || {}
     return {
       venue_id: r.venue_id,
       name: r.name || details.name || 'Unknown',
-      primary_photo_url: details.primary_photo_url,
+      primary_photo_url: details.primary_photo_url ?? r.primary_photo_url ?? null,
       neighborhood_name: r.neighborhood_name ?? details.neighborhood_name,
       rating10: r.rating10 ?? details.rating10,
       venue_type: details.venue_type,

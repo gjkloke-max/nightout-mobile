@@ -86,7 +86,11 @@ function SocialStack() {
 function ProfileStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen name="ProfileMain" component={ProfileScreen} options={{ title: '' }} />
+      <Stack.Screen
+        name="ProfileMain"
+        component={ProfileScreen}
+        options={{ title: '', headerShown: false }}
+      />
       <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ title: 'List' }} />
     </Stack.Navigator>
   )
