@@ -1,68 +1,72 @@
 /**
- * Concierge Chat API — uses /api/concierge proxy when Search API URL is set (avoids Supabase->server timeout).
- * Falls back to concierge_chat Edge Function when no Search API URL.
+ * Concierge routing matches web `ChatConcierge.jsx`:
+ * - Production: Supabase Edge `concierge_chat` by default (same as `VITE_USE_CONCIERGE_EDGE_FUNCTION !== 'false'`).
+ * - Node `POST …/api/concierge` only when EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=false (needs EXPO_PUBLIC_SEARCH_API_URL).
+ * - Dev: Node when SEARCH_API_URL is set; Edge when EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=true.
+ *
+ * Keeping SEARCH_API_URL for Browse/search does not force Node concierge anymore — avoids long single-request timeouts on mobile.
  */
 
+import { Platform } from 'react-native'
 import { supabase } from './supabase'
 import { config } from './config'
 
-export async function sendConciergeMessage({
-  message,
-  conversationHistory = [],
-  userPreferences = null,
-  userHome = null,
-  excludeVenueIds = [],
-}) {
-  const searchApiUrl = (config.searchApiUrl || '').replace(/\/$/, '')
-  const supabaseUrl = config.supabaseUrl
+/** Android emulator maps host “localhost” to the dev machine via 10.0.2.2 */
+function resolveSearchApiBaseUrl(url) {
+  const trimmed = (url || '').replace(/\/$/, '')
+  if (!trimmed || !__DEV__ || Platform.OS !== 'android') return trimmed
+  return trimmed.replace(
+    /^(https?:\/\/)(127\.0\.0\.1|localhost)(:\d+)?$/i,
+    (_, proto, _host, port) => `${proto}10.0.2.2${port ?? ''}`
+  )
+}
 
-  // Prefer concierge proxy when Search API URL is set (mobile can reach server directly; avoids Supabase->server timeout)
-  if (searchApiUrl) {
-    try {
-      const body = {
-        message: (message || '').trim(),
-        conversationHistory: conversationHistory.map((m) => ({ role: m.role, content: m.content || '' })),
-        userPreferences: userPreferences || null,
-      }
-      if (userHome && (userHome.lat != null || userHome.lng != null)) {
-        body.userHome = {
-          homeNeighborhoodName: userHome.homeNeighborhoodName ?? null,
-          lat: userHome.lat ?? null,
-          lng: userHome.lng ?? null,
-        }
-      }
-      if (Array.isArray(excludeVenueIds) && excludeVenueIds.length > 0) {
-        body.excludeVenueIds = excludeVenueIds
-      }
-      const res = await fetch(`${searchApiUrl}/api/concierge`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        return { data: null, error: { message: data.error || 'Concierge request failed' } }
-      }
-      return {
-        data: {
-          response: data.response ?? '',
-          reviews: data.reviews ?? [],
-          venues: data.venues ?? [],
-        },
-        error: null,
-      }
-    } catch (err) {
-      return { data: null, error: { message: err?.message || 'Network error' } }
+async function fetchWithTimeout(url, options = {}, timeoutMs) {
+  const ms = timeoutMs ?? config.conciergeTimeoutMs
+  const controller = new AbortController()
+  const id = setTimeout(() => controller.abort(), ms)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(id)
+  }
+}
+
+function conciergeFetchError(err) {
+  if (err?.name === 'AbortError') {
+    return {
+      message:
+        'Concierge is taking longer than usual. Check your connection or try again — if this keeps happening, the server may need a higher proxy timeout for /api/concierge.',
     }
   }
+  return { message: err?.message || 'Network error' }
+}
 
-  // Fallback: Edge Function (requires Supabase to reach SEARCH_API_URL)
+/** Same rule as web `VITE_USE_CONCIERGE_EDGE_FUNCTION` / ChatConcierge.jsx */
+function useConciergeEdgeFunction() {
+  const v = process.env.EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION
+  return __DEV__ ? v === 'true' : v !== 'false'
+}
+
+async function postConciergeEdge({
+  message,
+  conversationHistory,
+  userPreferences,
+}) {
+  const supabaseUrl = config.supabaseUrl
+  if (__DEV__) {
+    console.log(
+      '[concierge] using Supabase Edge (concierge_chat). Local Node/ParadeDB will stay idle — search runs on SEARCH_API_URL in Supabase secrets, not your laptop.'
+    )
+  }
   if (!supabaseUrl) return { data: null, error: { message: 'Not configured' } }
-  const { data: { session } } = await supabase.auth.getSession()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
   const token = session?.access_token ?? config.supabaseAnonKey
 
   try {
-    const res = await fetch(`${supabaseUrl}/functions/v1/concierge_chat`, {
+    const res = await fetchWithTimeout(`${supabaseUrl}/functions/v1/concierge_chat`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -87,6 +91,97 @@ export async function sendConciergeMessage({
       error: null,
     }
   } catch (err) {
-    return { data: null, error: { message: err?.message || 'Network error' } }
+    return { data: null, error: conciergeFetchError(err) }
   }
+}
+
+export async function sendConciergeMessage({
+  message,
+  conversationHistory = [],
+  userPreferences = null,
+  userHome = null,
+  excludeVenueIds = [],
+}) {
+  const searchApiUrl = resolveSearchApiBaseUrl((config.searchApiUrl || '').replace(/\/$/, ''))
+
+  if (__DEV__ && searchApiUrl && /localhost|127\.0\.0\.1/i.test(searchApiUrl)) {
+    console.warn(
+      '[concierge] EXPO_PUBLIC_SEARCH_API_URL points at localhost. On a physical phone, use your PC’s LAN IP (e.g. http://192.168.1.x:3001). iOS Simulator and Android emulator are OK with localhost (emulator uses 10.0.2.2).'
+    )
+  }
+
+  const edgeFirst = useConciergeEdgeFunction()
+
+  if (__DEV__ && !edgeFirst && !searchApiUrl) {
+    return {
+      data: null,
+      error: {
+        message:
+          'Local dev: set EXPO_PUBLIC_SEARCH_API_URL to your computer’s LAN IP and port (e.g. http://192.168.1.5:3001). On a physical phone, localhost is the phone itself, not your PC. Android emulator: use http://10.0.2.2:3001 or we rewrite localhost automatically. To test the Edge Function instead, set EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=true (Supabase must be able to reach SEARCH_API_URL).',
+      },
+    }
+  }
+
+  if (!__DEV__ && process.env.EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION === 'false' && !searchApiUrl) {
+    return {
+      data: null,
+      error: {
+        message:
+          'Set EXPO_PUBLIC_SEARCH_API_URL for Node /api/concierge, or remove EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=false to use the Supabase Edge Function (default, matches web).',
+      },
+    }
+  }
+
+  if (edgeFirst) {
+    return postConciergeEdge({
+      message,
+      conversationHistory,
+      userPreferences,
+    })
+  }
+
+  // Node /api/concierge — opt-in in prod (EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=false); dev when URL set and Edge not forced
+  if (searchApiUrl) {
+    if (__DEV__) {
+      console.log('[concierge] using Node', `${searchApiUrl}/api/concierge`)
+    }
+    try {
+      const body = {
+        message: (message || '').trim(),
+        conversationHistory: conversationHistory.map((m) => ({ role: m.role, content: m.content || '' })),
+        userPreferences: userPreferences || null,
+      }
+      if (userHome && (userHome.lat != null || userHome.lng != null)) {
+        body.userHome = {
+          homeNeighborhoodName: userHome.homeNeighborhoodName ?? null,
+          lat: userHome.lat ?? null,
+          lng: userHome.lng ?? null,
+        }
+      }
+      if (Array.isArray(excludeVenueIds) && excludeVenueIds.length > 0) {
+        body.excludeVenueIds = excludeVenueIds
+      }
+      const res = await fetchWithTimeout(`${searchApiUrl}/api/concierge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        return { data: null, error: { message: data.error || 'Concierge request failed' } }
+      }
+      return {
+        data: {
+          response: data.response ?? '',
+          reviews: data.reviews ?? [],
+          venues: data.venues ?? [],
+        },
+        error: null,
+      }
+    } catch (err) {
+      return { data: null, error: conciergeFetchError(err) }
+    }
+  }
+
+  return { data: null, error: { message: 'Concierge not configured' } }
 }
