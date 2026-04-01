@@ -52,7 +52,7 @@ function HeaderRight({ navigation }) {
 }
 
 const screenOptions = ({ navigation }) => ({
-  headerStyle: { backgroundColor: 'rgba(250,250,250,0.8)' },
+  headerStyle: { backgroundColor: colors.background },
   headerTintColor: colors.textPrimary,
   headerTitleStyle: { fontSize: fontSizes.lg, fontWeight: '700', fontFamily: 'Fraunces_700Bold' },
   headerShadowVisible: false,
@@ -62,7 +62,15 @@ const screenOptions = ({ navigation }) => ({
 function BrowseStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen name="BrowseMain" component={BrowseScreen} options={{ title: '' }} />
+      <Stack.Screen
+        name="BrowseMain"
+        component={BrowseScreen}
+        options={{
+          title: 'Browse',
+          headerTitleAlign: 'center',
+          headerStyle: { backgroundColor: colors.backgroundCanvas },
+        }}
+      />
     </Stack.Navigator>
   )
 }
@@ -101,7 +109,7 @@ export default function TabNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color }) => <TabIcon label={route.name} focused={focused} color={color} />,
-        tabBarActiveTintColor: colors.accent,
+        tabBarActiveTintColor: colors.browseAccent,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
           backgroundColor: 'rgba(255,255,255,0.9)',
@@ -114,7 +122,7 @@ export default function TabNavigator() {
       <Tab.Screen name="Browse" component={BrowseStack} options={{ headerShown: true }} />
       <Tab.Screen name="Chat" component={ChatStack} options={{ headerShown: true }} />
       <Tab.Screen name="Social" component={SocialStack} options={{ headerShown: true }} />
-      <Tab.Screen name="Profile" component={ProfileStack} options={{ headerShown: true }} />
+      <Tab.Screen name="Profile" component={ProfileStack} options={{ headerShown: false }} />
     </Tab.Navigator>
   )
 }

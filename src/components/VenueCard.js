@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native'
 import { Image as ImageIcon } from 'lucide-react-native'
-import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes } from '../theme'
+import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes, fontFamilies } from '../theme'
 
 function getVenueTypeName(venue) {
   const vt = Array.isArray(venue?.venue_type) ? venue.venue_type[0] : venue?.venue_type
@@ -69,12 +69,14 @@ const styles = StyleSheet.create({
   content: { padding: spacing.base },
   name: {
     fontSize: fontSizes.lg,
+    fontFamily: fontFamilies.frauncesSemiBold,
     fontWeight: fontWeights.semibold,
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
   descriptor: {
     fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.inter,
     color: colors.textSecondary,
   },
 })

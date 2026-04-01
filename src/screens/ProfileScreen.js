@@ -145,7 +145,10 @@ export default function ProfileScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: Math.max(spacing.lg, insets.top) }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: Math.max(spacing.lg, insets.top) + spacing.md },
+      ]}
     >
       <View style={styles.profileHeader}>
         <View style={styles.identityRow}>
@@ -358,7 +361,6 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(228,228,231,0.5)',
     padding: spacing.lg,
     marginHorizontal: -spacing.lg,
-    marginTop: -spacing.lg,
     paddingTop: spacing.lg,
     alignItems: 'stretch',
   },
