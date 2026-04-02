@@ -454,7 +454,7 @@ export default function BrowseScreen() {
                       onPress={() => setSearchResultsTab('map')}
                       activeOpacity={0.85}
                     >
-                      <Map
+                      <MapIcon
                         size={14}
                         color={searchResultsTab === 'map' ? colors.textOnDark : colors.textSecondary}
                         strokeWidth={2}
