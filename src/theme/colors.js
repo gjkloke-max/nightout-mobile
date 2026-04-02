@@ -19,6 +19,12 @@ export const colors = {
   textPrimary: '#18181B',
   textSecondary: '#71717B',
   textMuted: '#A1A1AA',
+  /** Figma Browse venue card tags — Inter 10 uppercase */
+  textTag: '#9F9FA9',
+  /** Figma Browse search underline + inactive tab stroke */
+  borderInput: '#D4D4D8',
+  /** Figma active tab label on dark pill */
+  textOnTabActive: '#FAFAF8',
   textOnDark: '#FFFFFF',
 
   // Accents — NewCo burgundy; purple retained for chat/social/modals where used

@@ -12,6 +12,7 @@ import {
   RefreshControl,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Search } from 'lucide-react-native'
 import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes, fontFamilies } from '../theme'
 import { bm25Search } from '../lib/searchApi'
@@ -23,8 +24,11 @@ const CITY_TITLE = 'Chicago'
 const TABS = [
   { id: 'trending', label: 'Trending' },
   { id: 'forYou', label: 'For You' },
-  { id: 'map', label: 'Map' },
+  { id: 'popularLists', label: 'Popular Lists' },
 ]
+
+/** Figma Browse — secondary tag when we only have venue_type (no editorial vibes) */
+const VIBE_TAGS = ['Date Night', 'Cozy', 'Community', 'Local spot']
 
 function dedupeByVenueId(rows) {
   const seen = new Set()
@@ -65,13 +69,15 @@ function mergeVenueDetails(apiRows, supabaseVenues) {
 
 function getVenueTypeName(venue) {
   const vt = Array.isArray(venue?.venue_type) ? venue.venue_type[0] : venue?.venue_type
-  return vt?.venue_type_name || ''
+  return (vt?.venue_type_name || '').trim()
 }
 
-function formatTags(venue) {
+function formatTagPair(venue) {
   const typeName = getVenueTypeName(venue)
-  const primary = typeName ? typeName.toUpperCase() : 'VENUE'
-  return `${primary} · SPOT`
+  const primary = typeName ? typeName : 'Venue'
+  const id = parseInt(String(venue?.venue_id || '0'), 10) || 0
+  const secondary = VIBE_TAGS[Math.abs(id) % VIBE_TAGS.length]
+  return { primary, secondary }
 }
 
 function formatRating10(venue) {
@@ -82,6 +88,7 @@ function formatRating10(venue) {
 
 export default function BrowseScreen() {
   const navigation = useNavigation()
+  const insets = useSafeAreaInsets()
 
   const [mainTab, setMainTab] = useState('trending')
   const [searchQuery, setSearchQuery] = useState('')
@@ -179,73 +186,87 @@ export default function BrowseScreen() {
     setSearchQuery('')
   }
 
-  const renderCompactRow = (venue) => (
-    <TouchableOpacity
-      style={styles.hotRow}
-      onPress={() => handleVenuePress(venue)}
-      activeOpacity={0.85}
-    >
-      <View style={styles.hotThumbWrap}>
-        {venue.primary_photo_url ? (
-          <Image source={{ uri: venue.primary_photo_url }} style={styles.hotThumb} />
-        ) : (
-          <View style={[styles.hotThumb, styles.hotThumbPh]} />
-        )}
-      </View>
-      <View style={styles.hotMid}>
-        <Text style={styles.hotName} numberOfLines={2} ellipsizeMode="tail">
-          {venue.name || 'Unknown'}
-        </Text>
-        {venue.neighborhood_name ? (
-          <Text style={styles.hotHood} numberOfLines={1} ellipsizeMode="tail">
-            {String(venue.neighborhood_name).toUpperCase()}
-          </Text>
-        ) : null}
-        <Text style={styles.hotTags} numberOfLines={1}>
-          {formatTags(venue)}
-        </Text>
-      </View>
-      <View style={styles.hotBadge}>
-        <Text style={styles.hotBadgeText}>{formatRating10(venue)}</Text>
-      </View>
-    </TouchableOpacity>
-  )
+  const renderVenueCard = (venue) => {
+    const { primary: tagPrimary, secondary: tagSecondary } = formatTagPair(venue)
+    return (
+      <TouchableOpacity
+        style={styles.cardRow}
+        onPress={() => handleVenuePress(venue)}
+        activeOpacity={0.85}
+      >
+        <View style={styles.cardImageWrap}>
+          {venue.primary_photo_url ? (
+            <Image source={{ uri: venue.primary_photo_url }} style={styles.cardImage} />
+          ) : (
+            <View style={[styles.cardImage, styles.cardImagePh]} />
+          )}
+        </View>
+        <View style={styles.cardBody}>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardName} numberOfLines={2} ellipsizeMode="tail">
+              {venue.name || 'Unknown'}
+            </Text>
+            <View style={styles.ratingBadge}>
+              <Text style={styles.ratingBadgeText}>{formatRating10(venue)}</Text>
+            </View>
+          </View>
+          {venue.neighborhood_name ? (
+            <Text style={styles.cardHood} numberOfLines={1} ellipsizeMode="tail">
+              {String(venue.neighborhood_name)}
+            </Text>
+          ) : null}
+          <View style={styles.cardTagsRow}>
+            <Text style={styles.cardTag} numberOfLines={1}>
+              {tagPrimary.toUpperCase()}
+            </Text>
+            <Text style={styles.cardTag} numberOfLines={1}>
+              {tagSecondary.toUpperCase()}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    )
+  }
 
-  const renderTrendingItem = ({ item }) => renderCompactRow(item.venue)
+  const renderTrendingItem = ({ item }) => renderVenueCard(item.venue)
 
-  const renderSearchVenue = ({ item }) => <View style={styles.rowWrap}>{renderCompactRow(item)}</View>
+  const renderSearchVenue = ({ item }) => <View style={styles.cardRowOuter}>{renderVenueCard(item)}</View>
 
   const showSearchResults = hasSearched
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.cityTitle}>{CITY_TITLE}</Text>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.headerBlock}>
+        <Text style={styles.cityTitle}>{CITY_TITLE}</Text>
 
-      <View style={styles.searchWrap}>
-        <Search size={iconSizes.inline} color={colors.textMuted} strokeWidth={2} style={styles.searchLeadingIcon} />
-        <TextInput
-          style={styles.searchField}
-          placeholder="Try 'best date night' or 'cozy cocktails'..."
-          placeholderTextColor={colors.textMuted}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSubmit}
-          returnKeyType="search"
-          editable={!loading}
-        />
+        <View style={styles.searchUnderlineWrap}>
+          <View style={styles.searchIconSlot}>
+            <Search size={18} color={colors.borderInput} strokeWidth={2} />
+          </View>
+          <TextInput
+            style={styles.searchField}
+            placeholder="Try 'best date night' or 'cozy cafe'..."
+            placeholderTextColor={colors.textTag}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSubmit}
+            returnKeyType="search"
+            editable={!loading}
+          />
+        </View>
       </View>
 
-      <View style={styles.tabRow}>
+      <View style={styles.tabBar}>
         {TABS.map((t) => {
           const active = mainTab === t.id
           return (
             <TouchableOpacity
               key={t.id}
-              style={[styles.tabBtn, active && styles.tabBtnActive]}
+              style={[styles.tabBtn, active ? styles.tabBtnActive : styles.tabBtnIdle]}
               onPress={() => onTabPress(t.id)}
               activeOpacity={0.85}
             >
-              <Text style={[styles.tabBtnText, active && styles.tabBtnTextActive]}>{t.label}</Text>
+              <Text style={[styles.tabBtnText, active ? styles.tabBtnTextActive : styles.tabBtnTextIdle]}>{t.label}</Text>
             </TouchableOpacity>
           )
         })}
@@ -308,7 +329,7 @@ export default function BrowseScreen() {
               ) : (
                 <>
                   <View style={styles.sectionRow}>
-                    <Text style={styles.sectionTitle}>Hot right now</Text>
+                    <Text style={styles.sectionTitle}>Hot Right Now</Text>
                     <View style={styles.sectionLine} />
                   </View>
                   <FlatList
@@ -341,10 +362,12 @@ export default function BrowseScreen() {
             </View>
           )}
 
-          {mainTab === 'map' && (
+          {mainTab === 'popularLists' && (
             <View style={styles.placeholderBox}>
-              <Text style={styles.placeholderTitle}>Map</Text>
-              <Text style={styles.placeholderBody}>Explore venues on a map — coming soon.</Text>
+              <Text style={styles.placeholderTitle}>Popular lists</Text>
+              <Text style={styles.placeholderBody}>
+                Curated lists from the community will appear here. Save venues to lists from a venue profile to build your own.
+              </Text>
             </View>
           )}
         </>
@@ -353,94 +376,106 @@ export default function BrowseScreen() {
   )
 }
 
+const TAB_GAP = 8
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.backgroundCanvas },
+  headerBlock: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: 48,
+    paddingBottom: spacing.xl,
+    gap: spacing.xl,
+  },
   cityTitle: {
-    fontSize: fontSizes['3xl'],
-    fontFamily: fontFamilies.fraunces,
+    fontSize: fontSizes['4xl'],
+    fontFamily: fontFamilies.frauncesRegular,
+    fontWeight: fontWeights.normal,
     color: colors.textPrimary,
     letterSpacing: -0.5,
-    paddingHorizontal: spacing.base,
-    paddingTop: spacing.sm,
-    marginBottom: spacing.sm,
+    lineHeight: fontSizes['4xl'],
   },
-  searchWrap: {
+  searchUnderlineWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.lg,
-    backgroundColor: colors.backgroundMuted,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    minHeight: 48,
+    borderBottomWidth: 1.33,
+    borderBottomColor: colors.borderInput,
+    paddingBottom: 12,
+    minHeight: 45.33,
   },
-  searchLeadingIcon: { marginRight: spacing.sm },
+  searchIconSlot: {
+    width: 18,
+    marginRight: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   searchField: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 0,
     fontSize: fontSizes.sm,
-    fontFamily: fontFamilies.inter,
+    fontFamily: fontFamilies.interMedium,
+    fontWeight: fontWeights.medium,
     color: colors.textPrimary,
   },
-  tabRow: {
+  tabBar: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.base,
-    marginBottom: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: TAB_GAP,
+    paddingHorizontal: spacing.xl,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1.33,
     borderBottomColor: colors.border,
-    paddingBottom: spacing.sm,
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    height: 43.17,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.backgroundElevated,
+    borderWidth: 1.33,
   },
   tabBtnActive: {
     backgroundColor: colors.backgroundDark,
     borderColor: colors.backgroundDark,
   },
+  tabBtnIdle: {
+    backgroundColor: colors.backgroundElevated,
+    borderColor: colors.borderInput,
+  },
   tabBtnText: {
-    fontSize: 10,
-    fontFamily: fontFamilies.interSemiBold,
-    fontWeight: fontWeights.semibold,
-    letterSpacing: 0.6,
-    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    letterSpacing: 1.1,
     textTransform: 'uppercase',
   },
   tabBtnTextActive: {
-    color: colors.textOnDark,
+    color: colors.textOnTabActive,
+  },
+  tabBtnTextIdle: {
+    color: colors.textSecondary,
   },
   sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.sm,
+    justifyContent: 'space-between',
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: fontFamilies.interBold,
     fontWeight: fontWeights.bold,
-    letterSpacing: 0.8,
+    letterSpacing: 1.2,
     color: colors.textPrimary,
     textTransform: 'uppercase',
   },
   sectionLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-    marginLeft: spacing.sm,
-    minHeight: 1,
+    width: 48,
+    height: 1,
+    backgroundColor: colors.borderInput,
   },
   errorBox: {
-    marginHorizontal: spacing.base,
+    marginHorizontal: spacing.xl,
     marginBottom: spacing.md,
     padding: spacing.base,
     backgroundColor: 'rgba(184, 84, 80, 0.12)',
@@ -472,68 +507,89 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   flexList: { flex: 1 },
-  listContent: { paddingHorizontal: spacing.base, paddingBottom: spacing['3xl'] },
-  trendingListContent: { paddingHorizontal: spacing.base, paddingBottom: spacing['3xl'] },
-  rowWrap: { marginBottom: 0 },
-  hotRow: {
+  listContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing['3xl'] },
+  trendingListContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing['3xl'] },
+  cardRowOuter: { marginBottom: 0 },
+  cardRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    gap: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    alignItems: 'stretch',
+    marginBottom: spacing.xl,
+    minHeight: 112,
   },
-  hotThumbWrap: { flexShrink: 0 },
-  hotThumb: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
+  cardImageWrap: {
+    width: 112,
+    height: 112,
+    flexShrink: 0,
+    backgroundColor: colors.backgroundMuted,
+    overflow: 'hidden',
   },
-  hotThumbPh: {
+  cardImage: {
+    width: 112,
+    height: 112,
+  },
+  cardImagePh: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  hotMid: { flex: 1, minWidth: 0 },
-  hotName: {
-    fontSize: fontSizes.lg,
-    fontFamily: fontFamilies.frauncesSemiBold,
-    fontWeight: fontWeights.semibold,
+  cardBody: {
+    flex: 1,
+    marginLeft: spacing.base,
+    justifyContent: 'center',
+    minHeight: 112,
+    paddingVertical: 2,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  cardName: {
+    flex: 1,
+    fontSize: fontSizes['2xl'],
+    fontFamily: fontFamilies.frauncesRegular,
+    fontWeight: fontWeights.normal,
     color: colors.textPrimary,
+    lineHeight: fontSizes['2xl'],
   },
-  hotHood: {
+  ratingBadge: {
+    minWidth: 36,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderWidth: 1.33,
+    borderColor: colors.browseAccentBorder,
+    backgroundColor: colors.browseAccent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ratingBadgeText: {
+    fontSize: 11,
+    fontFamily: fontFamilies.fraunces,
+    fontWeight: fontWeights.bold,
+    color: colors.textOnDark,
+    letterSpacing: -0.275,
+  },
+  cardHood: {
     fontSize: fontSizes.sm,
     fontFamily: fontFamilies.frauncesItalic,
     fontStyle: 'italic',
     color: colors.textSecondary,
-    marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  hotTags: {
-    fontSize: 10,
-    fontFamily: fontFamilies.interSemiBold,
-    fontWeight: fontWeights.semibold,
-    letterSpacing: 0.4,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
     marginTop: 4,
+    lineHeight: 20,
   },
-  hotBadge: {
-    minWidth: 40,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 4,
-    backgroundColor: colors.browseAccent,
-    borderWidth: 1,
-    borderColor: colors.browseAccentBorder,
+  cardTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: 8,
     alignItems: 'center',
   },
-  hotBadgeText: {
-    fontSize: fontSizes.sm,
-    fontFamily: fontFamilies.interBold,
-    fontWeight: fontWeights.bold,
-    color: colors.textOnDark,
+  cardTag: {
+    fontSize: 10,
+    fontFamily: fontFamilies.interMedium,
+    fontWeight: fontWeights.medium,
+    letterSpacing: 0.5,
+    color: colors.textTag,
+    textTransform: 'uppercase',
   },
   listFooterPad: { height: spacing.lg },
   placeholderBox: {

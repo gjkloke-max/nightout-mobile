@@ -67,9 +67,7 @@ function BrowseStack() {
         name="BrowseMain"
         component={BrowseScreen}
         options={{
-          title: 'Browse',
-          headerTitleAlign: 'center',
-          headerStyle: { backgroundColor: colors.backgroundCanvas },
+          headerShown: false,
         }}
       />
     </Stack.Navigator>
