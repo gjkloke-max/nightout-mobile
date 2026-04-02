@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import {
   View,
   Text,
@@ -14,7 +14,8 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Search } from 'lucide-react-native'
+import { Search, List, Map as MapIcon } from 'lucide-react-native'
+import MapView, { Marker } from 'react-native-maps'
 import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes, fontFamilies } from '../theme'
 import { bm25Search } from '../lib/searchApi'
 import { fetchVenuesByIds, searchVenuesByName } from '../lib/venueService'
@@ -64,6 +65,8 @@ function mergeVenueDetails(apiRows, supabaseVenues) {
       venue_type: details.venue_type,
       state: details.state,
       city: details.city,
+      latitude: pickCoord(details.latitude, r.latitude),
+      longitude: pickCoord(details.longitude, r.longitude),
     }
   })
 }
@@ -87,6 +90,55 @@ function formatRating10(venue) {
   return Number(r).toFixed(1)
 }
 
+function pickCoord(...vals) {
+  for (const v of vals) {
+    if (v == null || v === '') continue
+    const n = Number(v)
+    if (!Number.isNaN(n) && Number.isFinite(n)) return n
+  }
+  return null
+}
+
+const CHICAGO_CENTER = { latitude: 41.8781, longitude: -87.6298 }
+
+function regionForVenueMap(venues) {
+  const withCoords = (venues || []).filter(
+    (v) => pickCoord(v.latitude) != null && pickCoord(v.longitude) != null
+  )
+  if (withCoords.length === 0) {
+    return {
+      ...CHICAGO_CENTER,
+      latitudeDelta: 0.12,
+      longitudeDelta: 0.12,
+    }
+  }
+  if (withCoords.length === 1) {
+    const v = withCoords[0]
+    return {
+      latitude: pickCoord(v.latitude),
+      longitude: pickCoord(v.longitude),
+      latitudeDelta: 0.04,
+      longitudeDelta: 0.04,
+    }
+  }
+  const lats = withCoords.map((v) => pickCoord(v.latitude))
+  const lngs = withCoords.map((v) => pickCoord(v.longitude))
+  const minLat = Math.min(...lats)
+  const maxLat = Math.max(...lats)
+  const minLng = Math.min(...lngs)
+  const maxLng = Math.max(...lngs)
+  const midLat = (minLat + maxLat) / 2
+  const midLng = (minLng + maxLng) / 2
+  const latDelta = Math.max((maxLat - minLat) * 1.5, 0.03)
+  const lngDelta = Math.max((maxLng - minLng) * 1.5, 0.03)
+  return {
+    latitude: midLat,
+    longitude: midLng,
+    latitudeDelta: latDelta,
+    longitudeDelta: lngDelta,
+  }
+}
+
 const SEARCH_PLACEHOLDER = "Try 'best date night' or 'cozy cafe'..."
 
 export default function BrowseScreen() {
@@ -106,6 +158,7 @@ export default function BrowseScreen() {
   const [trendingLoading, setTrendingLoading] = useState(false)
   const [trendingError, setTrendingError] = useState(null)
   const [trendingRefreshing, setTrendingRefreshing] = useState(false)
+  const [searchResultsTab, setSearchResultsTab] = useState('list')
 
   const loadTrending = useCallback(async () => {
     setTrendingLoading(true)
@@ -144,6 +197,7 @@ export default function BrowseScreen() {
     setLoading(true)
     setError(null)
     setHasSearched(true)
+    setSearchResultsTab('list')
     Keyboard.dismiss()
 
     try {
@@ -159,7 +213,20 @@ export default function BrowseScreen() {
           setVenues([])
           return
         }
-        setVenues(supabaseData || [])
+        const raw = supabaseData || []
+        const ids = raw.map((v) => v.venue_id).filter(Boolean)
+        const { data: fullRows } = await fetchVenuesByIds(ids)
+        const byId = new Map((fullRows || []).map((v) => [Number(v.venue_id), v]))
+        setVenues(
+          raw.map((v) => {
+            const d = byId.get(Number(v.venue_id))
+            return {
+              ...v,
+              latitude: pickCoord(d?.latitude, v.latitude),
+              longitude: pickCoord(d?.longitude, v.longitude),
+            }
+          })
+        )
         return
       }
 
@@ -189,6 +256,7 @@ export default function BrowseScreen() {
     setHasSearched(false)
     setVenues([])
     setError(null)
+    setSearchResultsTab('list')
     Keyboard.dismiss()
   }
 
@@ -249,7 +317,56 @@ export default function BrowseScreen() {
 
   const renderTrendingItem = ({ item }) => renderVenueCard(item.venue)
 
-  const renderSearchVenue = ({ item }) => <View style={styles.cardRowOuter}>{renderVenueCard(item)}</View>
+  const renderSearchCompactRow = (venue) => {
+    const { primary: tagPrimary, secondary: tagSecondary } = formatTagPair(venue)
+    return (
+      <TouchableOpacity
+        style={styles.searchCompactRow}
+        onPress={() => handleVenuePress(venue)}
+        activeOpacity={0.85}
+      >
+        <View style={styles.searchCompactImgWrap}>
+          {venue.primary_photo_url ? (
+            <Image source={{ uri: venue.primary_photo_url }} style={styles.searchCompactImg} />
+          ) : (
+            <View style={[styles.searchCompactImg, styles.searchCompactImgPh]} />
+          )}
+        </View>
+        <View style={styles.searchCompactMid}>
+          <Text style={styles.searchCompactName} numberOfLines={2} ellipsizeMode="tail">
+            {venue.name || 'Unknown'}
+          </Text>
+          {venue.neighborhood_name ? (
+            <Text style={styles.searchCompactHood} numberOfLines={1} ellipsizeMode="tail">
+              {String(venue.neighborhood_name)}
+            </Text>
+          ) : null}
+          <View style={styles.searchCompactTags}>
+            <Text style={styles.cardTag} numberOfLines={1}>
+              {tagPrimary.toUpperCase()}
+            </Text>
+            <Text style={styles.cardTag} numberOfLines={1}>
+              {tagSecondary.toUpperCase()}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.searchCompactBadgeCol}>
+          <View style={styles.ratingBadge}>
+            <Text style={styles.ratingBadgeText}>{formatRating10(venue)}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    )
+  }
+
+  const renderSearchVenue = ({ item }) => <View style={styles.cardRowOuter}>{renderSearchCompactRow(item)}</View>
+
+  const venuesWithMapCoords = useMemo(
+    () => venues.filter((v) => pickCoord(v.latitude) != null && pickCoord(v.longitude) != null),
+    [venues]
+  )
+  const mapRegion = useMemo(() => regionForVenueMap(venues), [venues])
+  const mapViewKey = useMemo(() => venues.map((v) => String(v.venue_id)).join(','), [venues])
 
   const showSearchResults = searchFocused && hasSearched
 
@@ -317,21 +434,82 @@ export default function BrowseScreen() {
                 <Text style={styles.emptyText}>No venues found. Try different keywords.</Text>
               </View>
             ) : (
-              <>
-                <View style={styles.sectionRow}>
-                  <Text style={styles.sectionTitle}>Results</Text>
-                  <View style={styles.sectionLine} />
+              <View style={styles.searchResultsWrap}>
+                <View style={styles.segmentOuter}>
+                  <View style={styles.segmentTrack}>
+                    <TouchableOpacity
+                      style={[styles.segSide, searchResultsTab === 'list' ? styles.segSideOn : styles.segSideOff]}
+                      onPress={() => setSearchResultsTab('list')}
+                      activeOpacity={0.85}
+                    >
+                      <List
+                        size={14}
+                        color={searchResultsTab === 'list' ? colors.textOnDark : colors.textSecondary}
+                        strokeWidth={2}
+                      />
+                      <Text style={[styles.segLabel, searchResultsTab === 'list' ? styles.segLabelOn : styles.segLabelOff]}>List</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.segSide, styles.segSideRight, searchResultsTab === 'map' ? styles.segSideOn : styles.segSideOff]}
+                      onPress={() => setSearchResultsTab('map')}
+                      activeOpacity={0.85}
+                    >
+                      <Map
+                        size={14}
+                        color={searchResultsTab === 'map' ? colors.textOnDark : colors.textSecondary}
+                        strokeWidth={2}
+                      />
+                      <Text style={[styles.segLabel, searchResultsTab === 'map' ? styles.segLabelOn : styles.segLabelOff]}>Map</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <FlatList
-                  style={styles.flexList}
-                  data={venues}
-                  keyExtractor={(item) => String(item.venue_id)}
-                  renderItem={renderSearchVenue}
-                  contentContainerStyle={styles.listContent}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                />
-              </>
+
+                <Text style={styles.resultsCountText} accessibilityRole="header">
+                  {venues.length} {venues.length === 1 ? 'Result' : 'Results'}
+                </Text>
+
+                {searchResultsTab === 'list' ? (
+                  <FlatList
+                    style={styles.flexList}
+                    data={venues}
+                    keyExtractor={(item) => String(item.venue_id)}
+                    renderItem={renderSearchVenue}
+                    contentContainerStyle={styles.searchListContent}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                  />
+                ) : (
+                  <View style={styles.mapWrap}>
+                    {venuesWithMapCoords.length === 0 ? (
+                      <View style={styles.mapEmpty}>
+                        <Text style={styles.mapEmptyText}>No location data for these results. Try another search.</Text>
+                      </View>
+                    ) : (
+                      <MapView
+                        key={mapViewKey}
+                        style={styles.map}
+                        initialRegion={mapRegion}
+                        showsPointsOfInterest={false}
+                      >
+                        {venuesWithMapCoords.map((v) => {
+                          const lat = pickCoord(v.latitude)
+                          const lng = pickCoord(v.longitude)
+                          return (
+                            <Marker
+                              key={String(v.venue_id)}
+                              coordinate={{ latitude: lat, longitude: lng }}
+                              title={v.name || 'Venue'}
+                              description={v.neighborhood_name ? String(v.neighborhood_name) : undefined}
+                              onCalloutPress={() => handleVenuePress(v)}
+                              onPress={() => handleVenuePress(v)}
+                            />
+                          )
+                        })}
+                      </MapView>
+                    )}
+                  </View>
+                )}
+              </View>
             )
           ) : (
             <View style={styles.searchHintBox}>
@@ -615,8 +793,148 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  searchResultsWrap: {
+    flex: 1,
+  },
+  segmentOuter: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
+  /** Figma 56:182 — ~203×38.7, border #d4d4d8 */
+  segmentTrack: {
+    flexDirection: 'row',
+    borderWidth: 1.33,
+    borderColor: colors.borderInput,
+    width: 203,
+    minHeight: 38.67,
+    padding: 1.33,
+    backgroundColor: colors.backgroundElevated,
+  },
+  segSide: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 36,
+    gap: 5,
+  },
+  segSideRight: {
+    borderLeftWidth: 1.33,
+    borderLeftColor: colors.borderInput,
+  },
+  segSideOn: {
+    backgroundColor: colors.backgroundDark,
+  },
+  segSideOff: {
+    backgroundColor: colors.backgroundElevated,
+  },
+  segLabel: {
+    fontSize: 12,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  segLabelOn: {
+    color: colors.textOnDark,
+  },
+  segLabelOff: {
+    color: colors.textSecondary,
+  },
+  resultsCountText: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.interMedium,
+    fontWeight: fontWeights.medium,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
+  searchListContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing['3xl'] },
+  mapWrap: {
+    flex: 1,
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.lg,
+    minHeight: 320,
+    borderWidth: 1.33,
+    borderColor: colors.borderInput,
+    overflow: 'hidden',
+  },
+  map: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  mapEmpty: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+    minHeight: 280,
+  },
+  mapEmptyText: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.inter,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  searchCompactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.base,
+    minHeight: 80,
+  },
+  searchCompactImgWrap: {
+    width: 80,
+    height: 80,
+    flexShrink: 0,
+    backgroundColor: colors.backgroundMuted,
+    overflow: 'hidden',
+  },
+  searchCompactImg: {
+    width: 80,
+    height: 80,
+  },
+  searchCompactImgPh: {
+    backgroundColor: colors.surface,
+  },
+  searchCompactMid: {
+    flex: 1,
+    marginLeft: spacing.base,
+    justifyContent: 'center',
+    minHeight: 80,
+    paddingRight: spacing.sm,
+  },
+  searchCompactName: {
+    fontSize: fontSizes.lg,
+    fontFamily: fontFamilies.frauncesRegular,
+    fontWeight: fontWeights.normal,
+    color: colors.textPrimary,
+    lineHeight: 22.5,
+  },
+  searchCompactHood: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.frauncesItalic,
+    fontStyle: 'italic',
+    color: colors.textSecondary,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  searchCompactTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: 6,
+    alignItems: 'center',
+  },
+  searchCompactBadgeCol: {
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+  },
   flexList: { flex: 1 },
-  listContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing['3xl'] },
   trendingListContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing['3xl'] },
   cardRowOuter: { marginBottom: 0 },
   cardRow: {

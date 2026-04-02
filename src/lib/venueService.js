@@ -72,6 +72,8 @@ export async function fetchVenuesByIds(venueIds) {
       primary_photo_url,
       neighborhood_name,
       rating10,
+      latitude,
+      longitude,
       venue_type(venue_type_name),
       state(state_code)
     `)
