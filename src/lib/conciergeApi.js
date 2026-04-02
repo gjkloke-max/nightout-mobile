@@ -42,7 +42,11 @@ function conciergeFetchError(err) {
   return { message: err?.message || 'Network error' }
 }
 
-/** Same rule as web `VITE_USE_CONCIERGE_EDGE_FUNCTION` / ChatConcierge.jsx */
+/**
+ * Dev: Edge only if EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION === 'true'.
+ * Production: Edge unless value is exactly 'false'. Omitting/unsetting the var still uses Edge.
+ * To call Pulse directly (Node POST …/api/concierge), set EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=false.
+ */
 function useConciergeEdgeFunction() {
   const v = process.env.EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION
   return __DEV__ ? v === 'true' : v !== 'false'
