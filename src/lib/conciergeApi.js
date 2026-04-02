@@ -1,10 +1,8 @@
 /**
- * Concierge routing matches web `ChatConcierge.jsx`:
- * - Production: Supabase Edge `concierge_chat` by default (same as `VITE_USE_CONCIERGE_EDGE_FUNCTION !== 'false'`).
- * - Node `POST …/api/concierge` only when EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=false (needs EXPO_PUBLIC_SEARCH_API_URL).
- * - Dev: Node when SEARCH_API_URL is set; Edge when EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=true.
- *
- * Keeping SEARCH_API_URL for Browse/search does not force Node concierge anymore — avoids long single-request timeouts on mobile.
+ * Concierge routing:
+ * - When EXPO_PUBLIC_SEARCH_API_URL is set: Pulse Node `POST …/api/concierge` by default (same stack as Browse /api/search).
+ * - Edge `concierge_chat` only if EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION === 'true'.
+ * - When SEARCH_API_URL is unset: Supabase Edge is the fallback (unless EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=false in prod).
  */
 
 import { Platform } from 'react-native'
@@ -43,13 +41,20 @@ function conciergeFetchError(err) {
 }
 
 /**
- * Dev: Edge only if EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION === 'true'.
- * Production: Edge unless value is exactly 'false'. Omitting/unsetting the var still uses Edge.
- * To call Pulse directly (Node POST …/api/concierge), set EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=false.
+ * Prefer Pulse Node when SEARCH_API_URL is configured (typical production).
+ * Opt in to Edge with EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=true.
+ * Without SEARCH_API_URL, Edge remains the default path (unless explicitly disabled in prod).
  */
 function useConciergeEdgeFunction() {
   const v = process.env.EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION
-  return __DEV__ ? v === 'true' : v !== 'false'
+  const hasSearchUrl = !!(config.searchApiUrl || '').trim()
+  if (hasSearchUrl) {
+    return v === 'true'
+  }
+  if (__DEV__) {
+    return v === 'true'
+  }
+  return v !== 'false'
 }
 
 async function postConciergeEdge({
@@ -60,7 +65,7 @@ async function postConciergeEdge({
   const supabaseUrl = config.supabaseUrl
   if (__DEV__) {
     console.log(
-      '[concierge] using Supabase Edge (concierge_chat). Local Node/ParadeDB will stay idle — search runs on SEARCH_API_URL in Supabase secrets, not your laptop.'
+      '[concierge] using Supabase Edge (concierge_chat). For local Pulse/ParadeDB, set EXPO_PUBLIC_SEARCH_API_URL and do not set EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=true.'
     )
   }
   if (!supabaseUrl) return { data: null, error: { message: 'Not configured' } }
@@ -144,10 +149,10 @@ export async function sendConciergeMessage({
     })
   }
 
-  // Node /api/concierge — opt-in in prod (EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=false); dev when URL set and Edge not forced
+  // Node /api/concierge — default when SEARCH_API_URL is set; Edge only if EXPO_PUBLIC_USE_CONCIERGE_EDGE_FUNCTION=true
   if (searchApiUrl) {
     if (__DEV__) {
-      console.log('[concierge] using Node', `${searchApiUrl}/api/concierge`)
+      console.log('[concierge] using Pulse Node', `${searchApiUrl}/api/concierge`)
     }
     try {
       const body = {

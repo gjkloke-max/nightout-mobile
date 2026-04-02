@@ -12,6 +12,7 @@ import BrowseScreen from '../screens/BrowseScreen'
 import ChatScreen from '../screens/ChatScreen'
 import SocialScreen from '../screens/SocialScreen'
 import ProfileScreen from '../screens/ProfileScreen'
+import EditProfileScreen from '../screens/EditProfileScreen'
 import ListDetailScreen from '../screens/ListDetailScreen'
 
 const Tab = createBottomTabNavigator()
@@ -98,6 +99,11 @@ function ProfileStack() {
         name="ProfileMain"
         component={ProfileScreen}
         options={{ title: '', headerShown: false }}
+      />
+      <Stack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ title: 'Edit profile', headerShown: true }}
       />
       <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ title: 'List' }} />
     </Stack.Navigator>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -60,14 +60,13 @@ export default function ProfileScreen() {
   const [topTenEligibility, setTopTenEligibility] = useState({ total_reviewed_count: 0, has_unlocked_top_ten: false })
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 })
   const topFive = useMemo(() => topTen.slice(0, 5), [topTen])
+  const profileRef = useRef(null)
+  profileRef.current = profile
 
-  useEffect(() => {
-    if (user?.id) loadProfile()
-  }, [user?.id])
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     if (!user?.id) return
-    setLoading(true)
+    const showSpinner = !profileRef.current
+    if (showSpinner) setLoading(true)
     try {
       const [profileRes, favRes, listsRes, reviewsRes, topTenRes, eligRes, countsRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
@@ -103,9 +102,15 @@ export default function ProfileScreen() {
     } catch (e) {
       console.error(e)
     } finally {
-      setLoading(false)
+      if (showSpinner) setLoading(false)
     }
-  }
+  }, [user?.id])
+
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) loadProfile()
+    }, [user?.id, loadProfile])
+  )
 
   const displayName = profile?.first_name
     ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
@@ -127,7 +132,7 @@ export default function ProfileScreen() {
   }
 
   const handleEditProfile = () => {
-    // TODO: Navigate to EditProfileScreen when it exists
+    navigation.navigate('EditProfile')
   }
 
   const handleListPress = (list) => {
