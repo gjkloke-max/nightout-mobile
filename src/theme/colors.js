@@ -23,6 +23,8 @@ export const colors = {
   textTag: '#9F9FA9',
   /** Figma Browse search underline + inactive tab stroke */
   borderInput: '#D4D4D8',
+  /** Figma Browse search row — focused state (node 53:152) */
+  borderSearchFocused: '#B2B2B7',
   /** Figma active tab label on dark pill */
   textOnTabActive: '#FAFAF8',
   textOnDark: '#FFFFFF',

@@ -1,10 +1,11 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   View,
   Text,
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  Pressable,
   FlatList,
   ActivityIndicator,
   Keyboard,
@@ -86,10 +87,14 @@ function formatRating10(venue) {
   return Number(r).toFixed(1)
 }
 
+const SEARCH_PLACEHOLDER = "Try 'best date night' or 'cozy cafe'..."
+
 export default function BrowseScreen() {
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
+  const searchInputRef = useRef(null)
 
+  const [searchFocused, setSearchFocused] = useState(false)
   const [mainTab, setMainTab] = useState('trending')
   const [searchQuery, setSearchQuery] = useState('')
   const [venues, setVenues] = useState([])
@@ -173,6 +178,20 @@ export default function BrowseScreen() {
 
   const handleSubmit = () => runSearch(searchQuery)
 
+  const openSearchMode = () => {
+    setSearchFocused(true)
+    setTimeout(() => searchInputRef.current?.focus(), 50)
+  }
+
+  const exitSearchMode = () => {
+    setSearchFocused(false)
+    setSearchQuery('')
+    setHasSearched(false)
+    setVenues([])
+    setError(null)
+    Keyboard.dismiss()
+  }
+
   const handleVenuePress = (venue) => {
     const root = navigation.getParent()?.getParent?.()
     root?.navigate?.('VenueProfile', { venueId: venue.venue_id })
@@ -232,82 +251,118 @@ export default function BrowseScreen() {
 
   const renderSearchVenue = ({ item }) => <View style={styles.cardRowOuter}>{renderVenueCard(item)}</View>
 
-  const showSearchResults = hasSearched
+  const showSearchResults = searchFocused && hasSearched
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.headerBlock}>
         <Text style={styles.cityTitle}>{CITY_TITLE}</Text>
 
-        <View style={styles.searchUnderlineWrap}>
-          <View style={styles.searchIconSlot}>
-            <Search size={18} color={colors.borderInput} strokeWidth={2} />
-          </View>
-          <TextInput
-            style={styles.searchField}
-            placeholder="Try 'best date night' or 'cozy cafe'..."
-            placeholderTextColor={colors.textTag}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSubmit}
-            returnKeyType="search"
-            editable={!loading}
-          />
-        </View>
-      </View>
-
-      <View style={styles.tabBar}>
-        {TABS.map((t) => {
-          const active = mainTab === t.id
-          return (
-            <TouchableOpacity
-              key={t.id}
-              style={[styles.tabBtn, active ? styles.tabBtnActive : styles.tabBtnIdle]}
-              onPress={() => onTabPress(t.id)}
-              activeOpacity={0.85}
-            >
-              <Text style={[styles.tabBtnText, active ? styles.tabBtnTextActive : styles.tabBtnTextIdle]}>{t.label}</Text>
+        {searchFocused ? (
+          <View style={styles.searchFocusedRow}>
+            <View style={styles.searchFocusedInputShell}>
+              <View style={styles.searchIconSlot}>
+                <Search size={18} color={colors.borderInput} strokeWidth={2} />
+              </View>
+              <TextInput
+                ref={searchInputRef}
+                style={styles.searchField}
+                placeholder={SEARCH_PLACEHOLDER}
+                placeholderTextColor={colors.textTag}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onSubmitEditing={handleSubmit}
+                returnKeyType="search"
+                editable={!loading}
+                autoCorrect={false}
+              />
+            </View>
+            <TouchableOpacity onPress={exitSearchMode} style={styles.cancelBtn} hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}>
+              <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
-          )
-        })}
+          </View>
+        ) : (
+          <Pressable
+            onPress={openSearchMode}
+            style={({ pressed }) => [styles.searchIdlePressable, pressed && styles.searchIdlePressed]}
+            accessibilityRole="search"
+            accessibilityLabel="Search venues"
+          >
+            <View style={styles.searchIconSlot}>
+              <Search size={18} color={colors.borderInput} strokeWidth={2} />
+            </View>
+            <Text style={styles.searchIdlePlaceholder} numberOfLines={1}>
+              {SEARCH_PLACEHOLDER}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
-      {error ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
+      {searchFocused ? (
+        <View style={styles.searchBody}>
+          {error ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
-      {showSearchResults ? (
-        <>
           {loading ? (
             <View style={styles.loadingBox}>
               <ActivityIndicator size="large" color={colors.browseAccent} />
               <Text style={styles.loadingText}>Searching...</Text>
             </View>
-          ) : venues.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>No venues found. Try different keywords.</Text>
-            </View>
-          ) : (
-            <>
-              <View style={styles.sectionRow}>
-                <Text style={styles.sectionTitle}>Results</Text>
-                <View style={styles.sectionLine} />
+          ) : showSearchResults ? (
+            venues.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyText}>No venues found. Try different keywords.</Text>
               </View>
-              <FlatList
-                style={styles.flexList}
-                data={venues}
-                keyExtractor={(item) => String(item.venue_id)}
-                renderItem={renderSearchVenue}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-              />
-            </>
+            ) : (
+              <>
+                <View style={styles.sectionRow}>
+                  <Text style={styles.sectionTitle}>Results</Text>
+                  <View style={styles.sectionLine} />
+                </View>
+                <FlatList
+                  style={styles.flexList}
+                  data={venues}
+                  keyExtractor={(item) => String(item.venue_id)}
+                  renderItem={renderSearchVenue}
+                  contentContainerStyle={styles.listContent}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                />
+              </>
+            )
+          ) : (
+            <View style={styles.searchHintBox}>
+              <Text style={styles.searchHintText}>Search by venue name, neighborhood, or vibe.</Text>
+            </View>
           )}
-        </>
+        </View>
       ) : (
         <>
+          <View style={styles.tabBar}>
+            {TABS.map((t) => {
+              const active = mainTab === t.id
+              return (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[styles.tabBtn, active ? styles.tabBtnActive : styles.tabBtnIdle]}
+                  onPress={() => onTabPress(t.id)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.tabBtnText, active ? styles.tabBtnTextActive : styles.tabBtnTextIdle]}>{t.label}</Text>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+
+          {error ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
           {mainTab === 'trending' && (
             <>
               {trendingError ? (
@@ -394,7 +449,38 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     lineHeight: fontSizes['4xl'],
   },
-  searchUnderlineWrap: {
+  /** Fills space below header when search mode is active */
+  searchBody: {
+    flex: 1,
+  },
+  searchFocusedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  searchFocusedInputShell: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1.33,
+    borderBottomColor: colors.borderSearchFocused,
+    paddingBottom: 12,
+    minHeight: 45.33,
+    paddingRight: spacing.base,
+  },
+  cancelBtn: {
+    justifyContent: 'center',
+    paddingLeft: spacing.sm,
+    marginBottom: 2,
+  },
+  cancelText: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.interMedium,
+    fontWeight: fontWeights.medium,
+    color: colors.textPrimary,
+    lineHeight: 20,
+  },
+  searchIdlePressable: {
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1.33,
@@ -402,9 +488,19 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     minHeight: 45.33,
   },
+  searchIdlePressed: {
+    opacity: 0.7,
+  },
+  searchIdlePlaceholder: {
+    flex: 1,
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.interMedium,
+    fontWeight: fontWeights.medium,
+    color: colors.textTag,
+  },
   searchIconSlot: {
     width: 18,
-    marginRight: spacing.sm,
+    marginRight: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -505,6 +601,19 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontFamily: fontFamilies.inter,
     textAlign: 'center',
+  },
+  searchHintBox: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing['2xl'],
+    alignItems: 'center',
+  },
+  searchHintText: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.inter,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   flexList: { flex: 1 },
   listContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing['3xl'] },
