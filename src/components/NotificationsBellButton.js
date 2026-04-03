@@ -38,7 +38,7 @@ export default function NotificationsBellButton() {
             width: 8,
             height: 8,
             borderRadius: 4,
-            backgroundColor: colors.error,
+            backgroundColor: colors.browseAccent,
           }}
         />
       )}

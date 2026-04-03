@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, Image, TextInput } from 'react-nativ
 import { Heart, MapPin, MessageCircle } from 'lucide-react-native'
 import { likeReview, unlikeReview } from '../services/reviewLikes'
 import { addComment, getCommentsWithProfiles } from '../services/reviewComments'
-import { colors, fontSizes, fontWeights, spacing, iconSizes } from '../theme'
+import { colors, fontSizes, fontWeights, spacing, iconSizes, fontFamilies } from '../theme'
 
 function displayName(p) {
   if (!p) return 'Anonymous'
@@ -25,7 +25,7 @@ function formatTime(d) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVenuePress }) {
+export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVenuePress, isLastInFeed = false }) {
   const [showComments, setShowComments] = useState(false)
   const [comments, setComments] = useState(post.comments || [])
   const [commentText, setCommentText] = useState('')
@@ -65,19 +65,26 @@ export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVe
   }
 
   return (
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          {post.author?.avatar_url ? (
-            <Image source={{ uri: post.author.avatar_url }} style={styles.avatarImg} />
-          ) : (
-            <Text style={styles.avatarText}>{displayName(post.author).slice(0, 2).toUpperCase()}</Text>
-          )}
+    <View style={[styles.card, isLastInFeed && styles.cardLast]}>
+      <View style={styles.headerRow}>
+        <View style={styles.headerMain}>
+          <View style={styles.avatar}>
+            {post.author?.avatar_url ? (
+              <Image source={{ uri: post.author.avatar_url }} style={styles.avatarImg} />
+            ) : (
+              <Text style={styles.avatarText}>{displayName(post.author).slice(0, 2).toUpperCase()}</Text>
+            )}
+          </View>
+          <View style={styles.authorInfo}>
+            <Text style={styles.authorName}>{displayName(post.author)}</Text>
+            <Text style={styles.time}>{formatTime(post.review_date || post.created_at)}</Text>
+          </View>
         </View>
-        <View style={styles.authorInfo}>
-          <Text style={styles.authorName}>{displayName(post.author)}</Text>
-          <Text style={styles.time}>{formatTime(post.review_date || post.created_at)}</Text>
-        </View>
+        {post.rating10 != null ? (
+          <View style={styles.ratingBadge} accessibilityLabel={`Rating ${Number(post.rating10).toFixed(1)} out of 10`}>
+            <Text style={styles.ratingBadgeText}>{Number(post.rating10).toFixed(1)}</Text>
+          </View>
+        ) : null}
       </View>
 
       <Pressable style={styles.venueRow} onPress={() => onVenuePress?.(venue)}>
@@ -96,9 +103,6 @@ export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVe
         </View>
       </Pressable>
 
-      {post.rating10 != null ? (
-        <Text style={styles.rating}>{Number(post.rating10).toFixed(1)}/10</Text>
-      ) : null}
       {post.review_text ? <Text style={styles.reviewText}>{post.review_text}</Text> : null}
 
       <View style={styles.actions}>
@@ -150,10 +154,20 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.backgroundElevated,
     borderRadius: 12,
-    padding: spacing.base,
-    marginBottom: spacing.base,
+    padding: spacing.xl,
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.xl,
   },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+  cardLast: {
+    marginBottom: 0,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  headerMain: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0, paddingRight: spacing.sm },
   avatar: {
     width: 40,
     height: 40,
@@ -165,17 +179,41 @@ const styles = StyleSheet.create({
   },
   avatarImg: { width: '100%', height: '100%' },
   avatarText: { fontSize: fontSizes.xs, color: colors.textMuted },
-  authorInfo: { marginLeft: spacing.sm },
-  authorName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  time: { fontSize: fontSizes.xs, color: colors.textMuted },
-  venueRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm, backgroundColor: colors.surface, borderRadius: 8, overflow: 'hidden' },
-  venueThumb: { width: 56, height: 56, backgroundColor: colors.surfaceLight, alignItems: 'center', justifyContent: 'center' },
+  authorInfo: { marginLeft: spacing.base },
+  authorName: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.interSemiBold,
+    color: colors.textPrimary,
+    lineHeight: 15,
+  },
+  time: { fontSize: fontSizes.xs, color: colors.textMuted, lineHeight: 15, marginTop: 4 },
+  ratingBadge: {
+    borderWidth: 1.33,
+    borderColor: colors.browseAccentBorder,
+    backgroundColor: colors.browseAccent,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    alignSelf: 'flex-start',
+  },
+  ratingBadgeText: {
+    fontFamily: fontFamilies.fraunces,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textOnDark,
+    letterSpacing: -0.3,
+  },
+  venueRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, backgroundColor: colors.surface, borderRadius: 8, overflow: 'hidden' },
+  venueThumb: { width: 64, height: 64, backgroundColor: colors.surfaceLight, alignItems: 'center', justifyContent: 'center' },
   venueThumbImg: { width: '100%', height: '100%' },
-  venuePlaceholder: { fontSize: 24, textAlign: 'center', lineHeight: 56 },
-  venueInfo: { flex: 1, padding: spacing.sm },
-  venueName: { fontSize: fontSizes.sm, fontWeight: fontWeights.medium, color: colors.textPrimary },
-  venueNeighborhood: { fontSize: fontSizes.xs, color: colors.textMuted },
-  rating: { fontSize: fontSizes.sm, fontWeight: '600', color: colors.textPrimary, marginBottom: spacing.xs },
+  venuePlaceholder: { fontSize: 24, textAlign: 'center', lineHeight: 64 },
+  venueInfo: { flex: 1, paddingVertical: spacing.md, paddingHorizontal: spacing.sm },
+  venueName: {
+    fontSize: fontSizes.base,
+    fontFamily: fontFamilies.interSemiBold,
+    color: colors.textPrimary,
+    lineHeight: 23,
+  },
+  venueNeighborhood: { fontSize: fontSizes.xs, color: colors.textMuted, lineHeight: 15, marginTop: 4 },
   reviewText: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 22, marginBottom: spacing.md },
   actions: { flexDirection: 'row', gap: spacing.lg },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },

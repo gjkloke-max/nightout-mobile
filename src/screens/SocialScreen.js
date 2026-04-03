@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   View,
   Text,
@@ -26,8 +26,11 @@ import {
 import { useDebounce } from '../hooks/useDebounce'
 import ReviewPostCard from '../components/ReviewPostCard'
 import NotificationsBellButton from '../components/NotificationsBellButton'
-import { Search } from 'lucide-react-native'
-import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes } from '../theme'
+import { Plus, Search } from 'lucide-react-native'
+import { colors, fontSizes, fontWeights, spacing, borderRadius, fontFamilies } from '../theme'
+
+/** Figma AppLayout 88:5732 — Social search */
+const SEARCH_PLACEHOLDER = 'Search friends or reviews...'
 
 function displayName(p) {
   if (!p) return 'Anonymous'
@@ -47,6 +50,8 @@ export default function SocialScreen() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [followStatusMap, setFollowStatusMap] = useState(new Map())
   const [followLoading, setFollowLoading] = useState(null)
+  const [searchFocused, setSearchFocused] = useState(false)
+  const searchInputRef = useRef(null)
 
   const debouncedQuery = useDebounce(searchQuery, 300)
 
@@ -127,30 +132,75 @@ export default function SocialScreen() {
 
   const isSearching = searchQuery.trim().length >= 2
 
+  const openSearchMode = () => {
+    setSearchFocused(true)
+    setTimeout(() => searchInputRef.current?.focus(), 50)
+  }
+
+  const exitSearchMode = () => {
+    setSearchQuery('')
+    setSearchFocused(false)
+    Keyboard.dismiss()
+    searchInputRef.current?.blur?.()
+  }
+
+  const showSearchCancel = searchFocused || searchQuery.trim().length > 0
+
   if (!user) return null
 
   return (
-    <View style={[styles.container, { paddingTop: Math.max(spacing.lg, insets.top) + spacing.md }]}>
-      <View style={styles.topBar}>
-        <View style={styles.searchRow}>
-          <Search size={iconSizes.inline} color={colors.textMuted} strokeWidth={2} style={styles.searchIcon} />
+    <View style={[styles.container, { paddingTop: Math.max(spacing.lg, insets.top) }]}>
+      <View style={styles.headerBar}>
+        <View style={styles.headerInner}>
+          <TouchableOpacity
+            onPress={openSearchMode}
+            style={styles.headerIconBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Search for friends"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Plus size={20} color={colors.textPrimary} strokeWidth={2} />
+          </TouchableOpacity>
+          <NotificationsBellButton />
+        </View>
+      </View>
+
+      {/* Figma 88:5729 Social — search strip (Text Input + icon); Cancel is app addition */}
+      <View style={styles.searchFieldWrap}>
+        <View style={styles.figmaSearchRow}>
+          <View style={styles.searchIconSlot}>
+            <Search size={18} color={colors.borderInput} strokeWidth={2} />
+          </View>
           <TextInput
-            style={styles.searchBar}
-            placeholder="Search for friends by name..."
-            placeholderTextColor={colors.textMuted}
+            ref={searchInputRef}
+            style={styles.figmaSearchInput}
+            placeholder={SEARCH_PLACEHOLDER}
+            placeholderTextColor={colors.textTag}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
             onSubmitEditing={() => Keyboard.dismiss()}
+            returnKeyType="search"
+            autoCorrect={false}
           />
+          {showSearchCancel ? (
+            <TouchableOpacity
+              onPress={exitSearchMode}
+              style={styles.cancelBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            >
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
-        <NotificationsBellButton />
       </View>
 
       {isSearching ? (
         <View style={styles.searchSection}>
           {searchLoading ? (
             <View style={styles.center}>
-              <ActivityIndicator size="large" color={colors.accent} />
+              <ActivityIndicator size="large" color={colors.browseAccent} />
               <Text style={styles.searchingText}>Searching...</Text>
             </View>
           ) : searchResults.length === 0 ? (
@@ -165,8 +215,8 @@ export default function SocialScreen() {
             >
               {searchResults.map((u) => {
                 const status = followStatusMap.get(u.id) || 'none'
-                const loading = followLoading === u.id
-                const label = loading ? '...' : status === 'following' ? 'Following' : status === 'pending' ? 'Requested' : 'Follow'
+                const loadingFollow = followLoading === u.id
+                const label = loadingFollow ? '...' : status === 'following' ? 'Following' : status === 'pending' ? 'Requested' : 'Follow'
                 return (
                   <View key={u.id} style={styles.searchItem}>
                     <View style={styles.searchItemLeft}>
@@ -184,10 +234,10 @@ export default function SocialScreen() {
                         styles.followBtn,
                         status === 'following' && styles.followBtnFollowing,
                         status === 'pending' && styles.followBtnPending,
-                        loading && styles.followBtnDisabled,
+                        loadingFollow && styles.followBtnDisabled,
                       ]}
                       onPress={() => handleFollow(u.id)}
-                      disabled={loading}
+                      disabled={loadingFollow}
                     >
                       <Text style={[
                         styles.followBtnText,
@@ -217,15 +267,16 @@ export default function SocialScreen() {
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.accent]} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.browseAccent]} />}
         >
-          {feed.map((post) => (
+          {feed.map((post, index) => (
             <ReviewPostCard
               key={post.venue_review_id}
               post={post}
               currentUserId={user?.id}
               onLikeChange={handleLikeChange}
               onVenuePress={handleVenuePress}
+              isLastInFeed={index === feed.length - 1}
             />
           ))}
         </ScrollView>
@@ -236,43 +287,82 @@ export default function SocialScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.backgroundCanvas },
-  topBar: {
+  headerBar: {
+    borderBottomWidth: 1.33,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.backgroundCanvas,
+  },
+  headerInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.base,
-    marginBottom: spacing.sm,
-    gap: spacing.xs,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingTop: 16,
+    paddingBottom: 16,
+    minHeight: 52,
   },
-  searchRow: {
-    flex: 1,
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.33,
+    borderColor: colors.borderInput,
+    borderRadius: borderRadius.sm,
+  },
+  /** Figma 88:5729 — Container x=24 y=16; Text Input underline #d4d4d8, h~41.33 */
+  searchFieldWrap: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: 16,
+    paddingBottom: 16,
+    backgroundColor: colors.backgroundCanvas,
+  },
+  figmaSearchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.base,
-    gap: spacing.sm,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    minHeight: 41.33,
+    borderBottomWidth: 1.33,
+    borderBottomColor: colors.borderInput,
+    paddingVertical: 10,
+    paddingRight: 16,
   },
-  searchIcon: { marginRight: spacing.sm },
-  searchBar: {
+  cancelBtn: {
+    justifyContent: 'center',
+    paddingLeft: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  cancelText: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.interMedium,
+    fontWeight: fontWeights.medium,
+    color: colors.textPrimary,
+    lineHeight: 20,
+  },
+  searchIconSlot: {
+    width: 18,
+    marginRight: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  figmaSearchInput: {
     flex: 1,
-    height: 40,
-    paddingHorizontal: 0,
-    backgroundColor: 'transparent',
-    fontSize: fontSizes.base,
+    minWidth: 0,
+    paddingVertical: 0,
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.interMedium,
+    fontWeight: fontWeights.medium,
     color: colors.textPrimary,
   },
   searchSection: { flex: 1 },
   searchList: { flex: 1 },
-  searchListContent: { padding: spacing.base, paddingBottom: spacing['3xl'] },
+  searchListContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing['3xl'] },
   searchItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.base,
-    backgroundColor: colors.surfaceLight,
+    backgroundColor: colors.backgroundElevated,
     borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
   },
@@ -294,10 +384,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.browseAccent,
   },
   followBtnFollowing: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  followBtnPending: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.accent },
+  followBtnPending: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.browseAccent },
   followBtnDisabled: { opacity: 0.6 },
   followBtnText: {
     fontSize: fontSizes.sm,
@@ -323,5 +413,8 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   scroll: { flex: 1 },
-  scrollContent: { padding: spacing.base, paddingBottom: spacing['3xl'] },
+  scrollContent: {
+    paddingTop: spacing['2xl'],
+    paddingBottom: spacing['3xl'],
+  },
 })
