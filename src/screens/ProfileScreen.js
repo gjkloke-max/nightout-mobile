@@ -178,7 +178,7 @@ export default function ProfileScreen() {
             <View style={styles.avatarWrapper}>
               <View style={styles.avatarPlaceholder}>
                 {profile?.avatar_url ? (
-                  <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+                  <Image source={{ uri: profile.avatar_url }} style={styles.avatar} resizeMode="cover" />
                 ) : (
                   <Text style={styles.avatarText}>{(displayName || '?')[0]}</Text>
                 )}

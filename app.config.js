@@ -40,6 +40,13 @@ module.exports = {
             'Night Out uses your location to show where you are on the map next to venue results.',
         },
       ],
+      [
+        'expo-image-picker',
+        {
+          photosPermission:
+            'Night Out uses your photo library so you can choose a profile picture.',
+        },
+      ],
     ],
     extra: {
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,

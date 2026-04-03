@@ -13,11 +13,14 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { setUserHomeNeighborhood } from '../services/userHomeLocation'
+import { uploadAvatarFromUri, removeAvatar } from '../services/profileAvatar'
 import { colors, fontSizes, fontFamilies, spacing } from '../theme'
 
 export default function EditProfileScreen({ navigation }) {
@@ -32,6 +35,8 @@ export default function EditProfileScreen({ navigation }) {
   const [neighborhoods, setNeighborhoods] = useState([])
   const [hoodModalOpen, setHoodModalOpen] = useState(false)
   const [profileSnapshot, setProfileSnapshot] = useState(null)
+  const [avatarUrl, setAvatarUrl] = useState(null)
+  const [avatarBusy, setAvatarBusy] = useState(false)
 
   const load = useCallback(async () => {
     if (!user?.id) return
@@ -46,6 +51,7 @@ export default function EditProfileScreen({ navigation }) {
         setLastName(profile.last_name || '')
         setIsPrivate(!!profile.is_private)
         setHomeNeighborhood(profile.home_neighborhood_name || '')
+        setAvatarUrl(profile.avatar_url || null)
         setProfileSnapshot(profile)
       } else {
         const metaName = user.user_metadata?.full_name || user.user_metadata?.name || ''
@@ -67,6 +73,61 @@ export default function EditProfileScreen({ navigation }) {
   useEffect(() => {
     load()
   }, [load])
+
+  const displayInitial = () => {
+    const n = `${firstName || ''} ${lastName || ''}`.trim()
+    if (n) return n.charAt(0).toUpperCase()
+    const meta = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
+    if (meta.trim()) return meta.trim().charAt(0).toUpperCase()
+    return '?'
+  }
+
+  const pickProfilePhoto = async () => {
+    if (!user?.id || avatarBusy) return
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!perm.granted) {
+      Alert.alert('Permission needed', 'Allow photo library access to set your profile picture.')
+      return
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    })
+    if (result.canceled || !result.assets?.[0]?.uri) return
+    const asset = result.assets[0]
+    const mime = asset.mimeType || 'image/jpeg'
+    setAvatarBusy(true)
+    try {
+      const res = await uploadAvatarFromUri(user.id, asset.uri, mime)
+      if (res.success && res.avatarUrl) setAvatarUrl(res.avatarUrl)
+      else Alert.alert('Upload failed', res.error || 'Please try again.')
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
+
+  const confirmRemovePhoto = () => {
+    if (!user?.id || !avatarUrl || avatarBusy) return
+    Alert.alert('Remove profile photo', 'Your profile will show your initial instead.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          setAvatarBusy(true)
+          try {
+            const res = await removeAvatar(user.id)
+            if (res.success) setAvatarUrl(null)
+            else Alert.alert('Could not remove', res.error || 'Please try again.')
+          } finally {
+            setAvatarBusy(false)
+          }
+        },
+      },
+    ])
+  }
 
   const handleSave = async () => {
     if (!user?.id) return
@@ -132,6 +193,32 @@ export default function EditProfileScreen({ navigation }) {
         ]}
         keyboardShouldPersistTaps="handled"
       >
+        <Text style={styles.label}>Profile photo</Text>
+        <View style={styles.avatarBlock}>
+          <View style={styles.avatarCircle}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImg} resizeMode="cover" />
+            ) : (
+              <Text style={styles.avatarInitial}>{displayInitial()}</Text>
+            )}
+            {avatarBusy ? (
+              <View style={styles.avatarBusyOverlay}>
+                <ActivityIndicator color="#fff" />
+              </View>
+            ) : null}
+          </View>
+          <View style={styles.avatarActions}>
+            <TouchableOpacity onPress={pickProfilePhoto} disabled={avatarBusy} activeOpacity={0.7}>
+              <Text style={styles.avatarLink}>{avatarUrl ? 'Change photo' : 'Add photo'}</Text>
+            </TouchableOpacity>
+            {avatarUrl ? (
+              <TouchableOpacity onPress={confirmRemovePhoto} disabled={avatarBusy} activeOpacity={0.7}>
+                <Text style={styles.avatarRemove}>Remove</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
         <Text style={styles.label}>First name</Text>
         <TextInput
           style={styles.input}
@@ -229,6 +316,46 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingTop: spacing.md },
+  avatarBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+    gap: spacing.md,
+  },
+  avatarCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(228,228,231,0.9)',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarImg: { width: '100%', height: '100%' },
+  avatarInitial: {
+    fontSize: fontSizes['3xl'],
+    fontFamily: fontFamilies.fraunces,
+    color: colors.textMuted,
+  },
+  avatarBusyOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarActions: { flex: 1, gap: spacing.sm },
+  avatarLink: {
+    fontSize: fontSizes.base,
+    fontFamily: fontFamilies.interMedium,
+    color: colors.profileAccent,
+  },
+  avatarRemove: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.interMedium,
+    color: colors.textMuted,
+  },
   label: {
     fontSize: fontSizes.sm,
     fontFamily: fontFamilies.interMedium,
