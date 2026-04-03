@@ -186,13 +186,7 @@ export default function VenueProfileScreen() {
           <X size={iconSizes.header} color={colors.textPrimary} strokeWidth={2} />
         </Pressable>
 
-        <VenueHeroGallery
-          photos={photos}
-          onPhotoClick={(i) => setPhotoViewerIndex(i)}
-          onToggleFavorite={() => handleToggleFavorite(venue.venue_id)}
-          isFavorited={favoriteVenueIds.has(venue.venue_id)}
-          togglingFavorite={togglingFavorite === venue.venue_id}
-        />
+        <VenueHeroGallery photos={photos} onPhotoClick={(i) => setPhotoViewerIndex(i)} venueName={venue.name} />
 
         <VenueHeader
           venue={venue}
@@ -253,7 +247,7 @@ export default function VenueProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.backgroundCanvas },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: spacing['3xl'] },
   closeBtn: {

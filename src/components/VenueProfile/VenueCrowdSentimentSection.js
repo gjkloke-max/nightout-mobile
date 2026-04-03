@@ -14,11 +14,14 @@ export default function VenueCrowdSentimentSection({ venue, reviews = [] }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Crowd Sentiment</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>Crowd Sentiment</Text>
+        <View style={styles.titleRule} />
+      </View>
       <View style={styles.chips}>
         {themes.map((theme, i) => (
           <View key={i} style={styles.chip}>
-            <Text style={styles.chipText}>{theme}</Text>
+            <Text style={styles.chipText}>{theme.toUpperCase()}</Text>
           </View>
         ))}
       </View>
@@ -27,19 +30,29 @@ export default function VenueCrowdSentimentSection({ venue, reviews = [] }) {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: spacing.base, paddingVertical: spacing.lg },
+  container: { paddingHorizontal: spacing.xl, paddingVertical: spacing.xl },
+  titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
   title: {
-    fontSize: fontSizes.base,
-    fontFamily: fontFamilies.frauncesSemiBold,
+    fontSize: 14,
+    fontFamily: fontFamilies.interBold,
+    letterSpacing: 1.4,
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+    marginRight: spacing.sm,
   },
+  titleRule: { flex: 1, height: 1, backgroundColor: colors.borderLight },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceLight,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderWidth: 2,
+    borderColor: colors.borderInput,
+    backgroundColor: colors.backgroundElevated,
   },
-  chipText: { fontSize: fontSizes.sm, fontFamily: fontFamilies.interMedium, color: colors.textPrimary },
+  chipText: {
+    fontSize: 12,
+    fontFamily: fontFamilies.interMedium,
+    letterSpacing: 0.6,
+    color: '#3f3f47',
+  },
 })

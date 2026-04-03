@@ -1,5 +1,5 @@
 import { View, Text, Pressable, StyleSheet, Linking } from 'react-native'
-import { Bookmark, Globe, ListPlus, MessageSquare, Send } from 'lucide-react-native'
+import { Bookmark, ListPlus, Pencil, Navigation, Globe } from 'lucide-react-native'
 import { colors, fontSizes, fontFamilies, spacing, iconSizes } from '../../theme'
 import { cleanUrl, formatFullAddress } from '../../utils/venueProfileUtils'
 
@@ -29,77 +29,168 @@ export default function VenueActionBar({
   return (
     <View style={styles.container}>
       {user?.id ? (
-        <View style={styles.actions}>
-          <Pressable
-            style={styles.btnSave}
-            onPress={() => onToggleFavorite?.(venue?.venue_id)}
-            disabled={togglingFavorite === venue?.venue_id}
-          >
-            <Bookmark size={iconSizes.xs} color="#fff" fill={isFavorited ? '#fff' : 'transparent'} strokeWidth={2} style={styles.btnIcon} />
-            <Text style={styles.btnSaveText}>{isFavorited ? 'Saved' : 'Save'}</Text>
-          </Pressable>
-          <Pressable style={styles.btnSecondary} onPress={() => onAddToList?.({ id: venue?.venue_id, name: venue?.name })}>
-            <ListPlus size={iconSizes.xs} color={colors.textPrimary} strokeWidth={2} style={styles.btnIcon} />
-            <Text style={styles.btnSecondaryText}>Add to List</Text>
-          </Pressable>
-          <Pressable style={styles.btnSecondary} onPress={() => onReview?.()}>
-            <MessageSquare size={iconSizes.xs} color={colors.textPrimary} strokeWidth={2} style={styles.btnIcon} />
-            <Text style={styles.btnSecondaryText}>{hasUserReview ? 'Your review' : 'Review'}</Text>
-          </Pressable>
-        </View>
-      ) : null}
-      {fullAddress ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location</Text>
-          <View style={styles.sectionRow}>
-            <Text style={styles.address}>{fullAddress}</Text>
-            <Pressable onPress={openMaps} hitSlop={8}>
-              <Send size={iconSizes.inline} color={colors.textMuted} strokeWidth={2} />
+        <>
+          <View style={styles.primaryRow}>
+            <Pressable
+              style={styles.btnSave}
+              onPress={() => onToggleFavorite?.(venue?.venue_id)}
+              disabled={togglingFavorite === venue?.venue_id}
+            >
+              <Bookmark
+                size={iconSizes.xs}
+                color="#fff"
+                fill={isFavorited ? '#fff' : 'transparent'}
+                strokeWidth={2}
+              />
+              <Text style={styles.btnSaveText}>{isFavorited ? 'Saved' : 'Save'}</Text>
+            </Pressable>
+            <Pressable style={styles.btnList} onPress={() => onAddToList?.({ id: venue?.venue_id, name: venue?.name })}>
+              <ListPlus size={iconSizes.xs} color={colors.textPrimary} strokeWidth={2} />
+              <Text style={styles.btnListText}>List</Text>
             </Pressable>
           </View>
+          <Pressable style={styles.writeBtn} onPress={() => onReview?.()}>
+            <Pencil size={iconSizes.xs} color={colors.textPrimary} strokeWidth={2} />
+            <Text style={styles.writeText}>{hasUserReview ? 'Your review' : 'Write a Review'}</Text>
+          </Pressable>
+        </>
+      ) : (
+        <Text style={styles.hint}>Sign in to save venues, add to lists, and write reviews.</Text>
+      )}
+
+      {(fullAddress || website) && (
+        <View style={styles.infoPanel}>
+          {fullAddress ? (
+            <View style={styles.infoBlock}>
+              <Text style={styles.infoLabel}>Location</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoValue}>{fullAddress}</Text>
+                <Pressable style={styles.roundBtn} onPress={openMaps} hitSlop={8} accessibilityLabel="Open in maps">
+                  <Navigation size={18} color={colors.textSecondary} strokeWidth={2} />
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+          {fullAddress && website ? <View style={styles.divider} /> : null}
+          {website ? (
+            <View style={styles.infoBlock}>
+              <Text style={styles.infoLabel}>Website</Text>
+              <View style={styles.infoRow}>
+                <Pressable onPress={openWebsite} style={styles.websitePress}>
+                  <Text style={styles.websiteLink}>Visit Official Site</Text>
+                </Pressable>
+                <Pressable style={styles.roundBtn} onPress={openWebsite} hitSlop={8} accessibilityLabel="Open website">
+                  <Globe size={18} color={colors.textSecondary} strokeWidth={2} />
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
         </View>
-      ) : null}
-      {website ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Website</Text>
-          <View style={styles.sectionRow}>
-            <Pressable onPress={openWebsite}>
-              <Text style={styles.link}>Visit Website</Text>
-            </Pressable>
-            <Text style={styles.icon}>🌐</Text>
-          </View>
-        </View>
-      ) : null}
+      )}
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: spacing.base, paddingVertical: spacing.lg },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
+  container: { paddingHorizontal: spacing.xl },
+  primaryRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
   btnSave: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
-    backgroundColor: colors.textPrimary,
+    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: 48,
+    backgroundColor: colors.backgroundDark,
   },
-  btnSaveText: { fontSize: fontSizes.sm, fontFamily: fontFamilies.interMedium, color: '#fff' },
-  btnSecondary: {
+  btnSaveText: {
+    fontSize: 12,
+    fontFamily: fontFamilies.interBold,
+    letterSpacing: 1.2,
+    color: '#fff',
+  },
+  btnList: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
+    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: 48,
     backgroundColor: colors.backgroundElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.backgroundDark,
   },
-  btnSecondaryText: { fontSize: fontSizes.sm, fontFamily: fontFamilies.interMedium, color: colors.textPrimary },
-  section: { marginBottom: spacing.md },
-  sectionTitle: { fontSize: fontSizes.base, fontFamily: fontFamilies.frauncesSemiBold, color: colors.textPrimary, marginBottom: spacing.xs },
-  sectionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  address: { flex: 1, fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.textMuted },
-  link: { fontSize: fontSizes.sm, fontFamily: fontFamilies.interMedium, color: colors.link, textDecorationLine: 'underline' },
+  btnListText: {
+    fontSize: 12,
+    fontFamily: fontFamilies.interBold,
+    letterSpacing: 1.2,
+    color: colors.textPrimary,
+  },
+  writeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: 48,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.surface,
+  },
+  writeText: {
+    fontSize: 12,
+    fontFamily: fontFamilies.interBold,
+    letterSpacing: 1.2,
+    color: colors.textPrimary,
+  },
+  hint: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.inter,
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
+    lineHeight: 20,
+  },
+  infoPanel: {
+    backgroundColor: '#fdfbf7',
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: colors.borderLight,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    marginHorizontal: -spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  infoBlock: { marginBottom: 0 },
+  infoLabel: {
+    fontSize: 10,
+    fontFamily: fontFamilies.interBold,
+    letterSpacing: 1,
+    color: colors.textTag,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  infoRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
+  infoValue: {
+    flex: 1,
+    fontSize: fontSizes.base,
+    fontFamily: fontFamilies.interMedium,
+    color: colors.textPrimary,
+    lineHeight: 24,
+  },
+  websitePress: { flex: 1 },
+  websiteLink: {
+    fontSize: fontSizes.base,
+    fontFamily: fontFamilies.interMedium,
+    color: colors.browseAccent,
+    textDecorationLine: 'underline',
+  },
+  roundBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: colors.borderLight,
+    backgroundColor: colors.backgroundElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  divider: { height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.lg },
 })

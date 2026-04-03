@@ -1,6 +1,5 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native'
-import { MoreHorizontal } from 'lucide-react-native'
-import { colors, fontSizes, fontFamilies, spacing, iconSizes } from '../../theme'
+import { colors, fontSizes, fontFamilies, spacing } from '../../theme'
 
 function formatReviewDate(d) {
   if (!d) return ''
@@ -13,17 +12,13 @@ function formatReviewDate(d) {
 }
 
 function getReviewerName(r) {
-  return r.profile?.first_name && r.profile?.last_name
-    ? `${r.profile.first_name} ${r.profile.last_name}`
-    : 'Reviewer'
+  if (r.profile?.first_name && r.profile?.last_name) {
+    return `${r.profile.first_name} ${r.profile.last_name}`
+  }
+  return 'Private reviewer'
 }
 
-export default function VenueReviewList({
-  reviews = [],
-  loading,
-  userReview,
-  onReviewClick,
-}) {
+export default function VenueReviewList({ reviews = [], loading, userReview, onReviewClick }) {
   const displayReviews = [...reviews]
   if (userReview && !displayReviews.some((r) => r.venue_review_id === userReview.venue_review_id)) {
     displayReviews.unshift(userReview)
@@ -32,7 +27,7 @@ export default function VenueReviewList({
   if (loading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Recent Reviews</Text>
+        <Text style={styles.sectionTitle}>Recent Reviews</Text>
         <Text style={styles.loading}>Loading reviews...</Text>
       </View>
     )
@@ -41,7 +36,7 @@ export default function VenueReviewList({
   if (!displayReviews.length) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Recent Reviews</Text>
+        <Text style={styles.sectionTitle}>Recent Reviews</Text>
         <Text style={styles.empty}>No reviews yet.</Text>
         {onReviewClick ? (
           <Pressable style={styles.btnPrimary} onPress={onReviewClick}>
@@ -54,7 +49,10 @@ export default function VenueReviewList({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Recent Reviews</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.sectionTitle}>Recent Reviews</Text>
+        <View style={styles.titleRule} />
+      </View>
       <View style={styles.items}>
         {displayReviews.map((r, i) => (
           <View
@@ -65,25 +63,15 @@ export default function VenueReviewList({
             ]}
           >
             <View style={styles.top}>
-              <View style={styles.author}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{getReviewerName(r).charAt(0)}</Text>
-                </View>
-                <View style={styles.meta}>
-                  <Text style={styles.name}>{getReviewerName(r)}</Text>
-                  <Text style={styles.date}>
-                    {r.relative_time_description || formatReviewDate(r.review_date)}
-                  </Text>
-                </View>
+              <View style={styles.meta}>
+                <Text style={styles.name}>{getReviewerName(r).toUpperCase()}</Text>
+                <Text style={styles.date}>{r.relative_time_description || formatReviewDate(r.review_date)}</Text>
               </View>
-              <View style={styles.right}>
-                {r.rating10 != null && (
-                  <View style={styles.ratingBadge}>
-                    <Text style={styles.ratingBadgeText}>{Number(r.rating10).toFixed(1)}</Text>
-                  </View>
-                )}
-                <MoreHorizontal size={iconSizes.card} color={colors.textMuted} strokeWidth={2} />
-              </View>
+              {r.rating10 != null && (
+                <View style={styles.ratingBadge}>
+                  <Text style={styles.ratingBadgeText}>{Number(r.rating10).toFixed(1)}</Text>
+                </View>
+              )}
             </View>
             {r.review_text ? <Text style={styles.text}>{r.review_text}</Text> : null}
           </View>
@@ -94,46 +82,72 @@ export default function VenueReviewList({
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: spacing.base, paddingVertical: spacing.lg },
-  title: { fontSize: fontSizes.base, fontFamily: fontFamilies.frauncesSemiBold, color: colors.textPrimary, marginBottom: spacing.md },
+  container: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    borderTopWidth: 2,
+    borderTopColor: colors.borderLight,
+  },
+  titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
+  sectionTitle: {
+    fontSize: 14,
+    fontFamily: fontFamilies.interBold,
+    letterSpacing: 1.4,
+    color: colors.textPrimary,
+    textTransform: 'uppercase',
+    marginRight: spacing.sm,
+  },
+  titleRule: { flex: 1, height: 1, backgroundColor: colors.borderLight },
   loading: { fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.textMuted, marginTop: spacing.sm },
   empty: { fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.textMuted, marginBottom: spacing.lg },
   btnPrimary: {
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.sm,
-    borderRadius: 12,
-    backgroundColor: colors.textPrimary,
+    borderRadius: 8,
+    backgroundColor: colors.backgroundDark,
     alignSelf: 'flex-start',
     marginTop: spacing.sm,
   },
   btnPrimaryText: { fontSize: fontSizes.sm, fontFamily: fontFamilies.interSemiBold, color: '#fff' },
-  items: { gap: spacing.md },
+  items: { gap: 0 },
   item: {
-    padding: spacing.base,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: 12,
+    paddingVertical: spacing.lg,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.borderLight,
   },
   itemUser: {
-    backgroundColor: colors.accentMuted,
-    borderWidth: 1,
-    borderColor: colors.accent,
+    backgroundColor: 'rgba(157, 23, 77, 0.06)',
+    marginHorizontal: -spacing.xl,
+    paddingHorizontal: spacing.xl,
   },
-  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.xs },
-  author: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
-  avatar: {
-    width: 32,
+  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm },
+  meta: { flex: 1, paddingRight: spacing.sm },
+  name: {
+    fontSize: 13,
+    fontFamily: fontFamilies.interBold,
+    letterSpacing: 0.5,
+    color: colors.textPrimary,
+  },
+  date: { fontSize: 12, fontFamily: fontFamilies.inter, color: colors.textTag, marginTop: 2 },
+  ratingBadge: {
+    minWidth: 40,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.border,
-    alignItems: 'center',
+    paddingHorizontal: 8,
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.browseAccent,
+    borderWidth: 2,
+    borderColor: colors.browseAccentBorder,
   },
-  avatarText: { fontSize: fontSizes.sm, fontFamily: fontFamilies.interSemiBold, color: colors.textMuted },
-  meta: { flex: 1 },
-  name: { fontSize: fontSizes.sm, fontFamily: fontFamilies.interSemiBold, color: colors.textPrimary },
-  date: { fontSize: 12, fontFamily: fontFamilies.inter, color: colors.textMuted },
-  right: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  ratingBadge: { backgroundColor: colors.success, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  ratingBadgeText: { fontSize: 12, fontFamily: fontFamilies.interSemiBold, color: '#fff' },
-  text: { fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.textPrimary, lineHeight: 22 },
+  ratingBadgeText: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.frauncesSemiBold,
+    color: colors.textOnDark,
+  },
+  text: {
+    fontSize: fontSizes.base,
+    lineHeight: 26,
+    fontFamily: fontFamilies.frauncesItalic,
+    color: '#27272a',
+  },
 })

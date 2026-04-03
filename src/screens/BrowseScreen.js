@@ -22,6 +22,8 @@ import { fetchVenuesByIds, searchVenuesByName } from '../lib/venueService'
 import { getTrendingVenues } from '../services/trendingVenues'
 import NotificationsBellButton from '../components/NotificationsBellButton'
 
+const CITY_TITLE = 'Chicago'
+
 const TABS = [
   { id: 'trending', label: 'Trending' },
   { id: 'forYou', label: 'For You' },
@@ -372,6 +374,7 @@ export default function BrowseScreen() {
   return (
     <View style={[styles.container, { paddingTop: Math.max(spacing.lg, insets.top) + spacing.md }]}>
       <View style={styles.headerBlock}>
+        <Text style={styles.cityTitle}>{CITY_TITLE}</Text>
         <View style={styles.headerTopRow}>
           <View style={styles.headerSearchWrap}>
             {searchFocused ? (
@@ -618,7 +621,15 @@ const styles = StyleSheet.create({
   headerBlock: {
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xl,
-    gap: spacing.md,
+    gap: spacing.xl,
+  },
+  cityTitle: {
+    fontSize: fontSizes['4xl'],
+    fontFamily: fontFamilies.frauncesRegular,
+    fontWeight: fontWeights.normal,
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+    lineHeight: fontSizes['4xl'],
   },
   headerTopRow: {
     flexDirection: 'row',
