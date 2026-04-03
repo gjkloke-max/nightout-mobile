@@ -6,6 +6,7 @@ import TabNavigator from './TabNavigator'
 import LoginScreen from '../screens/LoginScreen'
 import NotificationsScreen from '../screens/NotificationsScreen'
 import VenueProfileScreen from '../screens/VenueProfileScreen'
+import WriteReviewScreen from '../screens/WriteReviewScreen'
 
 const Stack = createNativeStackNavigator()
 
@@ -41,6 +42,11 @@ export default function AppNavigator() {
       <Stack.Screen
         name="VenueProfile"
         component={VenueProfileScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="WriteReview"
+        component={WriteReviewScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen

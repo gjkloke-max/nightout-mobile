@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { View, Text, ScrollView, StyleSheet, Pressable, ActivityIndicator } from 'react-native'
-import { useRoute, useNavigation } from '@react-navigation/native'
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../lib/supabase'
 import { fetchVenueById } from '../lib/venueService'
 import { addFavorite, removeFavorite, getFavoriteVenueIds } from '../utils/favorites'
-import { uploadReviewPhotos } from '../lib/reviewPhotoStorage'
 import { useAuth } from '../contexts/AuthContext'
 import AddToListModal from '../components/AddToListModal'
 import VenueHeroGallery from '../components/VenueProfile/VenueHeroGallery'
@@ -14,7 +13,6 @@ import VenueHeader from '../components/VenueProfile/VenueHeader'
 import VenueActionBar from '../components/VenueProfile/VenueActionBar'
 import VenueCrowdSentimentSection from '../components/VenueProfile/VenueCrowdSentimentSection'
 import VenueReviewList from '../components/VenueProfile/VenueReviewList'
-import VenueReviewComposer from '../components/VenueProfile/VenueReviewComposer'
 import { X } from 'lucide-react-native'
 import { colors, fontSizes, fontFamilies, spacing, iconSizes } from '../theme'
 
@@ -52,20 +50,22 @@ export default function VenueProfileScreen() {
     }
   }, [user?.id])
 
-  useEffect(() => {
-    if (!venueId || !supabase) return
-    setLoadingReviews(true)
-    supabase
-      .from('venue_review')
-      .select('venue_review_id, rating10, review_text, review_date, relative_time_description, user_id')
-      .eq('venue_id', venueId)
-      .order('review_date', { ascending: false })
-      .limit(15)
-      .then(({ data }) => {
-        setVenueReviews(data || [])
-        setLoadingReviews(false)
-      })
-  }, [venueId])
+  useFocusEffect(
+    useCallback(() => {
+      if (!venueId || !supabase) return
+      setLoadingReviews(true)
+      supabase
+        .from('venue_review')
+        .select('venue_review_id, rating10, review_text, review_date, relative_time_description, user_id')
+        .eq('venue_id', venueId)
+        .order('review_date', { ascending: false })
+        .limit(15)
+        .then(({ data }) => {
+          setVenueReviews(data || [])
+          setLoadingReviews(false)
+        })
+    }, [venueId])
+  )
 
   const handleToggleFavorite = async (vid) => {
     if (!user?.id) return
@@ -92,56 +92,9 @@ export default function VenueProfileScreen() {
 
   const userReview = venueReviews.find((r) => r.user_id === user?.id) || null
 
-  const handleReviewSubmit = async ({ venueId: vid, rating, text, photos = [] }) => {
-    if (!user?.id) return
-    const existing = venueReviews.find((r) => r.user_id === user.id)
-    let reviewId
-
-    if (existing) {
-      reviewId = existing.venue_review_id
-      const { error } = await supabase
-        .from('venue_review')
-        .update({
-          rating10: Number(rating),
-          review_text: text?.trim() || null,
-          review_date: new Date().toISOString(),
-        })
-        .eq('venue_review_id', existing.venue_review_id)
-      if (error) throw error
-      setVenueReviews((prev) =>
-        prev.map((r) =>
-          r.venue_review_id === existing.venue_review_id
-            ? { ...r, rating10: Number(rating), review_text: text?.trim(), review_date: new Date().toISOString() }
-            : r
-        )
-      )
-    } else {
-      const { data, error } = await supabase
-        .from('venue_review')
-        .insert({
-          venue_id: vid,
-          user_id: user.id,
-          rating10: Number(rating),
-          review_text: text?.trim() || null,
-          review_date: new Date().toISOString(),
-        })
-        .select('venue_review_id, rating10, review_text, review_date, relative_time_description, user_id')
-        .single()
-      if (error) throw error
-      reviewId = data?.venue_review_id
-      setVenueReviews((prev) => [data, ...prev])
-    }
-
-    if (photos?.length > 0 && reviewId) {
-      const urls = await uploadReviewPhotos(photos, user.id, reviewId)
-      if (urls.length > 0) {
-        await supabase
-          .from('review_photos')
-          .insert(urls.map((photo_url) => ({ review_id: reviewId, photo_url })))
-      }
-    }
-
-    setShowReviewComposer(false)
+  const openWriteReview = () => {
+    if (!venue?.venue_id) return
+    navigation.navigate('WriteReview', { venueId: venue.venue_id })
   }
 
   if (!venueId) {
@@ -198,7 +151,7 @@ export default function VenueProfileScreen() {
           venue={venue}
           user={user}
           onAddToList={handleAddToList}
-          onReview={() => setShowReviewComposer(true)}
+          onReview={openWriteReview}
           onToggleFavorite={handleToggleFavorite}
           isFavorited={favoriteVenueIds.has(venue.venue_id)}
           togglingFavorite={togglingFavorite}
@@ -207,8 +160,12 @@ export default function VenueProfileScreen() {
 
         {showReviewComposer ? (
           <VenueReviewComposer
+            embeddedInFlow
+            showEmbeddedActions
             venueId={venue.venue_id}
             venueName={venue.name}
+            venuePhotoUrl={venue.primary_photo_url}
+            venueNeighborhood={(venue.neighborhood_name || venue.city || '').trim()}
             existingReview={userReview}
             onSubmit={handleReviewSubmit}
             onCancel={() => setShowReviewComposer(false)}
@@ -222,7 +179,7 @@ export default function VenueProfileScreen() {
           reviews={venueReviews}
           loading={loadingReviews}
           userReview={userReview}
-          onReviewClick={() => setShowReviewComposer(true)}
+          onReviewClick={openWriteReview}
         />
         </View>
       </ScrollView>

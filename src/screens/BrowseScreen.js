@@ -12,6 +12,7 @@ import {
   Image,
   RefreshControl,
 } from 'react-native'
+import * as Location from 'expo-location'
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Search, List, Map as MapIcon } from 'lucide-react-native'
@@ -20,7 +21,6 @@ import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes, fontF
 import { bm25Search } from '../lib/searchApi'
 import { fetchVenuesByIds, searchVenuesByName } from '../lib/venueService'
 import { getTrendingVenues } from '../services/trendingVenues'
-import NotificationsBellButton from '../components/NotificationsBellButton'
 
 const CITY_TITLE = 'Chicago'
 
@@ -146,6 +146,7 @@ export default function BrowseScreen() {
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
   const searchInputRef = useRef(null)
+  const searchMapRef = useRef(null)
 
   const [searchFocused, setSearchFocused] = useState(false)
   const [mainTab, setMainTab] = useState('trending')
@@ -160,6 +161,8 @@ export default function BrowseScreen() {
   const [trendingError, setTrendingError] = useState(null)
   const [trendingRefreshing, setTrendingRefreshing] = useState(false)
   const [searchResultsTab, setSearchResultsTab] = useState('list')
+  /** { latitude, longitude } from GPS — custom marker; native showsUserLocation is unreliable on Expo/Android */
+  const [userMapCoords, setUserMapCoords] = useState(null)
 
   const loadTrending = useCallback(async () => {
     setTrendingLoading(true)
@@ -369,6 +372,59 @@ export default function BrowseScreen() {
   const mapRegion = useMemo(() => regionForVenueMap(venues), [venues])
   const mapViewKey = useMemo(() => venues.map((v) => String(v.venue_id)).join(','), [venues])
 
+  useEffect(() => {
+    if (searchResultsTab !== 'map' || venuesWithMapCoords.length === 0) {
+      setUserMapCoords(null)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { status: existing } = await Location.getForegroundPermissionsAsync()
+        if (existing !== 'granted') {
+          const { status } = await Location.requestForegroundPermissionsAsync()
+          if (cancelled || status !== 'granted') return
+        }
+        let pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        }).catch(() => null)
+        if (!pos) {
+          pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Low,
+          }).catch(() => null)
+        }
+        if (cancelled || !pos?.coords) return
+        setUserMapCoords({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        })
+      } catch {
+        setUserMapCoords(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [searchResultsTab, venuesWithMapCoords.length])
+
+  useEffect(() => {
+    if (!userMapCoords || venuesWithMapCoords.length === 0) return
+    const coords = [
+      ...venuesWithMapCoords.map((v) => ({
+        latitude: pickCoord(v.latitude),
+        longitude: pickCoord(v.longitude),
+      })),
+      userMapCoords,
+    ]
+    const id = setTimeout(() => {
+      searchMapRef.current?.fitToCoordinates(coords, {
+        edgePadding: { top: 56, right: 32, bottom: 72, left: 32 },
+        animated: true,
+      })
+    }, 400)
+    return () => clearTimeout(id)
+  }, [userMapCoords, mapViewKey, venuesWithMapCoords])
+
   const showSearchResults = searchFocused && hasSearched
 
   return (
@@ -416,7 +472,6 @@ export default function BrowseScreen() {
               </Pressable>
             )}
           </View>
-          <NotificationsBellButton />
         </View>
       </View>
 
@@ -491,6 +546,7 @@ export default function BrowseScreen() {
                       </View>
                     ) : (
                       <MapView
+                        ref={searchMapRef}
                         key={mapViewKey}
                         style={styles.map}
                         initialRegion={mapRegion}
@@ -510,6 +566,17 @@ export default function BrowseScreen() {
                             />
                           )
                         })}
+                        {userMapCoords ? (
+                          <Marker
+                            coordinate={userMapCoords}
+                            anchor={{ x: 0.5, y: 0.5 }}
+                            tracksViewChanges={false}
+                            title="Your location"
+                            zIndex={1000}
+                          >
+                            <View style={styles.userLocationDot} />
+                          </Marker>
+                        ) : null}
                       </MapView>
                     )}
                   </View>
@@ -877,6 +944,19 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
+  },
+  userLocationDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#1A73E8',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.35,
+    shadowRadius: 2,
+    elevation: 4,
   },
   mapEmpty: {
     flex: 1,

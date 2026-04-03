@@ -144,7 +144,8 @@ export default function ProfileScreen() {
   }
 
   const handleWriteReview = () => {
-    navigation.getParent()?.navigate?.('Browse')
+    const root = navigation.getParent()?.getParent()
+    root?.navigate('WriteReview')
   }
 
   const handleEditProfile = () => {
@@ -236,7 +237,7 @@ export default function ProfileScreen() {
           <View style={styles.top5Locked}>
             <Text style={styles.top5LockedText}>Review 10 places to unlock your ranked favorites.</Text>
             <Pressable onPress={handleWriteReview}>
-              <Text style={styles.top5LockedCta}>Browse venues</Text>
+              <Text style={styles.top5LockedCta}>Write a review</Text>
             </Pressable>
           </View>
         ) : topFive.length === 0 ? (

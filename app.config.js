@@ -32,6 +32,15 @@ module.exports = {
       },
     },
     web: { favicon: './assets/favicon.png' },
+    plugins: [
+      [
+        'expo-location',
+        {
+          locationWhenInUsePermission:
+            'Night Out uses your location to show where you are on the map next to venue results.',
+        },
+      ],
+    ],
     extra: {
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
