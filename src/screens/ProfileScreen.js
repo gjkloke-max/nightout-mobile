@@ -18,10 +18,10 @@ import { getUserLists } from '../utils/venueLists'
 import { getUserTopTenVenues, getUserTopTenEligibility } from '../services/userTopTen'
 import { getFollowCounts } from '../services/follows'
 import VenueCard from '../components/VenueCard'
-import { Pencil, Plus, Settings } from 'lucide-react-native'
-import { colors, fontSizes, fontWeights, fontFamilies, spacing, iconSizes } from '../theme'
+import { Plus, Settings } from 'lucide-react-native'
+import { colors, fontSizes, fontWeights, fontFamilies, spacing } from '../theme'
 
-const TABS = ['Reviews', 'Lists', 'Saved']
+const TABS = ['reviews', 'lists', 'saved']
 
 function deriveHandle(displayName) {
   if (!displayName || !displayName.trim()) return null
@@ -46,12 +46,28 @@ function formatRelativeCaps(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase()
 }
 
+/** Figma 63:629 — "Lakeview • 3 weeks ago" */
+function formatRelativeSentence(dateStr) {
+  if (!dateStr) return 'recently'
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return 'recently'
+  const now = new Date()
+  const diffMs = now - d
+  const days = Math.floor(diffMs / (24 * 60 * 60 * 1000))
+  if (days < 1) return 'today'
+  if (days === 1) return 'yesterday'
+  if (days < 7) return `${days} days ago`
+  if (days < 30) return `${Math.floor(days / 7)} weeks ago`
+  if (days < 365) return `${Math.floor(days / 30)} months ago`
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}
+
 export default function ProfileScreen() {
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
   const { user, signOut } = useAuth()
   const [profile, setProfile] = useState(null)
-  const [activeTab, setActiveTab] = useState('Reviews')
+  const [activeTab, setActiveTab] = useState('reviews')
   const [loading, setLoading] = useState(true)
   const [favorites, setFavorites] = useState([])
   const [lists, setLists] = useState([])
@@ -142,7 +158,7 @@ export default function ProfileScreen() {
   if (loading && !profile) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.profileAccent} />
+        <ActivityIndicator size="large" color={colors.browseAccent} />
       </View>
     )
   }
@@ -156,7 +172,7 @@ export default function ProfileScreen() {
       ]}
     >
       <View style={styles.profileHeader}>
-        <View style={styles.identityRow}>
+        <View style={styles.identityTopRow}>
           <View style={styles.avatarRow}>
             <View style={styles.avatarWrapper}>
               <View style={styles.avatarPlaceholder}>
@@ -171,10 +187,6 @@ export default function ProfileScreen() {
               </View>
             </View>
           </View>
-          <View style={styles.nameColumn}>
-            <Text style={styles.displayName}>{displayName}</Text>
-            {handle ? <Text style={styles.handle}>{handle}</Text> : null}
-          </View>
           <TouchableOpacity
             style={styles.gearBtn}
             onPress={handleEditProfile}
@@ -185,37 +197,40 @@ export default function ProfileScreen() {
             <Settings size={22} color={colors.textPrimary} strokeWidth={2} />
           </TouchableOpacity>
         </View>
+        <View style={styles.nameColumn}>
+          <Text style={styles.displayName}>{displayName}</Text>
+          {handle ? <Text style={styles.handle}>{handle}</Text> : null}
+        </View>
 
         <View style={styles.stats}>
-          <View style={styles.stat}>
+          <View style={[styles.statCell, styles.statCellDivider]}>
             <Text style={styles.statValue}>{followCounts.followers}</Text>
-            <Text style={styles.statLabel}>FOLLOWERS</Text>
+            <Text style={styles.statLabel}>Followers</Text>
           </View>
-          <View style={styles.stat}>
+          <View style={[styles.statCell, styles.statCellDivider]}>
             <Text style={styles.statValue}>{followCounts.following}</Text>
-            <Text style={styles.statLabel}>FOLLOWING</Text>
+            <Text style={styles.statLabel}>Following</Text>
           </View>
-          <View style={styles.stat}>
+          <View style={styles.statCell}>
             <Text style={styles.statValue}>{myReviews.length}</Text>
-            <Text style={styles.statLabel}>REVIEWS</Text>
+            <Text style={styles.statLabel}>Reviews</Text>
           </View>
         </View>
 
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.writeReviewBtn} onPress={handleWriteReview} activeOpacity={0.8}>
-            <Pencil size={iconSizes.inline} color="#FFFFFF" strokeWidth={2} style={styles.writeReviewIcon} />
-            <Text style={styles.writeReviewText}>Write a Review</Text>
+            <Text style={styles.writeReviewText}>Write review</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.editProfileBtn} onPress={handleEditProfile} activeOpacity={0.8}>
-            <Text style={styles.editProfileText}>Edit Profile</Text>
+            <Text style={styles.editProfileText}>Edit profile</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* The Top 5 — matches web / Figma */}
+      {/* Figma AppLayout 63:565 — Top 5 */}
       <View style={styles.top5Section}>
         <View style={styles.top5Header}>
-          <Text style={styles.top5Title}>The Top 5</Text>
+          <Text style={styles.top5Title}>Top 5</Text>
         </View>
         {!topTenEligibility.has_unlocked_top_ten ? (
           <View style={styles.top5Locked}>
@@ -263,13 +278,15 @@ export default function ProfileScreen() {
             style={[styles.tab, activeTab === tab && styles.tabActive]}
             onPress={() => setActiveTab(tab)}
           >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab.toUpperCase()}</Text>
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+              {tab.toUpperCase()}
+            </Text>
           </Pressable>
         ))}
       </View>
 
       <View style={styles.tabContent}>
-        {activeTab === 'Reviews' && (
+        {activeTab === 'reviews' && (
           <View style={styles.section}>
             {myReviews.length === 0 ? (
               <Text style={styles.empty}>No reviews yet.</Text>
@@ -278,19 +295,24 @@ export default function ProfileScreen() {
                 const venue = Array.isArray(r.venue) ? r.venue[0] : r.venue
                 const venueName = venue?.name || 'Venue'
                 const hood = venue?.neighborhood_name
-                const rel = formatRelativeCaps(r.review_date || r.created_at)
-                const meta = [hood ? String(hood).toUpperCase() : null, rel].filter(Boolean).join(' • ')
+                const rel = formatRelativeSentence(r.review_date || r.created_at)
+                const hoodLabel = hood
+                  ? String(hood).replace(/\w\S*/g, (t) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase())
+                  : null
+                const meta = [hoodLabel, rel].filter(Boolean).join(' • ')
                 return (
                   <View key={r.venue_review_id} style={styles.reviewItem}>
-                    <View style={styles.reviewTop}>
-                      <Text style={styles.reviewVenueName} numberOfLines={2}>
-                        {venueName}
-                      </Text>
+                    <View style={styles.reviewHeaderRow}>
+                      <View style={styles.reviewTitleblock}>
+                        <Text style={styles.reviewVenueName} numberOfLines={2}>
+                          {venueName}
+                        </Text>
+                        {meta ? <Text style={styles.reviewMetaCaps}>{meta}</Text> : null}
+                      </View>
                       {r.rating10 != null && (
                         <Text style={styles.reviewScoreBadge}>{Number(r.rating10).toFixed(1)}</Text>
                       )}
                     </View>
-                    {meta ? <Text style={styles.reviewMetaCaps}>{meta}</Text> : null}
                     <Text style={styles.reviewBody} numberOfLines={6}>
                       {r.review_text || '—'}
                     </Text>
@@ -300,7 +322,7 @@ export default function ProfileScreen() {
             )}
           </View>
         )}
-        {activeTab === 'Lists' && (
+        {activeTab === 'lists' && (
           <View style={styles.section}>
             {lists.length === 0 ? (
               <Text style={styles.empty}>No lists yet.</Text>
@@ -333,7 +355,7 @@ export default function ProfileScreen() {
             )}
           </View>
         )}
-        {activeTab === 'Saved' && (
+        {activeTab === 'saved' && (
           <View style={styles.section}>
             {favorites.length === 0 ? (
               <Text style={styles.empty}>No saved venues.</Text>
@@ -353,8 +375,6 @@ export default function ProfileScreen() {
   )
 }
 
-const P = colors.profileAccent
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, paddingBottom: spacing['3xl'] },
@@ -369,27 +389,27 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     alignItems: 'stretch',
   },
-  identityRow: {
+  identityTopRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    justifyContent: 'space-between',
     width: '100%',
     marginBottom: spacing.md,
-    gap: spacing.md,
   },
-  nameColumn: { flex: 1, minWidth: 0, justifyContent: 'center' },
-  gearBtn: { padding: spacing.xs, marginTop: 2 },
+  nameColumn: { width: '100%', marginBottom: spacing.md },
+  gearBtn: { padding: spacing.xs, marginTop: 8 },
   avatarRow: { flexDirection: 'row', justifyContent: 'flex-start' },
   avatarWrapper: { position: 'relative' },
   avatarPlaceholder: {
-    width: 88,
-    height: 88,
+    width: 96,
+    height: 96,
     borderRadius: 8,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(228,228,231,0.5)',
+    borderWidth: 2,
+    borderColor: colors.border,
   },
   avatar: { width: '100%', height: '100%' },
   avatarText: { fontSize: fontSizes['2xl'], color: colors.textMuted, fontFamily: fontFamilies.fraunces },
@@ -400,14 +420,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: P,
+    backgroundColor: colors.profileAccent,
     borderWidth: 2,
     borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   displayName: {
-    fontSize: fontSizes['2xl'],
+    fontSize: fontSizes['4xl'],
     fontFamily: fontFamilies.fraunces,
     color: colors.textPrimary,
     marginBottom: spacing.xs,
@@ -415,56 +435,90 @@ const styles = StyleSheet.create({
   },
   handle: {
     fontSize: fontSizes.sm,
-    fontFamily: fontFamilies.interMedium,
+    fontFamily: fontFamilies.frauncesItalic,
+    fontStyle: 'italic',
     color: colors.textSecondary,
     marginBottom: 0,
     textAlign: 'left',
   },
   stats: {
     flexDirection: 'row',
-    gap: spacing.xl,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: colors.border,
+    paddingVertical: 14,
     marginBottom: spacing.lg,
-    justifyContent: 'flex-start',
   },
-  stat: { alignItems: 'center' },
-  statValue: { fontSize: fontSizes.lg, fontWeight: fontWeights.bold, color: colors.textPrimary },
-  statLabel: { fontSize: fontSizes.xs, fontWeight: fontWeights.medium, color: colors.textSecondary, letterSpacing: 0.3 },
+  statCell: { flex: 1, alignItems: 'center' },
+  statCellDivider: {
+    borderRightWidth: 1,
+    borderRightColor: colors.border,
+  },
+  statValue: {
+    fontSize: fontSizes['2xl'],
+    fontFamily: fontFamilies.fraunces,
+    color: colors.textPrimary,
+  },
+  statLabel: {
+    fontSize: 10,
+    fontFamily: fontFamilies.interBold,
+    color: colors.textTag,
+    letterSpacing: 1,
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
   actionRow: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
   writeReviewBtn: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: P,
+    backgroundColor: colors.profileAccent,
     paddingVertical: 12,
-    borderRadius: 16,
+    borderRadius: 0,
   },
-  writeReviewIcon: { marginRight: spacing.xs },
-  writeReviewText: { fontSize: fontSizes.sm, fontFamily: fontFamilies.interMedium, color: '#FFFFFF' },
+  writeReviewText: {
+    fontSize: 12,
+    fontFamily: fontFamilies.interBold,
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+  },
   editProfileBtn: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#18181B',
     paddingVertical: 12,
-    borderRadius: 16,
+    borderRadius: 0,
   },
-  editProfileText: { fontSize: fontSizes.sm, fontFamily: fontFamilies.interMedium, color: colors.textPrimary },
+  editProfileText: {
+    fontSize: 12,
+    fontFamily: fontFamilies.interBold,
+    color: colors.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+  },
 
   top5Section: {
     marginTop: spacing.lg,
     marginBottom: spacing.lg,
-    backgroundColor: colors.backgroundElevated,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.base,
+    backgroundColor: '#FDFBF7',
+    borderRadius: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: spacing.xl,
+    marginHorizontal: -spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
   top5Header: { marginBottom: spacing.sm },
-  top5Title: { fontSize: fontSizes.lg, fontFamily: fontFamilies.fraunces, fontWeight: fontWeights.bold, color: colors.textPrimary },
+  top5Title: {
+    fontSize: fontSizes['2xl'],
+    fontFamily: fontFamilies.fraunces,
+    fontWeight: fontWeights.normal,
+    color: colors.textPrimary,
+  },
   top5Locked: { paddingVertical: spacing.md, alignItems: 'center' },
   top5LockedText: { fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center', marginBottom: 0 },
   top5List: {},
@@ -477,22 +531,44 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderLight,
   },
   top5ThumbWrap: {},
-  top5Thumb: { width: 48, height: 48, borderRadius: 4 },
+  top5Thumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
   top5ThumbPlaceholder: { backgroundColor: colors.surface },
   top5Text: { flex: 1, minWidth: 0 },
-  top5VenueName: { fontSize: fontSizes.base, fontWeight: fontWeights.semibold, color: colors.textPrimary },
-  top5Hood: { fontSize: 10, fontWeight: fontWeights.semibold, letterSpacing: 0.6, color: colors.textSecondary, marginTop: 2 },
+  top5VenueName: {
+    fontSize: fontSizes.lg,
+    fontFamily: fontFamilies.fraunces,
+    fontWeight: fontWeights.normal,
+    color: colors.textPrimary,
+  },
+  top5Hood: {
+    fontSize: 10,
+    fontWeight: fontWeights.bold,
+    fontFamily: fontFamilies.interBold,
+    letterSpacing: 0.6,
+    color: colors.textTag,
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
   top5Score: {
     minWidth: 40,
     textAlign: 'center',
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 4,
+    borderRadius: 2,
     overflow: 'hidden',
-    fontSize: fontSizes.xs,
+    fontSize: 11,
+    fontFamily: fontFamilies.fraunces,
     fontWeight: fontWeights.bold,
     color: '#FFFFFF',
-    backgroundColor: P,
+    backgroundColor: colors.profileAccent,
+    borderWidth: 1,
+    borderColor: colors.browseAccentBorder,
   },
 
   tabs: {
@@ -511,7 +587,13 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabActive: { borderBottomColor: '#18181B' },
-  tabText: { fontSize: 10, fontWeight: fontWeights.semibold, letterSpacing: 0.6, color: colors.textMuted },
+  tabText: {
+    fontSize: 10,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    letterSpacing: 1,
+    color: colors.textMuted,
+  },
   tabTextActive: { color: colors.textPrimary },
 
   tabContent: { marginBottom: spacing.xl },
@@ -522,33 +604,51 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
-  reviewTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.sm },
-  reviewVenueName: {
+  reviewHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  reviewTitleblock: {
     flex: 1,
+    paddingRight: spacing.sm,
+    flexDirection: 'column',
+    gap: 6,
+  },
+  reviewVenueName: {
     fontFamily: fontFamilies.fraunces,
-    fontSize: fontSizes.base,
-    fontWeight: fontWeights.semibold,
+    fontSize: 20,
+    fontWeight: fontWeights.normal,
     color: colors.textPrimary,
   },
   reviewScoreBadge: {
     fontSize: 11,
+    fontFamily: fontFamilies.fraunces,
     fontWeight: fontWeights.bold,
     color: '#FFFFFF',
-    backgroundColor: P,
+    backgroundColor: colors.profileAccent,
+    borderWidth: 1,
+    borderColor: colors.browseAccentBorder,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 4,
+    borderRadius: 2,
     overflow: 'hidden',
   },
   reviewMetaCaps: {
     fontSize: 10,
-    fontWeight: fontWeights.semibold,
-    letterSpacing: 0.5,
-    color: '#888888',
-    marginTop: 4,
-    marginBottom: 6,
+    fontWeight: fontWeights.bold,
+    fontFamily: fontFamilies.interBold,
+    letterSpacing: 0.6,
+    color: colors.textTag,
+    marginTop: 0,
   },
-  reviewBody: { fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.textPrimary, lineHeight: 20 },
+  reviewBody: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Georgia',
+    color: '#3F3F47',
+    lineHeight: 22,
+  },
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -564,10 +664,12 @@ const styles = StyleSheet.create({
   listName: { fontSize: fontSizes.base, fontFamily: fontFamilies.interMedium, color: colors.textPrimary },
   listMeta: {
     fontSize: 10,
-    fontWeight: fontWeights.semibold,
+    fontWeight: fontWeights.bold,
+    fontFamily: fontFamilies.interBold,
     letterSpacing: 0.5,
-    color: colors.textMuted,
+    color: colors.textTag,
     marginTop: 2,
+    textTransform: 'uppercase',
   },
   signOutBtn: { paddingVertical: spacing.base, alignItems: 'center' },
   signOutText: { fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.textMuted },

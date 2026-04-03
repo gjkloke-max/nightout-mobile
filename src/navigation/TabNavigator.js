@@ -1,13 +1,8 @@
-import { useState, useEffect } from 'react'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { View, TouchableOpacity } from 'react-native'
-import { colors, fontSizes, spacing } from '../theme'
-import { getUnreadCount } from '../services/notifications'
-import { useAuth } from '../contexts/AuthContext'
+import { colors, fontSizes } from '../theme'
 import { TabIcon } from '../components/TabIcons'
-import { Bell } from 'lucide-react-native'
-import { iconSizes } from '../theme/icons'
+import NotificationsBellButton from '../components/NotificationsBellButton'
 import BrowseScreen from '../screens/BrowseScreen'
 import ChatScreen from '../screens/ChatScreen'
 import SocialScreen from '../screens/SocialScreen'
@@ -18,46 +13,12 @@ import ListDetailScreen from '../screens/ListDetailScreen'
 const Tab = createBottomTabNavigator()
 const Stack = createNativeStackNavigator()
 
-function HeaderRight({ navigation }) {
-  const { user } = useAuth()
-  const [unreadCount, setUnreadCount] = useState(0)
-
-  useEffect(() => {
-    if (!user?.id) return
-    const refresh = () => getUnreadCount(user.id).then(setUnreadCount)
-    refresh()
-    const interval = setInterval(refresh, 15000)
-    return () => clearInterval(interval)
-  }, [user?.id])
-
-  const openNotifications = () => {
-    const root = navigation.getParent()?.getParent?.()
-    root?.navigate?.('Notifications')
-  }
-  return (
-    <TouchableOpacity onPress={openNotifications} style={{ padding: spacing.sm, position: 'relative' }} hitSlop={12}>
-      <Bell size={iconSizes.header} color={colors.textPrimary} strokeWidth={2} />
-      {unreadCount > 0 && (
-        <View style={{
-          position: 'absolute',
-          top: 6,
-          right: 6,
-          width: 8,
-          height: 8,
-          borderRadius: 4,
-          backgroundColor: colors.error,
-        }} />
-      )}
-    </TouchableOpacity>
-  )
-}
-
-const screenOptions = ({ navigation }) => ({
+const screenOptions = () => ({
   headerStyle: { backgroundColor: colors.background },
   headerTintColor: colors.textPrimary,
   headerTitleStyle: { fontSize: fontSizes.lg, fontWeight: '700', fontFamily: 'Fraunces_700Bold' },
   headerShadowVisible: false,
-  headerRight: () => <HeaderRight navigation={navigation} />,
+  headerRight: () => <NotificationsBellButton />,
 })
 
 function BrowseStack() {
@@ -77,7 +38,7 @@ function BrowseStack() {
 function ChatStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen name="ChatMain" component={ChatScreen} options={{ title: '' }} />
+      <Stack.Screen name="ChatMain" component={ChatScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   )
 }
@@ -85,7 +46,7 @@ function ChatStack() {
 function SocialStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen name="SocialMain" component={SocialScreen} options={{ title: '' }} />
+      <Stack.Screen name="SocialMain" component={SocialScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   )
 }
@@ -123,9 +84,9 @@ export default function TabNavigator() {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Browse" component={BrowseStack} options={{ headerShown: true }} />
-      <Tab.Screen name="Chat" component={ChatStack} options={{ headerShown: true }} />
-      <Tab.Screen name="Social" component={SocialStack} options={{ headerShown: true }} />
+      <Tab.Screen name="Browse" component={BrowseStack} options={{ headerShown: false }} />
+      <Tab.Screen name="Chat" component={ChatStack} options={{ headerShown: false }} />
+      <Tab.Screen name="Social" component={SocialStack} options={{ headerShown: false }} />
       <Tab.Screen name="Profile" component={ProfileStack} options={{ headerShown: false }} />
     </Tab.Navigator>
   )

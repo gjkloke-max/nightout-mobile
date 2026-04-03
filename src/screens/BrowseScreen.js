@@ -20,8 +20,7 @@ import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes, fontF
 import { bm25Search } from '../lib/searchApi'
 import { fetchVenuesByIds, searchVenuesByName } from '../lib/venueService'
 import { getTrendingVenues } from '../services/trendingVenues'
-
-const CITY_TITLE = 'Chicago'
+import NotificationsBellButton from '../components/NotificationsBellButton'
 
 const TABS = [
   { id: 'trending', label: 'Trending' },
@@ -371,48 +370,51 @@ export default function BrowseScreen() {
   const showSearchResults = searchFocused && hasSearched
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: Math.max(spacing.lg, insets.top) + spacing.md }]}>
       <View style={styles.headerBlock}>
-        <Text style={styles.cityTitle}>{CITY_TITLE}</Text>
-
-        {searchFocused ? (
-          <View style={styles.searchFocusedRow}>
-            <View style={styles.searchFocusedInputShell}>
-              <View style={styles.searchIconSlot}>
-                <Search size={18} color={colors.borderInput} strokeWidth={2} />
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerSearchWrap}>
+            {searchFocused ? (
+              <View style={styles.searchFocusedRow}>
+                <View style={styles.searchFocusedInputShell}>
+                  <View style={styles.searchIconSlot}>
+                    <Search size={18} color={colors.borderInput} strokeWidth={2} />
+                  </View>
+                  <TextInput
+                    ref={searchInputRef}
+                    style={styles.searchField}
+                    placeholder={SEARCH_PLACEHOLDER}
+                    placeholderTextColor={colors.textTag}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    onSubmitEditing={handleSubmit}
+                    returnKeyType="search"
+                    editable={!loading}
+                    autoCorrect={false}
+                  />
+                </View>
+                <TouchableOpacity onPress={exitSearchMode} style={styles.cancelBtn} hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
               </View>
-              <TextInput
-                ref={searchInputRef}
-                style={styles.searchField}
-                placeholder={SEARCH_PLACEHOLDER}
-                placeholderTextColor={colors.textTag}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onSubmitEditing={handleSubmit}
-                returnKeyType="search"
-                editable={!loading}
-                autoCorrect={false}
-              />
-            </View>
-            <TouchableOpacity onPress={exitSearchMode} style={styles.cancelBtn} hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
+            ) : (
+              <Pressable
+                onPress={openSearchMode}
+                style={({ pressed }) => [styles.searchIdlePressable, pressed && styles.searchIdlePressed]}
+                accessibilityRole="search"
+                accessibilityLabel="Search venues"
+              >
+                <View style={styles.searchIconSlot}>
+                  <Search size={18} color={colors.borderInput} strokeWidth={2} />
+                </View>
+                <Text style={styles.searchIdlePlaceholder} numberOfLines={1}>
+                  {SEARCH_PLACEHOLDER}
+                </Text>
+              </Pressable>
+            )}
           </View>
-        ) : (
-          <Pressable
-            onPress={openSearchMode}
-            style={({ pressed }) => [styles.searchIdlePressable, pressed && styles.searchIdlePressed]}
-            accessibilityRole="search"
-            accessibilityLabel="Search venues"
-          >
-            <View style={styles.searchIconSlot}>
-              <Search size={18} color={colors.borderInput} strokeWidth={2} />
-            </View>
-            <Text style={styles.searchIdlePlaceholder} numberOfLines={1}>
-              {SEARCH_PLACEHOLDER}
-            </Text>
-          </Pressable>
-        )}
+          <NotificationsBellButton />
+        </View>
       </View>
 
       {searchFocused ? (
@@ -615,17 +617,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.backgroundCanvas },
   headerBlock: {
     paddingHorizontal: spacing.xl,
-    paddingTop: 48,
     paddingBottom: spacing.xl,
-    gap: spacing.xl,
+    gap: spacing.md,
   },
-  cityTitle: {
-    fontSize: fontSizes['4xl'],
-    fontFamily: fontFamilies.frauncesRegular,
-    fontWeight: fontWeights.normal,
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
-    lineHeight: fontSizes['4xl'],
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  headerSearchWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   /** Fills space below header when search mode is active */
   searchBody: {

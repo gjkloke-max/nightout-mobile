@@ -13,6 +13,7 @@ import {
   Keyboard,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { getSocialFeed } from '../services/socialFeed'
 import { searchUsers } from '../services/userSearch'
@@ -24,6 +25,7 @@ import {
 } from '../services/follows'
 import { useDebounce } from '../hooks/useDebounce'
 import ReviewPostCard from '../components/ReviewPostCard'
+import NotificationsBellButton from '../components/NotificationsBellButton'
 import { Search } from 'lucide-react-native'
 import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes } from '../theme'
 
@@ -35,6 +37,7 @@ function displayName(p) {
 
 export default function SocialScreen() {
   const navigation = useNavigation()
+  const insets = useSafeAreaInsets()
   const { user } = useAuth()
   const [feed, setFeed] = useState([])
   const [loading, setLoading] = useState(true)
@@ -127,17 +130,20 @@ export default function SocialScreen() {
   if (!user) return null
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchRow}>
-        <Search size={iconSizes.inline} color={colors.textMuted} strokeWidth={2} style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchBar}
-          placeholder="Search for friends by name..."
-          placeholderTextColor={colors.textMuted}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={() => Keyboard.dismiss()}
-        />
+    <View style={[styles.container, { paddingTop: Math.max(spacing.lg, insets.top) + spacing.md }]}>
+      <View style={styles.topBar}>
+        <View style={styles.searchRow}>
+          <Search size={iconSizes.inline} color={colors.textMuted} strokeWidth={2} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchBar}
+            placeholder="Search for friends by name..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={() => Keyboard.dismiss()}
+          />
+        </View>
+        <NotificationsBellButton />
       </View>
 
       {isSearching ? (
@@ -229,8 +235,16 @@ export default function SocialScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.backgroundCanvas },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.base,
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
+  },
   searchRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.base,
@@ -239,8 +253,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.sm,
   },
   searchIcon: { marginRight: spacing.sm },
   searchBar: {

@@ -31,8 +31,9 @@ export const colors = {
 
   // Accents — NewCo burgundy; purple retained for chat/social/modals where used
   accent: '#7F22FE',
-  profileAccent: '#8B1D3D',
-  profileAccentPressed: '#731832',
+  /** Figma Profile header — Write review + badges (align with web NewCo) */
+  profileAccent: '#9d174d',
+  profileAccentPressed: '#831843',
   /** Figma 36:1311 — active tab label + rating badge fill (rose/burgundy) */
   browseAccent: '#9d174d',
   browseAccentBorder: '#831843',
