@@ -12,13 +12,19 @@ function formatReviewDate(d) {
 }
 
 function getReviewerName(r) {
-  if (r.profile?.first_name && r.profile?.last_name) {
-    return `${r.profile.first_name} ${r.profile.last_name}`
-  }
+  const parts = [r.profile?.first_name, r.profile?.last_name].filter(Boolean)
+  if (parts.length) return parts.join(' ')
   return 'Private reviewer'
 }
 
-export default function VenueReviewList({ reviews = [], loading, userReview, onReviewClick }) {
+export default function VenueReviewList({
+  reviews = [],
+  loading,
+  userReview,
+  onReviewClick,
+  currentUserId,
+  onReviewerPress,
+}) {
   const displayReviews = [...reviews]
   if (userReview && !displayReviews.some((r) => r.venue_review_id === userReview.venue_review_id)) {
     displayReviews.unshift(userReview)
@@ -63,10 +69,18 @@ export default function VenueReviewList({ reviews = [], loading, userReview, onR
             ]}
           >
             <View style={styles.top}>
-              <View style={styles.meta}>
-                <Text style={styles.name}>{getReviewerName(r).toUpperCase()}</Text>
-                <Text style={styles.date}>{r.relative_time_description || formatReviewDate(r.review_date)}</Text>
-              </View>
+              <Pressable
+                style={styles.metaPressable}
+                onPress={() =>
+                  onReviewerPress && r.user_id && r.user_id !== currentUserId && onReviewerPress(r.user_id)
+                }
+                disabled={!onReviewerPress || !r.user_id || r.user_id === currentUserId}
+              >
+                <View style={styles.meta}>
+                  <Text style={styles.name}>{getReviewerName(r).toUpperCase()}</Text>
+                  <Text style={styles.date}>{r.relative_time_description || formatReviewDate(r.review_date)}</Text>
+                </View>
+              </Pressable>
               {r.rating10 != null && (
                 <View style={styles.ratingBadge}>
                   <Text style={styles.ratingBadgeText}>{Number(r.rating10).toFixed(1)}</Text>
@@ -121,7 +135,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm },
-  meta: { flex: 1, paddingRight: spacing.sm },
+  metaPressable: { flex: 1, paddingRight: spacing.sm },
+  meta: { flex: 1 },
   name: {
     fontSize: 13,
     fontFamily: fontFamilies.interBold,

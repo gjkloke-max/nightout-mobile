@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, Pressable, Image, TextInput, Platform } from 'react-native'
 import { Heart, MessageCircle } from 'lucide-react-native'
 import { likeReview, unlikeReview } from '../services/reviewLikes'
@@ -55,6 +55,7 @@ export default function ReviewPostCard({
   currentUserId,
   onLikeChange,
   onVenuePress,
+  onAuthorPress,
   isLastInFeed = false,
   navigation,
 }) {
@@ -65,7 +66,17 @@ export default function ReviewPostCard({
   const [likeCount, setLikeCount] = useState(post.likeCount ?? 0)
   const [liked, setLiked] = useState(!!(currentUserId && (post.likedBy || []).includes(currentUserId)))
 
+  useEffect(() => {
+    setComments(post.comments || [])
+  }, [post.venue_review_id, post.comments])
+
   const venue = Array.isArray(post.venue) ? post.venue[0] : post.venue
+  const authorId = post.author?.id || post.user_id
+  const authorTappable = !!(onAuthorPress && authorId && currentUserId && authorId !== currentUserId)
+
+  const commentProfileUserId = (c) => c.user_id || c.profile?.id
+  const commentTappable = (c) =>
+    !!(onAuthorPress && commentProfileUserId(c) && currentUserId && commentProfileUserId(c) !== currentUserId)
 
   const handleLike = async () => {
     if (!currentUserId) return
@@ -100,7 +111,11 @@ export default function ReviewPostCard({
   return (
     <View style={[styles.post, isLastInFeed && styles.postLast]}>
       <View style={styles.headerRow}>
-        <View style={styles.headerMain}>
+        <Pressable
+          style={({ pressed }) => [styles.headerMain, authorTappable && pressed && styles.headerMainPressed]}
+          onPress={() => authorTappable && onAuthorPress(authorId)}
+          disabled={!authorTappable}
+        >
           <View style={styles.avatar}>
             {post.author?.avatar_url ? (
               <Image source={{ uri: post.author.avatar_url }} style={styles.avatarImg} />
@@ -112,7 +127,7 @@ export default function ReviewPostCard({
             <Text style={styles.authorName}>{displayName(post.author)}</Text>
             <Text style={styles.time}>{formatTime(post.review_date || post.created_at)}</Text>
           </View>
-        </View>
+        </Pressable>
         {post.rating10 != null ? (
           <View style={styles.ratingBadge} accessibilityLabel={`Rating ${Number(post.rating10).toFixed(1)} out of 10`}>
             <Text style={styles.ratingBadgeText}>{Number(post.rating10).toFixed(1)}</Text>
@@ -155,32 +170,45 @@ export default function ReviewPostCard({
       {showComments ? (
         <View style={styles.commentsSection}>
           <View style={styles.commentsWarm}>
-            {comments.map((c, idx) => (
-              <View
-                key={c.id}
-                style={[styles.commentRow, idx === comments.length - 1 && styles.commentRowLast]}
-              >
-                <View style={styles.commentAvatar}>
-                  {c.profile?.avatar_url ? (
-                    <Image source={{ uri: c.profile.avatar_url }} style={styles.commentAvatarImg} />
-                  ) : (
-                    <Text style={styles.commentAvatarText}>{displayName(c.profile).slice(0, 2).toUpperCase()}</Text>
-                  )}
-                </View>
-                <View style={styles.commentMain}>
-                  <View style={styles.commentMeta}>
-                    <Text style={styles.commentName}>{displayName(c.profile)}</Text>
-                    <Text style={styles.commentWhen}>{formatCommentTime(c.created_at)}</Text>
+            {comments.map((c, idx) => {
+              const cid = commentProfileUserId(c)
+              const canOpen = commentTappable(c)
+              return (
+                <View
+                  key={c.id}
+                  style={[styles.commentRow, idx === comments.length - 1 && styles.commentRowLast]}
+                >
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.commentPressable,
+                      canOpen && pressed && styles.commentPressablePressed,
+                    ]}
+                    onPress={() => canOpen && onAuthorPress(cid)}
+                    disabled={!canOpen}
+                  >
+                    <View style={styles.commentAvatar}>
+                      {c.profile?.avatar_url ? (
+                        <Image source={{ uri: c.profile.avatar_url }} style={styles.commentAvatarImg} />
+                      ) : (
+                        <Text style={styles.commentAvatarText}>{displayName(c.profile).slice(0, 2).toUpperCase()}</Text>
+                      )}
+                    </View>
+                    <View style={styles.commentMain}>
+                      <View style={styles.commentMeta}>
+                        <Text style={styles.commentName}>{displayName(c.profile)}</Text>
+                        <Text style={styles.commentWhen}>{formatCommentTime(c.created_at)}</Text>
+                      </View>
+                      <Text style={styles.commentBody}>{c.comment_text}</Text>
+                      <Text style={styles.commentReply}>Reply</Text>
+                    </View>
+                  </Pressable>
+                  <View style={styles.commentLikeCol}>
+                    <Heart size={14} color={colors.textSecondary} fill="transparent" strokeWidth={2} />
+                    <Text style={styles.commentLikeCount}>0</Text>
                   </View>
-                  <Text style={styles.commentBody}>{c.comment_text}</Text>
-                  <Text style={styles.commentReply}>Reply</Text>
                 </View>
-                <View style={styles.commentLikeCol}>
-                  <Heart size={14} color={colors.textSecondary} fill="transparent" strokeWidth={2} />
-                  <Text style={styles.commentLikeCount}>0</Text>
-                </View>
-              </View>
-            ))}
+              )
+            })}
           </View>
           {currentUserId ? (
             <View style={styles.commentsComposer}>
@@ -233,6 +261,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   headerMain: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0, paddingRight: spacing.sm },
+  headerMainPressed: { opacity: 0.88 },
   avatar: {
     width: 40,
     height: 40,
@@ -350,6 +379,14 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   commentRowLast: { marginBottom: 0 },
+  commentPressable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+    minWidth: 0,
+  },
+  commentPressablePressed: { opacity: 0.88 },
   commentAvatar: {
     width: 32,
     height: 32,

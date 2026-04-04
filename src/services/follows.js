@@ -133,6 +133,20 @@ export async function unfollowUser(followerId, followedId) {
   return { success: !error, error: error?.message }
 }
 
+export async function canViewPrivateProfile(targetUserId, viewerUserId) {
+  if (!targetUserId || !viewerUserId || !supabase) return false
+  if (targetUserId === viewerUserId) return true
+  const { data: profile } = await supabase.from('profiles').select('is_private').eq('id', targetUserId).single()
+  if (!profile?.is_private) return true
+  const { data } = await supabase
+    .from('user_follows')
+    .select('follower_user_id')
+    .eq('follower_user_id', viewerUserId)
+    .eq('followed_user_id', targetUserId)
+    .maybeSingle()
+  return !!data
+}
+
 export async function getFollowCounts(userId) {
   if (!userId || !supabase) return { followers: 0, following: 0 }
   const [followersRes, followingRes] = await Promise.all([

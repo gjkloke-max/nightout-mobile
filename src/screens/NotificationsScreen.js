@@ -111,6 +111,11 @@ export default function NotificationsScreen() {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
+  const openFriendProfile = (uid) => {
+    if (!uid || uid === user?.id) return
+    navigation.navigate('FriendProfile', { userId: uid })
+  }
+
   const renderNotification = (n) => {
     const timeStr = formatTime(n.created_at)
 
@@ -121,7 +126,7 @@ export default function NotificationsScreen() {
       const avatarUrl = profile?.avatar_url || n.payload?.requester_avatar_url || null
       return (
         <View key={n.id} style={[styles.item, !n.is_read && styles.itemUnread]}>
-          <Pressable style={styles.itemBody} onPress={() => navigation.navigate('Profile', { screen: 'ProfileMain' })}>
+          <Pressable style={styles.itemBody} onPress={() => rid && openFriendProfile(rid)}>
             <View style={styles.avatar}>
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
@@ -151,7 +156,11 @@ export default function NotificationsScreen() {
       const name = resolveName(profile, n.payload?.target_name, 'They')
       const avatarUrl = profile?.avatar_url || n.payload?.target_avatar_url || null
       return (
-        <Pressable key={n.id} style={[styles.item, !n.is_read && styles.itemUnread]}>
+        <Pressable
+          key={n.id}
+          style={[styles.item, !n.is_read && styles.itemUnread]}
+          onPress={() => tid && openFriendProfile(tid)}
+        >
           <View style={styles.avatar}>
             {avatarUrl ? (
               <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
@@ -172,7 +181,11 @@ export default function NotificationsScreen() {
       const name = resolveName(profile, n.payload?.target_name, 'They')
       const avatarUrl = profile?.avatar_url || n.payload?.target_avatar_url || null
       return (
-        <Pressable key={n.id} style={[styles.item, !n.is_read && styles.itemUnread]}>
+        <Pressable
+          key={n.id}
+          style={[styles.item, !n.is_read && styles.itemUnread]}
+          onPress={() => tid && openFriendProfile(tid)}
+        >
           <View style={styles.avatar}>
             {avatarUrl ? (
               <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />

@@ -67,16 +67,55 @@ export async function getUserLists() {
   return { data: listsWithMeta, error: null }
 }
 
+export async function getPublicListsForUser(profileUserId) {
+  if (!profileUserId || !supabase) return { data: [], error: null }
+  const { data: lists, error: listsError } = await supabase
+    .from('venue_list')
+    .select('list_id, list_name, cover_image_url, created_at, updated_at, list_visibility')
+    .eq('user_id', profileUserId)
+    .eq('list_visibility', 'public')
+    .order('updated_at', { ascending: false })
+  if (listsError) return { data: null, error: listsError }
+  if (!lists?.length) return { data: [], error: null }
+  const listIds = lists.map((l) => l.list_id)
+  const { data: items, error: itemsError } = await supabase
+    .from('venue_list_item')
+    .select('list_id, venue_id')
+    .in('list_id', listIds)
+  if (itemsError) return { data: null, error: itemsError }
+  const countByList = {}
+  const venueIdsByList = {}
+  ;(items || []).forEach((item) => {
+    countByList[item.list_id] = (countByList[item.list_id] || 0) + 1
+    if (!venueIdsByList[item.list_id]) venueIdsByList[item.list_id] = []
+    venueIdsByList[item.list_id].push(item.venue_id)
+  })
+  const venueIds = [...new Set((items || []).map((i) => i.venue_id))]
+  const { data: venues } = await supabase
+    .from('venue')
+    .select('venue_id, name, primary_photo_url')
+    .in('venue_id', venueIds)
+  const venueMap = new Map((venues || []).map((v) => [v.venue_id, v]))
+  const listsWithMeta = lists.map((list) => ({
+    ...list,
+    item_count: countByList[list.list_id] || 0,
+    preview_venues: (venueIdsByList[list.list_id] || [])
+      .slice(0, 4)
+      .map((vid) => venueMap.get(vid))
+      .filter(Boolean),
+  }))
+  return { data: listsWithMeta, error: null }
+}
+
 export async function getListWithItems(listId) {
   if (!supabase) return { data: null, error: { message: 'Not configured' } }
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: { message: 'User not authenticated' } }
   const { data: list, error: le } = await supabase
     .from('venue_list')
-    .select('list_id, list_name, cover_image_url, created_at, updated_at')
+    .select('list_id, list_name, cover_image_url, created_at, updated_at, user_id, list_visibility')
     .eq('list_id', listId)
-    .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
   if (le || !list) return { data: null, error: le || { message: 'List not found' } }
   const { data: items, error: ie } = await supabase
     .from('venue_list_item')

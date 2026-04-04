@@ -54,16 +54,27 @@ export default function VenueProfileScreen() {
     useCallback(() => {
       if (!venueId || !supabase) return
       setLoadingReviews(true)
-      supabase
-        .from('venue_review')
-        .select('venue_review_id, rating10, review_text, review_date, relative_time_description, user_id')
-        .eq('venue_id', venueId)
-        .order('review_date', { ascending: false })
-        .limit(15)
-        .then(({ data }) => {
-          setVenueReviews(data || [])
-          setLoadingReviews(false)
-        })
+      ;(async () => {
+        const { data: rows } = await supabase
+          .from('venue_review')
+          .select('venue_review_id, rating10, review_text, review_date, relative_time_description, user_id')
+          .eq('venue_id', venueId)
+          .order('review_date', { ascending: false })
+          .limit(15)
+        const list = rows || []
+        const userIds = [...new Set(list.map((r) => r.user_id).filter(Boolean))]
+        let merged = list
+        if (userIds.length) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, avatar_url')
+            .in('id', userIds)
+          const byId = Object.fromEntries((profiles || []).map((p) => [p.id, p]))
+          merged = list.map((r) => ({ ...r, profile: byId[r.user_id] || null }))
+        }
+        setVenueReviews(merged)
+        setLoadingReviews(false)
+      })()
     }, [venueId])
   )
 
@@ -95,6 +106,11 @@ export default function VenueProfileScreen() {
   const openWriteReview = () => {
     if (!venue?.venue_id) return
     navigation.navigate('WriteReview', { venueId: venue.venue_id })
+  }
+
+  const openFriendProfile = (uid) => {
+    if (!uid || uid === user?.id) return
+    navigation.navigate('FriendProfile', { userId: uid })
   }
 
   if (!venueId) {
@@ -176,11 +192,13 @@ export default function VenueProfileScreen() {
 
         <View onLayout={(e) => { reviewsLayoutRef.current.y = e.nativeEvent.layout.y }}>
           <VenueReviewList
-          reviews={venueReviews}
-          loading={loadingReviews}
-          userReview={userReview}
-          onReviewClick={openWriteReview}
-        />
+            reviews={venueReviews}
+            loading={loadingReviews}
+            userReview={userReview}
+            onReviewClick={openWriteReview}
+            currentUserId={user?.id}
+            onReviewerPress={openFriendProfile}
+          />
         </View>
       </ScrollView>
 

@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { getSocialFeed } from '../services/socialFeed'
@@ -52,6 +52,8 @@ export default function SocialScreen() {
   const [followLoading, setFollowLoading] = useState(null)
   const [searchFocused, setSearchFocused] = useState(false)
   const searchInputRef = useRef(null)
+  /** Skip first focus so initial load runs only via useEffect (avoids double fetch on mount). */
+  const skipNextFocusRef = useRef(true)
 
   const debouncedQuery = useDebounce(searchQuery, 300)
 
@@ -62,8 +64,23 @@ export default function SocialScreen() {
   }, [user?.id])
 
   useEffect(() => {
+    skipNextFocusRef.current = true
+  }, [user?.id])
+
+  useEffect(() => {
     loadFeed().finally(() => setLoading(false))
   }, [loadFeed])
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.id) return
+      if (skipNextFocusRef.current) {
+        skipNextFocusRef.current = false
+        return
+      }
+      loadFeed()
+    }, [user?.id, loadFeed])
+  )
 
   const onRefresh = async () => {
     setRefreshing(true)
@@ -124,6 +141,22 @@ export default function SocialScreen() {
   const handleVenuePress = (venue) => {
     const root = navigation.getParent()?.getParent?.()
     root?.navigate?.('VenueProfile', { venueId: venue?.venue_id })
+  }
+
+  const handleAuthorPress = (authorUserId) => {
+    const root = navigation.getParent()?.getParent?.()
+    root?.navigate?.('FriendProfile', { userId: authorUserId })
+  }
+
+  /** Open friend profile from search (or own Profile tab when self). */
+  const handleSearchUserPress = (targetUserId) => {
+    if (!targetUserId) return
+    if (user?.id && targetUserId === user.id) {
+      navigation.navigate('Profile', { screen: 'ProfileMain' })
+      return
+    }
+    const root = navigation.getParent()?.getParent?.()
+    root?.navigate?.('FriendProfile', { userId: targetUserId })
   }
 
   const handleLikeChange = () => {
@@ -225,7 +258,12 @@ export default function SocialScreen() {
                 const label = loadingFollow ? '...' : status === 'following' ? 'Following' : status === 'pending' ? 'Requested' : 'Follow'
                 return (
                   <View key={u.id} style={styles.searchItem}>
-                    <View style={styles.searchItemLeft}>
+                    <Pressable
+                      style={styles.searchItemLeft}
+                      onPress={() => handleSearchUserPress(u.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Open profile for ${displayName(u)}`}
+                    >
                       <View style={styles.avatarWrap}>
                         {u.avatar_url ? (
                           <Image source={{ uri: u.avatar_url }} style={styles.avatar} />
@@ -234,7 +272,7 @@ export default function SocialScreen() {
                         )}
                       </View>
                       <Text style={styles.searchItemName}>{displayName(u)}</Text>
-                    </View>
+                    </Pressable>
                     <Pressable
                       style={[
                         styles.followBtn,
@@ -282,6 +320,7 @@ export default function SocialScreen() {
               currentUserId={user?.id}
               onLikeChange={handleLikeChange}
               onVenuePress={handleVenuePress}
+              onAuthorPress={handleAuthorPress}
               isLastInFeed={index === feed.length - 1}
               navigation={navigation}
             />
