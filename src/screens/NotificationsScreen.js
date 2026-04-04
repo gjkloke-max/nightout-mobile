@@ -23,6 +23,8 @@ import { navigateFromNotificationMobileLink } from '../services/notificationDeep
 import { acceptFollowRequest, denyFollowRequest } from '../services/follows'
 import { colors, fontSizes, fontWeights, spacing } from '../theme'
 
+const BADGE_REFRESH = 'notification-badge-refresh'
+
 const LEGACY_TYPES = {
   follow_request: 'follow_request_received',
   follow_accepted: 'follow_request_accepted',
@@ -90,6 +92,7 @@ export default function NotificationsScreen() {
         const { notifications: rows, nextCursor: nc } = await getNotificationsForUser(user.id, {
           limit: 20,
           cursor,
+          includeCounts: false,
         })
         setNotifications((prev) => (append ? [...prev, ...(rows || [])] : rows || []))
         setNextCursor(nc)
@@ -106,11 +109,11 @@ export default function NotificationsScreen() {
       if (!user?.id) return undefined
       let cancelled = false
       ;(async () => {
-        await markAsSeen(user.id, null)
-        if (!cancelled) {
-          DeviceEventEmitter.emit(BADGE_REFRESH)
-          await loadPage(null, false)
-        }
+        // Load feed first — do not await markAsSeen first (RPC can stall and block UI forever).
+        void markAsSeen(user.id, null).then(() => {
+          if (!cancelled) DeviceEventEmitter.emit(BADGE_REFRESH)
+        })
+        await loadPage(null, false)
       })()
       return () => {
         cancelled = true

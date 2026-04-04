@@ -22,8 +22,10 @@ export function buildAggregationKey(p) {
   const parts = [type]
 
   switch (type) {
-    case 'comment_liked':
+    case 'post_commented':
     case 'post_liked':
+      return null
+    case 'comment_liked':
     case 'list_liked':
     case 'thread_replied':
     case 'comment_replied':

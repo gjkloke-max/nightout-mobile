@@ -91,7 +91,7 @@ export async function createOrAggregateNotification(payload) {
 
   if (aggKey && windowMs > 0) {
     const aggResult = await tryAggregateIntoExisting(normalized, aggKey, windowMs)
-    if (aggResult) return aggResult
+    if (aggResult?.aggregated) return aggResult
   }
 
   return insertNotificationRow(normalized, aggKey)
@@ -184,7 +184,10 @@ async function tryAggregateIntoExisting(n, aggKey, windowMs) {
     })
     .eq('id', existing.id)
 
-  if (error) return { success: false, error: error.message }
+  if (error) {
+    console.warn('[notifications] aggregate update failed (will insert new row if needed):', error.message)
+    return null
+  }
   await maybeEnqueueDelivery(existing.id, n, 'in_app')
   return { success: true, id: existing.id, aggregated: true }
 }
@@ -246,7 +249,10 @@ async function insertNotificationRow(n, aggKey) {
   }
 
   const { data, error } = await supabase.from('notifications').insert(row).select('id').single()
-  if (error) return { success: false, error: error.message }
+  if (error) {
+    console.error('[notifications] insert failed', { type: n.type, message: error.message, code: error.code })
+    return { success: false, error: error.message }
+  }
 
   await maybeEnqueueDelivery(data.id, n, 'in_app')
   await maybeEnqueuePush(data.id, n)
@@ -362,9 +368,9 @@ export async function markAllAsRead(userId) {
  */
 export async function markAsSeen(userId, ids = null) {
   if (!userId) return { success: false }
-  const { data, error } = await supabase.rpc('mark_notifications_seen', {
-    p_ids: ids,
-  })
+  const rpcParams =
+    ids != null && Array.isArray(ids) && ids.length > 0 ? { p_ids: ids } : {}
+  const { data, error } = await supabase.rpc('mark_notifications_seen', rpcParams)
   if (!error) return { success: true, count: data }
   const q = supabase.from('notifications').update({ seen_at: new Date().toISOString() }).eq('recipient_user_id', userId).is('seen_at', null)
   const { error: err2 } = ids?.length ? await q.in('id', ids) : await q
@@ -421,54 +427,65 @@ function encodeCursorPair(createdAt, id) {
 
 /**
  * @param {string} userId
- * @param {{ cursor?: string|null, limit?: number }} [opts]
+ * @param {{ cursor?: string|null, limit?: number, includeCounts?: boolean }} [opts]
  */
 export async function getNotificationsForUser(userId, opts = {}) {
   if (!userId) {
     return { notifications: [], nextCursor: null, unreadCount: 0, unseenCount: 0 }
   }
-  const limit = Math.min(Math.max(opts.limit ?? 20, 1), 100)
-  const decoded = decodeCursorPair(opts.cursor || '')
-  const cursorCreated = decoded.created_at
-  const cursorId = decoded.id
+  const includeCounts = opts.includeCounts !== false
+  try {
+    const limit = Math.min(Math.max(opts.limit ?? 20, 1), 100)
+    const decoded = decodeCursorPair(opts.cursor || '')
+    const cursorCreated = decoded.created_at
+    const cursorId = decoded.id
 
-  const { data: rpcData, error: rpcError } = await supabase.rpc('get_notifications_feed', {
-    p_limit: limit,
-    p_cursor_created_at: cursorCreated,
-    p_cursor_id: cursorId,
-  })
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_notifications_feed', {
+      p_limit: limit,
+      p_cursor_created_at: cursorCreated,
+      p_cursor_id: cursorId,
+    })
 
-  let rows = rpcError ? null : rpcData
-  if (rpcError || !rows) {
-    let q = supabase
-      .from('notifications')
-      .select('*')
-      .eq('recipient_user_id', userId)
-      .eq('is_hidden', false)
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: false })
-      .limit(limit)
+    let rows = rpcError ? null : rpcData
+    if (rpcError || !rows) {
+      let q = supabase
+        .from('notifications')
+        .select('*')
+        .eq('recipient_user_id', userId)
+        .eq('is_hidden', false)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(limit)
 
-    if (cursorCreated != null && cursorId != null) {
-      q = q.or(`created_at.lt.${cursorCreated},and(created_at.eq.${cursorCreated},id.lt.${cursorId})`)
+      if (cursorCreated != null && cursorId != null) {
+        q = q.or(`created_at.lt.${cursorCreated},and(created_at.eq.${cursorCreated},id.lt.${cursorId})`)
+      }
+      const { data: fallback } = await q
+      rows = fallback || []
     }
-    const { data: fallback } = await q
-    rows = fallback || []
-  }
 
-  const list = rows || []
-  const last = list[list.length - 1]
-  const nextCursor =
-    list.length >= limit && last ? encodeCursorPair(last.created_at, last.id) : null
+    const list = rows || []
+    const last = list[list.length - 1]
+    const nextCursor =
+      list.length >= limit && last ? encodeCursorPair(last.created_at, last.id) : null
 
-  const unreadCount = await getUnreadCount(userId)
-  const unseenCount = await getUnseenCount(userId)
+    let unreadCount = 0
+    let unseenCount = 0
+    if (includeCounts) {
+      const [ur, us] = await Promise.allSettled([getUnreadCount(userId), getUnseenCount(userId)])
+      unreadCount = ur.status === 'fulfilled' ? ur.value : 0
+      unseenCount = us.status === 'fulfilled' ? us.value : 0
+    }
 
-  return {
-    notifications: list.map(mapRowForClient),
-    nextCursor,
-    unreadCount,
-    unseenCount,
+    return {
+      notifications: list.map(mapRowForClient),
+      nextCursor,
+      unreadCount,
+      unseenCount,
+    }
+  } catch (e) {
+    console.error('getNotificationsForUser', e)
+    return { notifications: [], nextCursor: null, unreadCount: 0, unseenCount: 0 }
   }
 }
 
