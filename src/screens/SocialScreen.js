@@ -283,6 +283,7 @@ export default function SocialScreen() {
               onLikeChange={handleLikeChange}
               onVenuePress={handleVenuePress}
               isLastInFeed={index === feed.length - 1}
+              navigation={navigation}
             />
           ))}
         </ScrollView>

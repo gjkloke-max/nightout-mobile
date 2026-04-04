@@ -50,7 +50,14 @@ function composerInitials(user) {
   return email.slice(0, 2).toUpperCase() || '?'
 }
 
-export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVenuePress, isLastInFeed = false }) {
+export default function ReviewPostCard({
+  post,
+  currentUserId,
+  onLikeChange,
+  onVenuePress,
+  isLastInFeed = false,
+  navigation,
+}) {
   const { user } = useAuth()
   const [showComments, setShowComments] = useState(false)
   const [comments, setComments] = useState(post.comments || [])
@@ -120,7 +127,14 @@ export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVe
         </View>
       </Pressable>
 
-      {post.review_text ? <Text style={styles.reviewText}>{post.review_text}</Text> : null}
+      {post.review_text ? (
+        <Pressable
+          onPress={() => navigation?.navigate?.('SocialReviewDetail', { reviewId: post.venue_review_id })}
+          style={({ pressed }) => [pressed && navigation && styles.reviewTextPressed]}
+        >
+          <Text style={styles.reviewText}>{post.review_text}</Text>
+        </Pressable>
+      ) : null}
 
       <View style={styles.actions}>
         <Pressable style={styles.actionBtn} onPress={handleLike}>
@@ -307,6 +321,9 @@ const styles = StyleSheet.create({
     color: '#27272a',
     lineHeight: 29.25,
     marginBottom: spacing.md,
+  },
+  reviewTextPressed: {
+    opacity: 0.85,
   },
   actions: {
     flexDirection: 'row',

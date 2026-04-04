@@ -6,6 +6,7 @@ import NotificationsBellButton from '../components/NotificationsBellButton'
 import BrowseScreen from '../screens/BrowseScreen'
 import ChatScreen from '../screens/ChatScreen'
 import SocialScreen from '../screens/SocialScreen'
+import SocialReviewDetailScreen from '../screens/SocialReviewDetailScreen'
 import ProfileScreen from '../screens/ProfileScreen'
 import EditProfileScreen from '../screens/EditProfileScreen'
 import ListDetailScreen from '../screens/ListDetailScreen'
@@ -47,6 +48,11 @@ function SocialStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="SocialMain" component={SocialScreen} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="SocialReviewDetail"
+        component={SocialReviewDetailScreen}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
   )
 }
