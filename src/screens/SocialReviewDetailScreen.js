@@ -10,11 +10,14 @@ import {
   ActivityIndicator,
   Share,
   Platform,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native'
 import { useRoute, useNavigation } from '@react-navigation/native'
 import { Heart, MessageCircle, ChevronLeft, Share2 } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 import { getSocialReviewById } from '../services/socialFeed'
 import { likeReview, unlikeReview } from '../services/reviewLikes'
 import { addComment } from '../services/reviewComments'
@@ -80,6 +83,8 @@ export default function SocialReviewDetailScreen() {
   const [liked, setLiked] = useState(false)
   const [comments, setComments] = useState([])
   const [commentText, setCommentText] = useState('')
+  /** Current user's profile row — used for composer avatar and optimistic comment names */
+  const [myProfile, setMyProfile] = useState(null)
 
   const load = useCallback(async () => {
     if (!user?.id || reviewId == null) {
@@ -101,6 +106,25 @@ export default function SocialReviewDetailScreen() {
     load()
   }, [load])
 
+  useEffect(() => {
+    if (!user?.id || !supabase) {
+      setMyProfile(null)
+      return
+    }
+    let cancelled = false
+    supabase
+      .from('profiles')
+      .select('first_name, last_name, avatar_url')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setMyProfile(data ?? null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
+
   const handleLike = async () => {
     if (!user?.id || !post) return
     const next = !liked
@@ -117,8 +141,26 @@ export default function SocialReviewDetailScreen() {
     if (!user?.id || !post || !commentText.trim()) return
     const { success, data } = await addComment(user.id, post.venue_review_id, commentText.trim())
     if (success && data) {
-      setComments((prev) => [...prev, { ...data, profile: { id: user.id, first_name: '', last_name: '' } }])
+      const firstName = myProfile?.first_name ?? user?.user_metadata?.first_name ?? ''
+      const lastName = myProfile?.last_name ?? user?.user_metadata?.last_name ?? ''
+      const avatarUrl = myProfile?.avatar_url ?? user?.user_metadata?.avatar_url ?? null
+      setComments((prev) => [
+        ...prev,
+        {
+          ...data,
+          profile: {
+            id: user.id,
+            first_name: firstName,
+            last_name: lastName,
+            avatar_url: avatarUrl,
+          },
+        },
+      ])
       setCommentText('')
+      Keyboard.dismiss()
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollToEnd({ animated: true })
+      })
     }
   }
 
@@ -187,7 +229,19 @@ export default function SocialReviewDetailScreen() {
         </Pressable>
       </View>
 
-      <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+      >
+        <View style={styles.scrollWrap}>
+          <ScrollView
+            ref={scrollRef}
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
         <View style={styles.topBlock}>
           <View style={styles.heroLeft}>
             <View style={styles.authorRow}>
@@ -268,30 +322,38 @@ export default function SocialReviewDetailScreen() {
               </View>
             ))}
           </View>
-          {user?.id ? (
-            <View style={styles.commentsComposer}>
-              <View style={styles.composerAvatar}>
-                {user?.user_metadata?.avatar_url ? (
-                  <Image source={{ uri: user.user_metadata.avatar_url }} style={styles.composerAvatarImg} />
-                ) : (
-                  <Text style={styles.composerAvatarText}>{composerInitials(user)}</Text>
-                )}
-              </View>
-              <TextInput
-                style={styles.composerInput}
-                value={commentText}
-                onChangeText={setCommentText}
-                placeholder="Add a comment..."
-                placeholderTextColor={colors.textTag}
-                onSubmitEditing={handleCommentSubmit}
-              />
-              <Pressable onPress={handleCommentSubmit} disabled={!commentText.trim()} hitSlop={8}>
-                <Text style={[styles.composerPost, !commentText.trim() && styles.composerPostDisabled]}>Post</Text>
-              </Pressable>
-            </View>
-          ) : null}
         </View>
-      </ScrollView>
+          </ScrollView>
+        </View>
+
+        {user?.id ? (
+          <View style={[styles.commentsComposer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+            <View style={styles.composerAvatar}>
+              {myProfile?.avatar_url || user?.user_metadata?.avatar_url ? (
+                <Image
+                  source={{ uri: myProfile?.avatar_url || user.user_metadata.avatar_url }}
+                  style={styles.composerAvatarImg}
+                />
+              ) : (
+                <Text style={styles.composerAvatarText}>{composerInitials(user)}</Text>
+              )}
+            </View>
+            <TextInput
+              style={styles.composerInput}
+              value={commentText}
+              onChangeText={setCommentText}
+              placeholder="Add a comment..."
+              placeholderTextColor={colors.textTag}
+              onSubmitEditing={handleCommentSubmit}
+              returnKeyType="send"
+              blurOnSubmit={false}
+            />
+            <Pressable onPress={handleCommentSubmit} disabled={!commentText.trim()} hitSlop={8}>
+              <Text style={[styles.composerPost, !commentText.trim() && styles.composerPostDisabled]}>Post</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </KeyboardAvoidingView>
     </View>
   )
 }
@@ -346,6 +408,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: colors.textMuted,
     fontSize: fontSizes.md,
+  },
+  /** Required — KAV without flex:1 collapses and ScrollView gets 0 height */
+  keyboardAvoid: {
+    flex: 1,
+    width: '100%',
+  },
+  scrollWrap: {
+    flex: 1,
+    minHeight: 0,
   },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: spacing.xxl },
@@ -532,9 +603,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+    flexShrink: 0,
     paddingHorizontal: spacing.xl,
-    paddingVertical: 16,
-    paddingBottom: 24,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.backgroundCanvas,
