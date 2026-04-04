@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { View, Text, StyleSheet, Pressable, Image, TextInput, Platform } from 'react-native'
-import { Heart, MapPin, MessageCircle } from 'lucide-react-native'
+import { Heart, MessageCircle } from 'lucide-react-native'
 import { likeReview, unlikeReview } from '../services/reviewLikes'
 import { addComment, getCommentsWithProfiles } from '../services/reviewComments'
+import { useAuth } from '../contexts/AuthContext'
 import { colors, fontSizes, fontWeights, spacing, iconSizes, fontFamilies } from '../theme'
 
 function displayName(p) {
@@ -26,7 +27,31 @@ function formatTime(d) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+/** Figma — short stamps on comments */
+function formatCommentTime(d) {
+  if (!d) return ''
+  const date = new Date(d)
+  const now = new Date()
+  const diffMins = Math.floor((now - date) / 60000)
+  const diffHours = Math.floor((now - date) / 3600000)
+  const diffDays = Math.floor((now - date) / 86400000)
+  if (diffMins < 1) return 'now'
+  if (diffMins < 60) return `${diffMins}m`
+  if (diffHours < 24) return `${diffHours}h`
+  if (diffDays === 1) return '1d'
+  if (diffDays < 7) return `${diffDays}d`
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function composerInitials(user) {
+  const meta = user?.user_metadata
+  if (meta?.first_name) return String(meta.first_name).slice(0, 2).toUpperCase()
+  const email = user?.email || ''
+  return email.slice(0, 2).toUpperCase() || '?'
+}
+
 export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVenuePress, isLastInFeed = false }) {
+  const { user } = useAuth()
   const [showComments, setShowComments] = useState(false)
   const [comments, setComments] = useState(post.comments || [])
   const [commentText, setCommentText] = useState('')
@@ -89,15 +114,6 @@ export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVe
       </View>
 
       <Pressable style={styles.venueRow} onPress={() => onVenuePress?.(venue)}>
-        <View style={styles.venueThumb}>
-          {venue?.primary_photo_url ? (
-            <Image source={{ uri: venue.primary_photo_url }} style={styles.venueThumbImg} />
-          ) : (
-            <View style={styles.venuePlaceholder}>
-              <MapPin size={iconSizes.card} color={colors.textMuted} strokeWidth={1.5} />
-            </View>
-          )}
-        </View>
         <View style={styles.venueInfo}>
           <Text style={styles.venueName}>{venue?.name || 'Venue'}</Text>
           {venue?.neighborhood_name ? <Text style={styles.venueNeighborhood}>{venue.neighborhood_name}</Text> : null}
@@ -123,25 +139,54 @@ export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVe
       </View>
 
       {showComments ? (
-        <View style={styles.comments}>
-          {comments.map((c) => (
-            <View key={c.id} style={styles.comment}>
-              <Text style={styles.commentAuthor}>{displayName(c.profile)}</Text>
-              <Text style={styles.commentText}>{c.comment_text}</Text>
-            </View>
-          ))}
+        <View style={styles.commentsSection}>
+          <View style={styles.commentsWarm}>
+            {comments.map((c, idx) => (
+              <View
+                key={c.id}
+                style={[styles.commentRow, idx === comments.length - 1 && styles.commentRowLast]}
+              >
+                <View style={styles.commentAvatar}>
+                  {c.profile?.avatar_url ? (
+                    <Image source={{ uri: c.profile.avatar_url }} style={styles.commentAvatarImg} />
+                  ) : (
+                    <Text style={styles.commentAvatarText}>{displayName(c.profile).slice(0, 2).toUpperCase()}</Text>
+                  )}
+                </View>
+                <View style={styles.commentMain}>
+                  <View style={styles.commentMeta}>
+                    <Text style={styles.commentName}>{displayName(c.profile)}</Text>
+                    <Text style={styles.commentWhen}>{formatCommentTime(c.created_at)}</Text>
+                  </View>
+                  <Text style={styles.commentBody}>{c.comment_text}</Text>
+                  <Text style={styles.commentReply}>Reply</Text>
+                </View>
+                <View style={styles.commentLikeCol}>
+                  <Heart size={14} color={colors.textSecondary} fill="transparent" strokeWidth={2} />
+                  <Text style={styles.commentLikeCount}>0</Text>
+                </View>
+              </View>
+            ))}
+          </View>
           {currentUserId ? (
-            <View style={styles.commentInputRow}>
+            <View style={styles.commentsComposer}>
+              <View style={styles.composerAvatar}>
+                {user?.user_metadata?.avatar_url ? (
+                  <Image source={{ uri: user.user_metadata.avatar_url }} style={styles.composerAvatarImg} />
+                ) : (
+                  <Text style={styles.composerAvatarText}>{composerInitials(user)}</Text>
+                )}
+              </View>
               <TextInput
-                style={styles.commentInput}
+                style={styles.composerInput}
                 value={commentText}
                 onChangeText={setCommentText}
                 placeholder="Add a comment..."
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textTag}
                 onSubmitEditing={handleCommentSubmit}
               />
-              <Pressable style={styles.commentSubmit} onPress={handleCommentSubmit} disabled={!commentText.trim()}>
-                <Text style={styles.commentSubmitText}>Post</Text>
+              <Pressable onPress={handleCommentSubmit} disabled={!commentText.trim()} hitSlop={8}>
+                <Text style={[styles.composerPost, !commentText.trim() && styles.composerPostDisabled]}>Post</Text>
               </Pressable>
             </View>
           ) : null}
@@ -226,33 +271,20 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
     letterSpacing: -0.3,
   },
-  /** White inset teaser on gray canvas */
+  /** White inset teaser on gray canvas (text only — no venue photo on feed) */
   venueRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.md,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     backgroundColor: colors.backgroundElevated,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
     overflow: 'hidden',
   },
-  venueThumb: {
-    width: 64,
-    height: 64,
-    marginVertical: 8,
-    marginLeft: 8,
-    borderWidth: 1,
-    borderColor: colors.backgroundMuted,
-    borderRadius: 6,
-    backgroundColor: colors.backgroundMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  venueThumbImg: { width: '100%', height: '100%' },
-  venuePlaceholder: { fontSize: 24, textAlign: 'center', lineHeight: 64 },
-  venueInfo: { flex: 1, paddingVertical: 12, paddingHorizontal: 8, paddingRight: 12 },
+  venueInfo: { flex: 1, minWidth: 0 },
   venueName: {
     fontSize: 18,
     fontFamily: fontFamilies.frauncesSemiBold,
@@ -283,21 +315,127 @@ const styles = StyleSheet.create({
   },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   actionText: { fontSize: fontSizes.sm, color: colors.textMuted, fontFamily: fontFamilies.inter },
-  comments: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
-  comment: { marginBottom: spacing.sm },
-  commentAuthor: { fontSize: fontSizes.sm, fontWeight: '600', color: colors.textPrimary },
-  commentText: { fontSize: fontSizes.sm, color: colors.textSecondary },
-  commentInputRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  commentInput: {
-    flex: 1,
+  commentsSection: {
+    marginHorizontal: -spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  commentsWarm: {
+    backgroundColor: '#fdfbf7',
+    paddingHorizontal: spacing.xl,
+    paddingTop: 32,
+    paddingBottom: 24,
+  },
+  commentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+    marginBottom: 32,
+  },
+  commentRowLast: { marginBottom: 0 },
+  commentAvatar: {
+    width: 32,
+    height: 32,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    fontSize: fontSizes.sm,
+    borderRadius: 2,
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentAvatarImg: { width: '100%', height: '100%' },
+  commentAvatarText: {
+    fontSize: 9,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    color: colors.textSecondary,
+  },
+  commentMain: { flex: 1, minWidth: 0 },
+  commentMeta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 4 },
+  commentName: {
+    fontSize: 10,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
     color: colors.textPrimary,
   },
-  commentSubmit: { justifyContent: 'center' },
-  commentSubmitText: { fontSize: fontSizes.sm, color: colors.link, fontWeight: '600' },
+  commentWhen: {
+    fontSize: 10,
+    fontFamily: serifTime,
+    fontStyle: 'italic',
+    color: colors.textSecondary,
+  },
+  commentBody: {
+    fontSize: 14,
+    fontFamily: serifBody,
+    lineHeight: 22.75,
+    color: '#3f3f47',
+    marginBottom: 8,
+  },
+  commentReply: {
+    fontSize: 10,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.textTag,
+  },
+  commentLikeCol: { alignItems: 'center', gap: 4, paddingTop: 4, width: 14 },
+  commentLikeCount: {
+    fontSize: 10,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    color: colors.textTag,
+  },
+  commentsComposer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 16,
+    paddingBottom: 24,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.backgroundCanvas,
+  },
+  composerAvatar: {
+    width: 32,
+    height: 32,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 2,
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  composerAvatarImg: { width: '100%', height: '100%' },
+  composerAvatarText: {
+    fontSize: 9,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    color: colors.textSecondary,
+  },
+  composerInput: {
+    flex: 1,
+    minWidth: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderInput,
+    paddingVertical: 8,
+    fontSize: 14,
+    fontFamily: fontFamilies.interMedium,
+    fontWeight: fontWeights.medium,
+    color: colors.textPrimary,
+  },
+  composerPost: {
+    fontSize: 12,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: '#a50036',
+  },
+  composerPostDisabled: { opacity: 0.45 },
 })
