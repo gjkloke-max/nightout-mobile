@@ -227,6 +227,18 @@ function mergeActorPreview(existingMeta, n) {
  * @param {ReturnType<typeof normalizePayload>} n
  * @param {string|null} aggKey
  */
+/** @param {{ code?: string, message?: string } | null | undefined} e */
+function isInsertRpcMissing(e) {
+  if (!e) return false
+  const msg = e.message || ''
+  return (
+    e.code === 'PGRST202' ||
+    e.code === '42883' ||
+    msg.includes('Could not find the function') ||
+    msg.includes('does not exist')
+  )
+}
+
 async function insertNotificationRow(n, aggKey) {
   const row = {
     recipient_user_id: n.recipientUserId,
@@ -246,6 +258,25 @@ async function insertNotificationRow(n, aggKey) {
     mobile_link: n.mobileLink,
     aggregation_key: aggKey,
     metadata: buildInitialMetadata(n),
+  }
+
+  const { data: rpcId, error: rpcErr } = await supabase.rpc('insert_notification_for_actor', {
+    p_row: row,
+  })
+  if (!rpcErr && rpcId != null) {
+    const id = typeof rpcId === 'bigint' ? Number(rpcId) : rpcId
+    await maybeEnqueueDelivery(id, n, 'in_app')
+    await maybeEnqueuePush(id, n)
+    return { success: true, id }
+  }
+
+  if (rpcErr && !isInsertRpcMissing(rpcErr)) {
+    console.error('[notifications] insert_notification_for_actor failed', {
+      type: n.type,
+      message: rpcErr.message,
+      code: rpcErr.code,
+    })
+    return { success: false, error: rpcErr.message }
   }
 
   const { data, error } = await supabase.from('notifications').insert(row).select('id').single()
