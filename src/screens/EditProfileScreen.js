@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useLayoutEffect } from 'react'
 import {
   View,
   Text,
@@ -73,6 +73,24 @@ export default function EditProfileScreen({ navigation }) {
   useEffect(() => {
     load()
   }, [load])
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: 'Edit Profile',
+      headerTitleStyle: {
+        fontFamily: fontFamilies.frauncesRegular,
+        fontSize: 20,
+        color: colors.textPrimary,
+      },
+      headerStyle: {
+        backgroundColor: colors.backgroundElevated,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: colors.border,
+      },
+      headerShadowVisible: false,
+      headerRight: () => null,
+    })
+  }, [navigation])
 
   const displayInitial = () => {
     const n = `${firstName || ''} ${lastName || ''}`.trim()

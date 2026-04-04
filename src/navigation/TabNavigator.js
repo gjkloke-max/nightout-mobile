@@ -9,6 +9,9 @@ import SocialScreen from '../screens/SocialScreen'
 import SocialReviewDetailScreen from '../screens/SocialReviewDetailScreen'
 import ProfileScreen from '../screens/ProfileScreen'
 import EditProfileScreen from '../screens/EditProfileScreen'
+import NotificationSettingsScreen from '../screens/NotificationSettingsScreen'
+import SettingsScreen from '../screens/SettingsScreen'
+import AccountPrivacyScreen from '../screens/AccountPrivacyScreen'
 import ListDetailScreen from '../screens/ListDetailScreen'
 
 const Tab = createBottomTabNavigator()
@@ -66,9 +69,24 @@ function ProfileStack() {
         options={{ title: '', headerShown: false }}
       />
       <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ headerShown: true, title: 'Settings', headerRight: () => null }}
+      />
+      <Stack.Screen
         name="EditProfile"
         component={EditProfileScreen}
-        options={{ title: 'Edit profile', headerShown: true }}
+        options={{ title: 'Edit Profile', headerShown: true }}
+      />
+      <Stack.Screen
+        name="NotificationSettings"
+        component={NotificationSettingsScreen}
+        options={{ title: 'Notification Settings', headerShown: true }}
+      />
+      <Stack.Screen
+        name="AccountPrivacy"
+        component={AccountPrivacyScreen}
+        options={{ headerShown: true, title: 'Account Privacy', headerRight: () => null }}
       />
       <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ title: 'List' }} />
     </Stack.Navigator>

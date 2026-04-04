@@ -14,7 +14,7 @@ import {
 } from 'react-native'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ChevronLeft } from 'lucide-react-native'
+import { ChevronLeft, Lock } from 'lucide-react-native'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import {
@@ -75,6 +75,7 @@ export default function FriendProfileScreen() {
   const [profileLocked, setProfileLocked] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [top5Expanded, setTop5Expanded] = useState(false)
+  const [reviewCount, setReviewCount] = useState(0)
 
   const topFive = useMemo(() => topTen.slice(0, top5Expanded ? 10 : 5), [topTen, top5Expanded])
 
@@ -92,6 +93,7 @@ export default function FriendProfileScreen() {
         privRes,
         canView,
         status,
+        reviewCountRes,
       ] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).single(),
         supabase
@@ -117,6 +119,10 @@ export default function FriendProfileScreen() {
         getTargetIsPrivate(userId),
         canViewPrivateProfile(userId, user.id),
         getFollowStatus(user.id, userId),
+        supabase
+          .from('venue_review')
+          .select('venue_review_id', { count: 'exact', head: true })
+          .eq('user_id', userId),
       ])
       if (profileRes.data) setProfile(profileRes.data)
       if (reviewsRes.data) setMyReviews(reviewsRes.data)
@@ -127,6 +133,8 @@ export default function FriendProfileScreen() {
       setTargetIsPrivate(!!privRes)
       setFollowStatus(status || 'none')
       setProfileLocked(!!privRes && !canView)
+      const rc = reviewCountRes?.count
+      setReviewCount(typeof rc === 'number' ? rc : 0)
     } catch (e) {
       console.error(e)
     } finally {
@@ -158,25 +166,29 @@ export default function FriendProfileScreen() {
     if (!user?.id || !userId || followLoading) return
     setFollowLoading(true)
     try {
-      const status = followStatus || 'none'
-      if (status === 'following') {
+      const st = followStatus || 'none'
+      if (st === 'following') {
         const { success } = await unfollowUser(user.id, userId)
         if (success) {
           setFollowStatus('none')
           getFollowCounts(userId).then(setFollowCounts)
         }
-      } else if (status === 'pending') {
+      } else if (st === 'pending') {
         const { success } = await cancelFollowRequest(user.id, userId)
         if (success) setFollowStatus('none')
       } else {
-        const { success, status: newStatus } = await followOrRequest(user.id, userId)
-        if (success && newStatus) {
-          setFollowStatus(newStatus)
-          getFollowCounts(userId).then(setFollowCounts)
-          if (newStatus === 'following') {
-            setProfileLocked(false)
-            load()
+        const { success, status: newStatus, error } = await followOrRequest(user.id, userId)
+        if (success) {
+          if (newStatus) {
+            setFollowStatus(newStatus)
+            getFollowCounts(userId).then(setFollowCounts)
+            if (newStatus === 'following') {
+              setProfileLocked(false)
+              load()
+            }
           }
+        } else if (error) {
+          console.warn('followOrRequest:', error)
         }
       }
     } finally {
@@ -188,7 +200,7 @@ export default function FriendProfileScreen() {
     followLoading ? '...'
     : followStatus === 'following' ? 'Following'
     : followStatus === 'pending' ? 'Requested'
-    : targetIsPrivate ? 'Request Follow'
+    : targetIsPrivate ? 'Request to Follow'
     : 'Follow'
 
   const handleMessage = () => {
@@ -237,19 +249,72 @@ export default function FriendProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         {profileLocked ? (
-          <View style={styles.locked}>
-            <Text style={styles.lockedTitle}>Private account</Text>
-            <Text style={styles.muted}>Follow this account to see their profile.</Text>
-            {user?.id ? (
-              <TouchableOpacity
-                style={[styles.followPrimary, { marginTop: spacing.lg, alignSelf: 'stretch' }]}
-                onPress={handleFollow}
-                disabled={followLoading}
-              >
-                <Text style={styles.followPrimaryText}>{followLabel}</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
+          <>
+            <View style={styles.hero}>
+              <View style={styles.lockedHeroTop}>
+                <View style={styles.avatarWrap}>
+                  {profile?.avatar_url ? (
+                    <Image source={{ uri: profile.avatar_url }} style={styles.avatar} resizeMode="cover" />
+                  ) : (
+                    <Text style={styles.avatarLetter}>{(displayName || '?')[0]}</Text>
+                  )}
+                </View>
+                <View style={styles.lockIconTopRight} accessibilityLabel="Private account">
+                  <Lock size={22} color={colors.textSecondary} strokeWidth={2} />
+                </View>
+              </View>
+              <Text style={styles.displayName}>{displayName}</Text>
+              {handle ? <Text style={styles.handle}>{handle}</Text> : null}
+              <View style={styles.stats}>
+                <View style={[styles.statCell, styles.statCellDivider]}>
+                  <Text style={styles.statValue}>{followCounts.followers}</Text>
+                  <Text style={styles.statLabel}>Followers</Text>
+                </View>
+                <View style={[styles.statCell, styles.statCellDivider]}>
+                  <Text style={styles.statValue}>{followCounts.following}</Text>
+                  <Text style={styles.statLabel}>Following</Text>
+                </View>
+                <View style={styles.statCell}>
+                  <Text style={styles.statValue}>{reviewCount}</Text>
+                  <Text style={styles.statLabel}>Reviews</Text>
+                </View>
+              </View>
+              {user?.id && user.id !== userId ? (
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.followPrimary,
+                      followStatus === 'following' && styles.followPrimaryActive,
+                      followStatus === 'pending' && styles.followPending,
+                    ]}
+                    onPress={handleFollow}
+                    disabled={followLoading}
+                  >
+                    <Text
+                      style={[
+                        styles.followPrimaryText,
+                        followStatus === 'pending' && styles.followPrimaryTextDark,
+                      ]}
+                    >
+                      {followLabel}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.messageBtn} onPress={handleMessage}>
+                    <Text style={styles.messageBtnText}>Message</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </View>
+            <View style={styles.privateLockedBody}>
+              <View style={styles.privateLockedIconWrap}>
+                <Lock size={32} color={colors.textSecondary} strokeWidth={1.75} />
+              </View>
+              <Text style={styles.privateLockedTitle}>This account is private</Text>
+              <Text style={styles.privateLockedCopy}>
+                Follow this account to see their reviews and saved lists.
+              </Text>
+            </View>
+          </>
         ) : (
           <>
             <View style={styles.hero}>
@@ -678,11 +743,46 @@ const styles = StyleSheet.create({
   listName: { fontSize: fontSizes.base, fontFamily: fontFamilies.fraunces, color: colors.textPrimary, flex: 1 },
   listMeta: { fontSize: fontSizes.sm, color: colors.textSecondary },
   muted: { fontSize: fontSizes.sm, color: colors.textMuted },
-  locked: { padding: spacing.xl },
-  lockedTitle: {
+  lockedHeroTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  lockIconTopRight: {
+    paddingTop: 8,
+    paddingRight: 0,
+  },
+  privateLockedBody: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing['2xl'],
+    paddingBottom: spacing['3xl'],
+    backgroundColor: colors.backgroundCanvas,
+  },
+  privateLockedIconWrap: {
+    width: 80,
+    height: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f4f4f5',
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.lg,
+  },
+  privateLockedTitle: {
     fontFamily: fontFamilies.fraunces,
-    fontSize: fontSizes.xl,
+    fontSize: fontSizes['2xl'],
     color: colors.textPrimary,
+    textAlign: 'center',
     marginBottom: spacing.sm,
+  },
+  privateLockedCopy: {
+    fontFamily: 'Georgia',
+    fontSize: fontSizes.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 280,
   },
 })

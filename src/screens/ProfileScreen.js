@@ -65,7 +65,7 @@ function formatRelativeSentence(dateStr) {
 export default function ProfileScreen() {
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
   const [profile, setProfile] = useState(null)
   const [activeTab, setActiveTab] = useState('reviews')
   const [loading, setLoading] = useState(true)
@@ -134,10 +134,6 @@ export default function ProfileScreen() {
 
   const handle = deriveHandle(displayName)
 
-  const handleSignOut = async () => {
-    await signOut()
-  }
-
   const handleVenuePress = (venue) => {
     const root = navigation.getParent()?.getParent?.()
     root?.navigate?.('VenueProfile', { venueId: venue?.venue_id })
@@ -150,6 +146,10 @@ export default function ProfileScreen() {
 
   const handleEditProfile = () => {
     navigation.navigate('EditProfile')
+  }
+
+  const handleOpenSettings = () => {
+    navigation.navigate('Settings')
   }
 
   const handleListPress = (list) => {
@@ -165,6 +165,7 @@ export default function ProfileScreen() {
   }
 
   return (
+    <>
     <ScrollView
       style={styles.container}
       contentContainerStyle={[
@@ -190,10 +191,10 @@ export default function ProfileScreen() {
           </View>
           <TouchableOpacity
             style={styles.gearBtn}
-            onPress={handleEditProfile}
+            onPress={handleOpenSettings}
             hitSlop={12}
             accessibilityRole="button"
-            accessibilityLabel="Account settings"
+            accessibilityLabel="Settings"
           >
             <Settings size={22} color={colors.textPrimary} strokeWidth={2} />
           </TouchableOpacity>
@@ -368,11 +369,8 @@ export default function ProfileScreen() {
           </View>
         )}
       </View>
-
-      <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
-        <Text style={styles.signOutText}>Sign out</Text>
-      </TouchableOpacity>
     </ScrollView>
+    </>
   )
 }
 
@@ -672,6 +670,4 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textTransform: 'uppercase',
   },
-  signOutBtn: { paddingVertical: spacing.base, alignItems: 'center' },
-  signOutText: { fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.textMuted },
 })
