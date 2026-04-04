@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, StyleSheet, Pressable, Image, TextInput } from 'react-native'
+import { View, Text, StyleSheet, Pressable, Image, TextInput, Platform } from 'react-native'
 import { Heart, MapPin, MessageCircle } from 'lucide-react-native'
 import { likeReview, unlikeReview } from '../services/reviewLikes'
 import { addComment, getCommentsWithProfiles } from '../services/reviewComments'
@@ -21,7 +21,8 @@ function formatTime(d) {
   if (diffMins < 1) return 'Just now'
   if (diffMins < 60) return `${diffMins}m ago`
   if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffDays === 1) return '1 day ago'
+  if (diffDays < 7) return `${diffDays} days ago`
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
@@ -65,7 +66,7 @@ export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVe
   }
 
   return (
-    <View style={[styles.card, isLastInFeed && styles.cardLast]}>
+    <View style={[styles.post, isLastInFeed && styles.postLast]}>
       <View style={styles.headerRow}>
         <View style={styles.headerMain}>
           <View style={styles.avatar}>
@@ -109,8 +110,8 @@ export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVe
         <Pressable style={styles.actionBtn} onPress={handleLike}>
           <Heart
             size={iconSizes.card}
-            color={liked ? colors.error : colors.textMuted}
-            fill={liked ? colors.error : 'transparent'}
+            color={liked ? colors.browseAccent : colors.textMuted}
+            fill={liked ? colors.browseAccent : 'transparent'}
             strokeWidth={2}
           />
           <Text style={styles.actionText}>{likeCount}</Text>
@@ -150,16 +151,21 @@ export default function ReviewPostCard({ post, currentUserId, onLikeChange, onVe
   )
 }
 
+const serifTime = Platform.select({ ios: 'Georgia', android: 'serif' })
+const serifBody = Platform.select({ ios: 'Georgia', android: 'serif' })
+
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.backgroundElevated,
-    borderRadius: 12,
-    padding: spacing.xl,
-    marginHorizontal: spacing.xl,
-    marginBottom: spacing.xl,
+  /** Figma: light gray canvas; hairline between posts — not a card */
+  post: {
+    backgroundColor: colors.backgroundCanvas,
+    paddingHorizontal: spacing.xl,
+    paddingTop: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  cardLast: {
-    marginBottom: 0,
+  postLast: {
+    borderBottomWidth: 0,
   },
   headerRow: {
     flexDirection: 'row',
@@ -171,29 +177,47 @@ const styles = StyleSheet.create({
   avatar: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   avatarImg: { width: '100%', height: '100%' },
-  avatarText: { fontSize: fontSizes.xs, color: colors.textMuted },
+  avatarText: {
+    fontSize: 10,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    color: colors.textSecondary,
+  },
   authorInfo: { marginLeft: spacing.base },
   authorName: {
-    fontSize: fontSizes.sm,
-    fontFamily: fontFamilies.interSemiBold,
+    fontSize: 10,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
     color: colors.textPrimary,
-    lineHeight: 15,
+    lineHeight: 12,
   },
-  time: { fontSize: fontSizes.xs, color: colors.textMuted, lineHeight: 15, marginTop: 4 },
+  time: {
+    fontSize: 10,
+    fontFamily: serifTime,
+    fontStyle: 'italic',
+    color: colors.textSecondary,
+    lineHeight: 12,
+    marginTop: 4,
+  },
   ratingBadge: {
-    borderWidth: 1.33,
+    borderWidth: 1,
     borderColor: colors.browseAccentBorder,
     backgroundColor: colors.browseAccent,
     paddingHorizontal: 11,
     paddingVertical: 5,
     alignSelf: 'flex-start',
+    borderRadius: 4,
   },
   ratingBadgeText: {
     fontFamily: fontFamilies.fraunces,
@@ -202,23 +226,64 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
     letterSpacing: -0.3,
   },
-  venueRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, backgroundColor: colors.surface, borderRadius: 8, overflow: 'hidden' },
-  venueThumb: { width: 64, height: 64, backgroundColor: colors.surfaceLight, alignItems: 'center', justifyContent: 'center' },
+  /** White inset teaser on gray canvas */
+  venueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    backgroundColor: colors.backgroundElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  venueThumb: {
+    width: 64,
+    height: 64,
+    marginVertical: 8,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: colors.backgroundMuted,
+    borderRadius: 6,
+    backgroundColor: colors.backgroundMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   venueThumbImg: { width: '100%', height: '100%' },
   venuePlaceholder: { fontSize: 24, textAlign: 'center', lineHeight: 64 },
-  venueInfo: { flex: 1, paddingVertical: spacing.md, paddingHorizontal: spacing.sm },
+  venueInfo: { flex: 1, paddingVertical: 12, paddingHorizontal: 8, paddingRight: 12 },
   venueName: {
-    fontSize: fontSizes.base,
-    fontFamily: fontFamilies.interSemiBold,
+    fontSize: 18,
+    fontFamily: fontFamilies.frauncesSemiBold,
     color: colors.textPrimary,
     lineHeight: 23,
   },
-  venueNeighborhood: { fontSize: fontSizes.xs, color: colors.textMuted, lineHeight: 15, marginTop: 4 },
-  reviewText: { fontSize: fontSizes.sm, color: colors.textSecondary, lineHeight: 22, marginBottom: spacing.md },
-  actions: { flexDirection: 'row', gap: spacing.lg },
+  venueNeighborhood: {
+    fontSize: 10,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.textSecondary,
+    lineHeight: 12,
+    marginTop: 4,
+  },
+  reviewText: {
+    fontSize: 18,
+    fontFamily: serifBody,
+    color: '#27272a',
+    lineHeight: 29.25,
+    marginBottom: spacing.md,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    paddingTop: 4,
+  },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  actionText: { fontSize: fontSizes.sm, color: colors.textMuted },
-  comments: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight },
+  actionText: { fontSize: fontSizes.sm, color: colors.textMuted, fontFamily: fontFamilies.inter },
+  comments: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   comment: { marginBottom: spacing.sm },
   commentAuthor: { fontSize: fontSizes.sm, fontWeight: '600', color: colors.textPrimary },
   commentText: { fontSize: fontSizes.sm, color: colors.textSecondary },

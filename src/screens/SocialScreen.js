@@ -29,8 +29,8 @@ import NotificationsBellButton from '../components/NotificationsBellButton'
 import { Plus, Search } from 'lucide-react-native'
 import { colors, fontSizes, fontWeights, spacing, borderRadius, fontFamilies } from '../theme'
 
-/** Figma AppLayout 88:5732 — Social search */
-const SEARCH_PLACEHOLDER = 'Search friends or reviews...'
+/** Figma Social — search placeholder (ellipsis) */
+const SEARCH_PLACEHOLDER = 'Search friends or reviews…'
 
 function displayName(p) {
   if (!p) return 'Anonymous'
@@ -150,6 +150,7 @@ export default function SocialScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(spacing.lg, insets.top) }]}>
+      {/* Figma 93:6 — 70px bar, + | Social | bell */}
       <View style={styles.headerBar}>
         <View style={styles.headerInner}>
           <TouchableOpacity
@@ -161,7 +162,12 @@ export default function SocialScreen() {
           >
             <Plus size={20} color={colors.textPrimary} strokeWidth={2} />
           </TouchableOpacity>
-          <NotificationsBellButton />
+          <Text style={styles.headerTitle} pointerEvents="none">
+            Social
+          </Text>
+          <View style={styles.headerRight}>
+            <NotificationsBellButton />
+          </View>
         </View>
       </View>
 
@@ -288,25 +294,43 @@ export default function SocialScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.backgroundCanvas },
   headerBar: {
-    borderBottomWidth: 1.33,
+    borderBottomWidth: 2,
     borderBottomColor: colors.border,
     backgroundColor: colors.backgroundCanvas,
   },
   headerInner: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.xl,
-    paddingTop: 16,
-    paddingBottom: 16,
-    minHeight: 52,
+    paddingVertical: 16,
+    minHeight: 70,
+  },
+  headerTitle: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontFamily: fontFamilies.frauncesSemiBold,
+    fontSize: 24,
+    lineHeight: 32,
+    color: colors.textPrimary,
+    zIndex: 0,
+  },
+  headerRight: {
+    zIndex: 1,
+    minWidth: 40,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   headerIconBtn: {
+    zIndex: 1,
     width: 36,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.33,
+    borderWidth: 1,
     borderColor: colors.borderInput,
     borderRadius: borderRadius.sm,
   },
@@ -321,7 +345,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 41.33,
-    borderBottomWidth: 1.33,
+    borderBottomWidth: 2,
     borderBottomColor: colors.borderInput,
     paddingVertical: 10,
     paddingRight: 16,
