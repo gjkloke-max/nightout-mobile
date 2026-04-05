@@ -26,8 +26,10 @@ export default function ListDetailScreen() {
   }
 
   const handleVenuePress = (venue) => {
-    const root = navigation.getParent()?.getParent?.()
-    root?.navigate?.('VenueProfile', { venueId: venue?.venue_id })
+    const vid = venue?.venue_id
+    if (!vid) return
+    // Works from Profile stack or root stack (e.g. opened from Notifications)
+    navigation.navigate('VenueProfile', { venueId: vid })
   }
 
   const handleRemove = async (listItemId) => {

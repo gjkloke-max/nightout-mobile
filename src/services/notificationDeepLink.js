@@ -32,30 +32,19 @@ export function navigateFromNotificationMobileLink(navigation, mobileLink) {
       break
     case 'SocialReviewDetail':
       if (params.reviewId != null) {
-        navigation.navigate('MainTabs', {
-          screen: 'Social',
-          params: {
-            screen: 'SocialReviewDetail',
-            params: {
-              reviewId: params.reviewId,
-              ...(params.commentId != null ? { commentId: params.commentId } : {}),
-            },
-          },
+        // Root stack (e.g. from Notifications) — do not jump into MainTabs/Social or back goes to Browse/Social feed
+        navigation.navigate('SocialReviewDetail', {
+          reviewId: params.reviewId,
+          ...(params.commentId != null ? { commentId: params.commentId } : {}),
         })
         return true
       }
       break
     case 'ListDetail':
       if (params.listId != null) {
-        navigation.navigate('MainTabs', {
-          screen: 'Profile',
-          params: {
-            screen: 'ListDetail',
-            params: {
-              listId: params.listId,
-              ...(params.commentId != null ? { commentId: params.commentId } : {}),
-            },
-          },
+        navigation.navigate('ListDetail', {
+          listId: params.listId,
+          ...(params.commentId != null ? { commentId: params.commentId } : {}),
         })
         return true
       }

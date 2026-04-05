@@ -8,6 +8,8 @@ import NotificationsScreen from '../screens/NotificationsScreen'
 import VenueProfileScreen from '../screens/VenueProfileScreen'
 import WriteReviewScreen from '../screens/WriteReviewScreen'
 import FriendProfileScreen from '../screens/FriendProfileScreen'
+import SocialReviewDetailScreen from '../screens/SocialReviewDetailScreen'
+import ListDetailScreen from '../screens/ListDetailScreen'
 
 const Stack = createNativeStackNavigator()
 
@@ -60,6 +62,13 @@ export default function AppNavigator() {
         component={NotificationsScreen}
         options={{ title: 'Notifications' }}
       />
+      {/* Same screens as tab stacks, registered here so opening from Notifications keeps back → Notifications */}
+      <Stack.Screen
+        name="SocialReviewDetail"
+        component={SocialReviewDetailScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ title: 'List' }} />
     </Stack.Navigator>
   )
 }
