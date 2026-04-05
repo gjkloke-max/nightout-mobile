@@ -1,9 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native'
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  TextInput,
+  ActivityIndicator,
+} from 'react-native'
 import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ChevronLeft } from 'lucide-react-native'
+import { ChevronLeft, Search } from 'lucide-react-native'
 import { useAuth } from '../contexts/AuthContext'
+import { useDebounce } from '../hooks/useDebounce'
+import { searchUsers } from '../services/userSearch'
 import { listSuggestedDmUsers, getOrCreateDirectConversation, displayNameFromProfile } from '../services/messaging'
 import { colors, fontFamilies, fontSizes, fontWeights, spacing, borderRadius } from '../theme'
 
@@ -11,23 +22,47 @@ export default function DMNewMessageScreen() {
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
   const { user } = useAuth()
-  const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('')
+  const [suggested, setSuggested] = useState([])
+  const [searchResults, setSearchResults] = useState([])
+  const [loadingSuggested, setLoadingSuggested] = useState(true)
+  const [searchLoading, setSearchLoading] = useState(false)
   const [opening, setOpening] = useState(null)
 
-  const load = useCallback(() => {
+  const debouncedQuery = useDebounce(query.trim(), 300)
+  const isSearching = debouncedQuery.length >= 2
+
+  const loadSuggested = useCallback(() => {
     if (!user?.id) return
-    listSuggestedDmUsers(user.id)
-      .then(setUsers)
-      .finally(() => setLoading(false))
+    listSuggestedDmUsers(user.id).then(setSuggested).finally(() => setLoadingSuggested(false))
   }, [user?.id])
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true)
-      load()
-    }, [load])
+      setLoadingSuggested(true)
+      loadSuggested()
+    }, [loadSuggested])
   )
+
+  useEffect(() => {
+    if (!user?.id || !isSearching) {
+      setSearchResults([])
+      setSearchLoading(false)
+      return
+    }
+    let cancelled = false
+    setSearchLoading(true)
+    searchUsers(user.id, debouncedQuery)
+      .then((data) => {
+        if (!cancelled) setSearchResults(data || [])
+      })
+      .finally(() => {
+        if (!cancelled) setSearchLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id, debouncedQuery, isSearching])
 
   const openThread = async (otherId) => {
     if (!otherId || opening) return
@@ -40,6 +75,11 @@ export default function DMNewMessageScreen() {
       setOpening(null)
     }
   }
+
+  const list = isSearching ? searchResults : suggested
+  const showSuggested = !isSearching && !loadingSuggested
+  const emptySearch = isSearching && !searchLoading && searchResults.length === 0
+  const emptySuggested = showSuggested && suggested.length === 0
 
   const renderItem = ({ item: p }) => {
     const name = displayNameFromProfile(p)
@@ -64,6 +104,10 @@ export default function DMNewMessageScreen() {
     )
   }
 
+  const listHeader = showSuggested ? (
+    <Text style={styles.sectionLabel}>Suggested</Text>
+  ) : null
+
   return (
     <View style={[styles.container, { paddingTop: Math.max(spacing.lg, insets.top) }]}>
       <View style={styles.header}>
@@ -74,15 +118,42 @@ export default function DMNewMessageScreen() {
         <View style={{ width: 36 }} />
       </View>
 
-      {loading ? (
-        <Text style={styles.empty}>Loading…</Text>
+      <View style={styles.searchSection}>
+        <View style={styles.searchRow}>
+          <Search size={18} color={colors.borderInput} strokeWidth={2} />
+          <TextInput
+            style={styles.searchInput}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search people…"
+            placeholderTextColor={colors.textTag}
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+        </View>
+      </View>
+
+      {loadingSuggested && !isSearching ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.browseAccent} />
+          <Text style={styles.muted}>Loading…</Text>
+        </View>
+      ) : searchLoading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.browseAccent} />
+          <Text style={styles.muted}>Searching…</Text>
+        </View>
+      ) : emptySearch ? (
+        <Text style={styles.empty}>No users found.</Text>
+      ) : emptySuggested ? (
+        <Text style={styles.empty}>Follow people to see them here, or search by name.</Text>
       ) : (
         <FlatList
-          data={users}
+          data={list}
           keyExtractor={(u) => u.id}
           renderItem={renderItem}
-          ListEmptyComponent={<Text style={styles.empty}>Follow people first to message them from here.</Text>}
-          contentContainerStyle={users.length === 0 ? styles.emptyList : styles.listContent}
+          ListHeaderComponent={listHeader}
+          contentContainerStyle={styles.listContent}
         />
       )}
     </View>
@@ -109,6 +180,38 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 32,
     color: colors.textPrimary,
+  },
+  searchSection: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: 16,
+    paddingBottom: 8,
+    backgroundColor: colors.backgroundCanvas,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 10,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.borderInput,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: fontFamilies.interMedium,
+    fontSize: fontSizes.sm,
+    color: colors.textPrimary,
+    paddingVertical: 0,
+  },
+  sectionLabel: {
+    marginHorizontal: spacing.xl,
+    marginBottom: 8,
+    marginTop: 4,
+    fontFamily: fontFamilies.interSemiBold,
+    fontSize: 10,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    color: colors.textTag,
   },
   listContent: { paddingBottom: spacing['3xl'] },
   row: {
@@ -146,5 +249,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.sm,
   },
-  emptyList: { flexGrow: 1, justifyContent: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8 },
+  muted: { fontSize: fontSizes.sm, color: colors.textMuted },
 })

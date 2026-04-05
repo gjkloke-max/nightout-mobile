@@ -15,3 +15,14 @@ export function formatDmRelativeTime(iso) {
   if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
+
+export function formatMessageTimestamp(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const now = new Date()
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  }
+  return formatDmRelativeTime(iso)
+}

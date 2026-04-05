@@ -8,10 +8,11 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ChevronLeft } from 'lucide-react-native'
+import { ChevronLeft, Send, MoreVertical } from 'lucide-react-native'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import {
@@ -20,8 +21,13 @@ import {
   markConversationRead,
   subscribeToConversationMessages,
   displayNameFromProfile,
+  formatDmHandle,
 } from '../services/messaging'
-import { colors, fontFamilies, fontSizes, fontWeights, spacing, borderRadius } from '../theme'
+import { formatMessageTimestamp } from '../utils/dmRelativeTime'
+import { colors, fontFamilies, fontSizes, fontWeights, spacing } from '../theme'
+
+const SENT_BG = '#9d174d'
+const SENT_TIME = '#ffccd3'
 
 export default function DMConversationScreen() {
   const navigation = useNavigation()
@@ -29,7 +35,7 @@ export default function DMConversationScreen() {
   const insets = useSafeAreaInsets()
   const { user } = useAuth()
   const conversationId = route.params?.conversationId
-  const [title, setTitle] = useState('Messages')
+  const [peer, setPeer] = useState({ name: 'Messages', handle: '', avatarUrl: null })
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -47,8 +53,16 @@ export default function DMConversationScreen() {
       .eq('conversation_id', conversationId)
     const otherId = (parts || []).map((p) => p.user_id).find((id) => id !== user.id)
     if (!otherId) return
-    const { data: prof } = await supabase.from('profiles').select('first_name, last_name').eq('id', otherId).maybeSingle()
-    setTitle(displayNameFromProfile(prof))
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, avatar_url')
+      .eq('id', otherId)
+      .maybeSingle()
+    setPeer({
+      name: displayNameFromProfile(prof),
+      handle: formatDmHandle(prof),
+      avatarUrl: prof?.avatar_url || null,
+    })
   }, [conversationId, user?.id])
 
   const loadMessages = useCallback(async () => {
@@ -103,6 +117,13 @@ export default function DMConversationScreen() {
     }
   }
 
+  const peerInitials = peer.name
+    .split(/\s+/)
+    .map((s) => s[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+
   if (!user) return null
 
   return (
@@ -116,10 +137,28 @@ export default function DMConversationScreen() {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn} hitSlop={12} accessibilityLabel="Back">
             <ChevronLeft size={24} color={colors.textPrimary} strokeWidth={2} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {title}
-          </Text>
-          <View style={{ width: 36 }} />
+          <View style={styles.headerPeer}>
+            <View style={styles.headerAvatar}>
+              {peer.avatarUrl ? (
+                <Image source={{ uri: peer.avatarUrl }} style={styles.headerAvatarImg} />
+              ) : (
+                <Text style={styles.headerAvatarText}>{peerInitials}</Text>
+              )}
+            </View>
+            <View style={styles.headerText}>
+              <Text style={styles.headerName} numberOfLines={1}>
+                {peer.name}
+              </Text>
+              {peer.handle ? (
+                <Text style={styles.headerHandle} numberOfLines={1}>
+                  {peer.handle}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+          <TouchableOpacity style={styles.headerBtn} hitSlop={12} accessibilityLabel="Conversation options">
+            <MoreVertical size={20} color={colors.textPrimary} strokeWidth={2} />
+          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -136,7 +175,10 @@ export default function DMConversationScreen() {
               return (
                 <View key={m.id} style={[styles.bubbleRow, sent ? styles.bubbleRowSent : styles.bubbleRowRecv]}>
                   <View style={[styles.bubble, sent ? styles.bubbleSent : styles.bubbleRecv]}>
-                    <Text style={[styles.bubbleText, sent ? styles.bubbleTextSent : styles.bubbleTextRecv]}>{m.body}</Text>
+                    <Text style={[styles.bubbleBody, sent ? styles.bubbleBodySent : styles.bubbleBodyRecv]}>{m.body}</Text>
+                    <Text style={[styles.bubbleTime, sent ? styles.bubbleTimeSent : styles.bubbleTimeRecv]}>
+                      {formatMessageTimestamp(m.created_at)}
+                    </Text>
                   </View>
                 </View>
               )
@@ -144,24 +186,27 @@ export default function DMConversationScreen() {
           )}
         </ScrollView>
 
-        <View style={[styles.inputBar, { paddingBottom: Math.max(spacing.md, insets.bottom) }]}>
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Message…"
-            placeholderTextColor={colors.textTag}
-            multiline
-            maxLength={8000}
-            onSubmitEditing={onSend}
-          />
-          <TouchableOpacity
-            style={[styles.sendBtn, (!input.trim() || sending) && styles.sendBtnDisabled]}
-            onPress={onSend}
-            disabled={sending || !input.trim()}
-          >
-            <Text style={styles.sendBtnText}>Send</Text>
-          </TouchableOpacity>
+        <View style={[styles.inputWrap, { paddingBottom: Math.max(spacing.md, insets.bottom) }]}>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              value={input}
+              onChangeText={setInput}
+              placeholder="Send a message..."
+              placeholderTextColor={colors.textTag}
+              maxLength={8000}
+              onSubmitEditing={onSend}
+              returnKeyType="send"
+            />
+            <TouchableOpacity
+              style={[styles.sendIconBtn, (!input.trim() || sending) && styles.sendIconBtnDisabled]}
+              onPress={onSend}
+              disabled={sending || !input.trim()}
+              accessibilityLabel="Send message"
+            >
+              <Send size={20} color={colors.textPrimary} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -179,58 +224,77 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundElevated,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    gap: 8,
+    gap: 12,
   },
   headerBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: {
-    flex: 1,
+  headerPeer: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minWidth: 0 },
+  headerAvatar: {
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    backgroundColor: colors.backgroundMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAvatarImg: { width: '100%', height: '100%' },
+  headerAvatarText: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textSecondary },
+  headerText: { flex: 1, minWidth: 0 },
+  headerName: {
     fontFamily: fontFamilies.frauncesRegular,
-    fontSize: fontSizes.xl,
+    fontSize: fontSizes.lg,
+    lineHeight: 28,
     color: colors.textPrimary,
+  },
+  headerHandle: {
+    fontFamily: fontFamilies.inter,
+    fontSize: fontSizes.xs,
+    lineHeight: 16,
+    color: colors.textTag,
+    marginTop: 2,
   },
   scroll: { flex: 1 },
   scrollContent: { padding: spacing.xl, paddingBottom: 24 },
   hint: { textAlign: 'center', color: colors.textSecondary, fontSize: fontSizes.sm },
-  bubbleRow: { marginBottom: 12, flexDirection: 'row' },
+  bubbleRow: { flexDirection: 'row', marginBottom: 16 },
   bubbleRowSent: { justifyContent: 'flex-end' },
   bubbleRowRecv: { justifyContent: 'flex-start' },
-  bubble: { maxWidth: '85%', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12 },
-  bubbleSent: { backgroundColor: colors.backgroundDark },
+  bubble: {
+    maxWidth: '86%',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    gap: 8,
+  },
+  bubbleSent: { backgroundColor: SENT_BG },
   bubbleRecv: { backgroundColor: colors.backgroundMuted },
-  bubbleText: { fontFamily: fontFamilies.interMedium, fontSize: 15, lineHeight: 22 },
-  bubbleTextSent: { color: colors.textOnDark },
-  bubbleTextRecv: { color: colors.textPrimary },
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 12,
-    paddingHorizontal: spacing.xl,
-    paddingTop: 12,
+  bubbleBody: { fontFamily: fontFamilies.inter, fontSize: fontSizes.sm, lineHeight: 23 },
+  bubbleBodySent: { color: colors.textOnDark },
+  bubbleBodyRecv: { color: colors.textPrimary },
+  bubbleTime: { fontFamily: fontFamilies.inter, fontSize: 10, lineHeight: 15 },
+  bubbleTimeSent: { color: SENT_TIME },
+  bubbleTimeRecv: { color: colors.textSecondary },
+  inputWrap: {
     backgroundColor: colors.backgroundElevated,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    paddingHorizontal: spacing.xl,
+    paddingTop: 16,
   },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   input: {
     flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderWidth: 1,
-    borderColor: colors.borderInput,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontFamily: fontFamilies.interMedium,
-    fontSize: 15,
+    minHeight: 40,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderInput,
+    fontFamily: fontFamilies.inter,
+    fontSize: fontSizes.sm,
     color: colors.textPrimary,
-    backgroundColor: colors.backgroundCanvas,
+    backgroundColor: 'transparent',
   },
-  sendBtn: {
-    minHeight: 44,
-    paddingHorizontal: 18,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.backgroundDark,
-    justifyContent: 'center',
-  },
-  sendBtnDisabled: { opacity: 0.45 },
-  sendBtnText: { color: colors.textOnDark, fontFamily: fontFamilies.interSemiBold, fontWeight: fontWeights.semibold, fontSize: 15 },
+  sendIconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  sendIconBtnDisabled: { opacity: 0.35 },
 })

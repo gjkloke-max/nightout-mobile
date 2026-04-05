@@ -14,6 +14,15 @@ export function displayNameFromProfile(p) {
   return parts.length ? parts.join(' ') : 'Unknown'
 }
 
+export function formatDmHandle(p) {
+  if (!p) return ''
+  const a = (p.first_name || '').trim().toLowerCase().replace(/[^a-z0-9]/gi, '')
+  const b = (p.last_name || '').trim().toLowerCase().replace(/[^a-z0-9]/gi, '')
+  if (a && b) return `@${a}_${b}`
+  if (a) return `@${a}`
+  return ''
+}
+
 export async function getGlobalUnreadDmCount() {
   const { data, error } = await supabase.rpc('dm_global_unread_count')
   if (error) {
