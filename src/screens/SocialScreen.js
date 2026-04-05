@@ -232,9 +232,9 @@ export default function SocialScreen() {
               <Plus size={20} color={colors.textPrimary} strokeWidth={2} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.headerTitle} pointerEvents="none">
-            Social
-          </Text>
+          <View style={styles.headerTitleWrap} pointerEvents="none">
+            <Text style={styles.headerTitle}>Social</Text>
+          </View>
           <View style={styles.headerRight}>
             <NotificationsBellButton />
           </View>
@@ -409,12 +409,22 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.backgroundCanvas,
   },
-  headerTitleCenter: {
+  /** True center over full bar; left/right controls stay at zIndex 1 */
+  headerTitleWrap: {
     position: 'absolute',
     left: 0,
     right: 0,
-    textAlign: 'center',
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 0,
+  },
+  headerTitle: {
+    fontFamily: fontFamilies.frauncesSemiBold,
+    fontSize: fontSizes['2xl'],
+    color: colors.textPrimary,
+    letterSpacing: -0.3,
   },
   headerRight: {
     zIndex: 1,

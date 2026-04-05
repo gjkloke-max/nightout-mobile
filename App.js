@@ -1,5 +1,6 @@
 import { View, ActivityIndicator } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
+import Constants from 'expo-constants'
 import { NavigationContainer } from '@react-navigation/native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { useFonts } from 'expo-font'
@@ -35,11 +36,36 @@ function AppContent() {
   )
 }
 
+/** Deep-link prefixes without importing expo-linking (avoids Metro resolve issues on some installs). */
+function getLinkingPrefixes() {
+  const prefixes = ['nightout://']
+  const hostUri = Constants.expoConfig?.hostUri
+  if (hostUri) {
+    const host = hostUri.split('/')[0]
+    prefixes.push(`exp://${host}`)
+  }
+  return prefixes
+}
+
+const linking = {
+  prefixes: getLinkingPrefixes(),
+  config: {
+    screens: {
+      VenueProfile: {
+        path: 'venue/:venueId',
+        parse: {
+          venueId: (id) => String(id),
+        },
+      },
+    },
+  },
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer>
+        <NavigationContainer linking={linking}>
           <AppContent />
         </NavigationContainer>
       </AuthProvider>

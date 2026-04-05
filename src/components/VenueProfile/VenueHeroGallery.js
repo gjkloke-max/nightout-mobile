@@ -1,36 +1,31 @@
 import { useRef, useState } from 'react'
-import {
-  View,
-  ScrollView,
-  Image,
-  Pressable,
-  StyleSheet,
-  Dimensions,
-  Text,
-  Share,
-} from 'react-native'
+import { View, ScrollView, Image, Pressable, StyleSheet, Dimensions, Text } from 'react-native'
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg'
 import { Image as ImageIcon, Share as ShareIcon } from 'lucide-react-native'
 import { colors, spacing, iconSizes, fontFamilies } from '../../theme'
+import { shareVenue } from '../../utils/venueShare'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const GALLERY_HEIGHT = 280
 const FADE_HEIGHT = 100
 
-export default function VenueHeroGallery({ photos = [], onPhotoClick, venueName }) {
+export default function VenueHeroGallery({
+  photos = [],
+  onPhotoClick,
+  venueName,
+  venueId,
+  controlsTop,
+}) {
   const scrollRef = useRef(null)
   const [currentIndex, setCurrentIndex] = useState(0)
 
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message: venueName ? `${venueName}` : 'Venue',
-        title: venueName || 'Venue',
-      })
-    } catch {
-      /* ignore */
-    }
+  const handleShare = () => {
+    if (!venueId) return
+    shareVenue({ venueId, venueName })
   }
+
+  const shareTop = controlsTop != null ? controlsTop : spacing.sm
+  const showShare = !!venueId
 
   if (!photos?.length) {
     return (
@@ -38,6 +33,16 @@ export default function VenueHeroGallery({ photos = [], onPhotoClick, venueName 
         <View style={styles.placeholder}>
           <ImageIcon size={48} color={colors.textMuted} strokeWidth={1.5} />
         </View>
+        {showShare ? (
+          <Pressable
+            style={[styles.shareBtn, { top: shareTop }]}
+            onPress={handleShare}
+            hitSlop={12}
+            accessibilityLabel="Share venue"
+          >
+            <ShareIcon size={iconSizes.button} color={colors.textPrimary} strokeWidth={2} />
+          </Pressable>
+        ) : null}
       </View>
     )
   }
@@ -78,9 +83,16 @@ export default function VenueHeroGallery({ photos = [], onPhotoClick, venueName 
           {photos.length} {photos.length === 1 ? 'Photo' : 'Photos'}
         </Text>
       </View>
-      <Pressable style={styles.shareBtn} onPress={handleShare} hitSlop={12} accessibilityLabel="Share venue">
-        <ShareIcon size={iconSizes.button} color={colors.textPrimary} strokeWidth={2} />
-      </Pressable>
+      {showShare ? (
+        <Pressable
+          style={[styles.shareBtn, { top: shareTop }]}
+          onPress={handleShare}
+          hitSlop={12}
+          accessibilityLabel="Share venue"
+        >
+          <ShareIcon size={iconSizes.button} color={colors.textPrimary} strokeWidth={2} />
+        </Pressable>
+      ) : null}
     </View>
   )
 }
@@ -124,7 +136,6 @@ const styles = StyleSheet.create({
   },
   shareBtn: {
     position: 'absolute',
-    top: spacing.sm,
     right: spacing.base,
     width: 40,
     height: 40,

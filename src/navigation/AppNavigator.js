@@ -1,6 +1,6 @@
 import { View, ActivityIndicator, StyleSheet } from 'react-native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { colors, fontSizes, fontWeights, fontFamilies } from '../theme'
+import { colors, fontSizes, fontFamilies } from '../theme'
 import { useAuth } from '../contexts/AuthContext'
 import TabNavigator from './TabNavigator'
 import LoginScreen from '../screens/LoginScreen'
@@ -40,7 +40,6 @@ export default function AppNavigator() {
         headerTintColor: colors.textPrimary,
         headerTitleStyle: {
           fontSize: fontSizes.lg,
-          fontWeight: fontWeights.semibold,
           fontFamily: fontFamilies.frauncesSemiBold,
         },
         headerShadowVisible: false,

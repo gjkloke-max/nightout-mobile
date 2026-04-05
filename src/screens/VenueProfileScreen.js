@@ -155,7 +155,13 @@ export default function VenueProfileScreen() {
           <X size={iconSizes.header} color={colors.textPrimary} strokeWidth={2} />
         </Pressable>
 
-        <VenueHeroGallery photos={photos} onPhotoClick={(i) => setPhotoViewerIndex(i)} venueName={venue.name} />
+        <VenueHeroGallery
+          photos={photos}
+          onPhotoClick={(i) => setPhotoViewerIndex(i)}
+          venueName={venue.name}
+          venueId={venue.venue_id}
+          controlsTop={insets.top + 12}
+        />
 
         <VenueHeader
           venue={venue}

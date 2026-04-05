@@ -4,6 +4,7 @@ module.exports = {
   expo: {
     name: 'nightout-mobile',
     slug: 'nightout-mobile',
+    scheme: 'nightout',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
@@ -53,6 +54,8 @@ module.exports = {
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       searchApiUrl: process.env.EXPO_PUBLIC_SEARCH_API_URL,
       conciergeTimeoutMs: process.env.EXPO_PUBLIC_CONCIERGE_TIMEOUT_MS,
+      webAppUrl: process.env.EXPO_PUBLIC_WEB_APP_URL,
+      appScheme: process.env.EXPO_PUBLIC_APP_SCHEME,
     },
   },
 };

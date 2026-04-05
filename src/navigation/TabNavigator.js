@@ -20,7 +20,7 @@ const Stack = createNativeStackNavigator()
 const screenOptions = () => ({
   headerStyle: { backgroundColor: colors.backgroundElevated },
   headerTintColor: colors.textPrimary,
-  headerTitleStyle: { fontSize: fontSizes.lg, fontWeight: '600', fontFamily: fontFamilies.frauncesSemiBold },
+  headerTitleStyle: { fontSize: fontSizes.lg, fontFamily: fontFamilies.frauncesSemiBold },
   headerShadowVisible: false,
   headerRight: () => <NotificationsBellButton />,
 })
@@ -106,7 +106,6 @@ export default function TabNavigator() {
         },
         tabBarLabelStyle: {
           fontSize: fontSizes.micro,
-          fontWeight: '600',
           fontFamily: fontFamilies.frauncesSemiBold,
           letterSpacing: 0.5,
         },
