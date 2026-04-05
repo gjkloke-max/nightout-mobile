@@ -12,6 +12,9 @@ import SocialReviewDetailScreen from '../screens/SocialReviewDetailScreen'
 import ListDetailScreen from '../screens/ListDetailScreen'
 import FollowListScreen from '../screens/FollowListScreen'
 import ReviewedVenuesListScreen from '../screens/ReviewedVenuesListScreen'
+import DMMessagesHomeScreen from '../screens/DMMessagesHomeScreen'
+import DMConversationScreen from '../screens/DMConversationScreen'
+import DMNewMessageScreen from '../screens/DMNewMessageScreen'
 
 const Stack = createNativeStackNavigator()
 
@@ -73,6 +76,9 @@ export default function AppNavigator() {
       <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ title: 'List' }} />
       <Stack.Screen name="FollowList" component={FollowListScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ReviewedVenuesList" component={ReviewedVenuesListScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="DMMessagesHome" component={DMMessagesHomeScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="DMConversation" component={DMConversationScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="DMNewMessage" component={DMNewMessageScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   )
 }

@@ -26,7 +26,8 @@ import {
 import { useDebounce } from '../hooks/useDebounce'
 import ReviewPostCard from '../components/ReviewPostCard'
 import NotificationsBellButton from '../components/NotificationsBellButton'
-import { Plus, Search } from 'lucide-react-native'
+import { Plus, Search, MessageCircle } from 'lucide-react-native'
+import { getGlobalUnreadDmCount } from '../services/messaging'
 import { colors, fontSizes, fontWeights, spacing, borderRadius, fontFamilies } from '../theme'
 
 /** Figma Social — search placeholder (ellipsis) */
@@ -51,6 +52,7 @@ export default function SocialScreen() {
   const [followStatusMap, setFollowStatusMap] = useState(new Map())
   const [followLoading, setFollowLoading] = useState(null)
   const [searchFocused, setSearchFocused] = useState(false)
+  const [dmUnread, setDmUnread] = useState(0)
   const searchInputRef = useRef(null)
   /** Skip first focus so initial load runs only via useEffect (avoids double fetch on mount). */
   const skipNextFocusRef = useRef(true)
@@ -80,6 +82,20 @@ export default function SocialScreen() {
       }
       loadFeed()
     }, [user?.id, loadFeed])
+  )
+
+  useEffect(() => {
+    if (!user?.id) return
+    const refreshDm = () => getGlobalUnreadDmCount().then(setDmUnread)
+    refreshDm()
+    const interval = setInterval(refreshDm, 15000)
+    return () => clearInterval(interval)
+  }, [user?.id])
+
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) getGlobalUnreadDmCount().then(setDmUnread)
+    }, [user?.id])
   )
 
   const onRefresh = async () => {
@@ -163,6 +179,11 @@ export default function SocialScreen() {
     loadFeed()
   }
 
+  const openDmHome = () => {
+    const root = navigation.getParent()?.getParent?.()
+    root?.navigate?.('DMMessagesHome')
+  }
+
   const isSearching = searchQuery.trim().length >= 2
 
   const openSearchMode = () => {
@@ -186,15 +207,29 @@ export default function SocialScreen() {
       {/* Figma 93:6 — 70px bar, + | Social | bell */}
       <View style={styles.headerBar}>
         <View style={styles.headerInner}>
-          <TouchableOpacity
-            onPress={openSearchMode}
-            style={styles.headerIconBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Search for friends"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Plus size={20} color={colors.textPrimary} strokeWidth={2} />
-          </TouchableOpacity>
+          <View style={styles.headerLeft}>
+            <View style={styles.dmWrap}>
+              <TouchableOpacity
+                onPress={openDmHome}
+                style={styles.headerIconBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Messages"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <MessageCircle size={20} color={colors.textPrimary} strokeWidth={2} />
+              </TouchableOpacity>
+              {dmUnread > 0 ? <View style={styles.dmDot} /> : null}
+            </View>
+            <TouchableOpacity
+              onPress={openSearchMode}
+              style={styles.headerIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Search for friends"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Plus size={20} color={colors.textPrimary} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
           <Text style={styles.headerTitle} pointerEvents="none">
             Social
           </Text>
@@ -346,6 +381,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: 16,
     minHeight: 70,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    zIndex: 1,
+  },
+  dmWrap: {
+    position: 'relative',
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dmDot: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#a50036',
+    borderWidth: 2,
+    borderColor: colors.backgroundCanvas,
   },
   headerTitle: {
     position: 'absolute',
