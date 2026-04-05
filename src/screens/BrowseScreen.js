@@ -796,7 +796,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderInput,
   },
   tabBtnText: {
-    fontSize: 11,
+    fontSize: fontSizes.meta,
     fontFamily: fontFamilies.interBold,
     fontWeight: fontWeights.bold,
     letterSpacing: 1.1,
@@ -816,7 +816,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: fontSizes.xs,
     fontFamily: fontFamilies.interBold,
     fontWeight: fontWeights.bold,
     letterSpacing: 1.2,
@@ -1082,7 +1082,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ratingBadgeText: {
-    fontSize: 11,
+    fontSize: fontSizes.meta,
     fontFamily: fontFamilies.fraunces,
     fontWeight: fontWeights.bold,
     color: colors.textOnDark,
@@ -1104,7 +1104,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardTag: {
-    fontSize: 10,
+    fontSize: fontSizes.micro,
     fontFamily: fontFamilies.interMedium,
     fontWeight: fontWeights.medium,
     letterSpacing: 0.5,

@@ -28,7 +28,7 @@ import ReviewPostCard from '../components/ReviewPostCard'
 import NotificationsBellButton from '../components/NotificationsBellButton'
 import { Plus, Search, MessageCircle } from 'lucide-react-native'
 import { getGlobalUnreadDmCount } from '../services/messaging'
-import { colors, fontSizes, fontWeights, spacing, borderRadius, fontFamilies } from '../theme'
+import { colors, fontSizes, fontWeights, spacing, borderRadius, fontFamilies, hitSlop, textStyles } from '../theme'
 
 /** Figma Social — search placeholder (ellipsis) */
 const SEARCH_PLACEHOLDER = 'Search friends or reviews…'
@@ -214,7 +214,8 @@ export default function SocialScreen() {
                 style={styles.headerIconBtn}
                 accessibilityRole="button"
                 accessibilityLabel="Messages"
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={hitSlop.md}
+                activeOpacity={0.85}
               >
                 <MessageCircle size={20} color={colors.textPrimary} strokeWidth={2} />
               </TouchableOpacity>
@@ -225,7 +226,8 @@ export default function SocialScreen() {
               style={styles.headerIconBtn}
               accessibilityRole="button"
               accessibilityLabel="Search for friends"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={hitSlop.md}
+              activeOpacity={0.85}
             >
               <Plus size={20} color={colors.textPrimary} strokeWidth={2} />
             </TouchableOpacity>
@@ -346,6 +348,7 @@ export default function SocialScreen() {
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.browseAccent]} />}
         >
           {feed.map((post, index) => (
@@ -406,15 +409,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.backgroundCanvas,
   },
-  headerTitle: {
+  headerTitleCenter: {
     position: 'absolute',
     left: 0,
     right: 0,
     textAlign: 'center',
-    fontFamily: fontFamilies.frauncesSemiBold,
-    fontSize: 24,
-    lineHeight: 32,
-    color: colors.textPrimary,
     zIndex: 0,
   },
   headerRight: {
@@ -523,18 +522,7 @@ const styles = StyleSheet.create({
   emptySearchText: { fontSize: fontSizes.base, color: colors.textMuted },
   loadingText: { fontSize: fontSizes.sm, color: colors.textMuted },
   emptyState: { flex: 1, padding: spacing.xl, justifyContent: 'center', alignItems: 'center' },
-  emptyTitle: {
-    fontSize: fontSizes.xl,
-    fontWeight: fontWeights.semibold,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  emptySubtitle: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
+  emptyTitleSpacing: { marginBottom: spacing.sm },
   scroll: { flex: 1 },
   scrollContent: {
     paddingTop: spacing['2xl'],

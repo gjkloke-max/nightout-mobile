@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   DeviceEventEmitter,
+  Platform,
 } from 'react-native'
 import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import { useAuth } from '../contexts/AuthContext'
@@ -21,7 +22,7 @@ import {
 } from '../services/notifications'
 import { navigateFromNotificationMobileLink } from '../services/notificationDeepLink'
 import { acceptFollowRequest, denyFollowRequest } from '../services/follows'
-import { colors, fontSizes, fontWeights, spacing } from '../theme'
+import { colors, fontSizes, fontWeights, spacing, textStyles, androidRipple } from '../theme'
 
 const BADGE_REFRESH = 'notification-badge-refresh'
 
@@ -253,6 +254,7 @@ export default function NotificationsScreen() {
         <Pressable
           style={[styles.itemRow, unread && styles.itemUnread]}
           onPress={() => tid && openFriendProfile(tid)}
+          android_ripple={Platform.OS === 'android' ? androidRipple.light : undefined}
         >
           <View style={styles.avatar}>
             {avatarUrl ? (
@@ -279,6 +281,7 @@ export default function NotificationsScreen() {
         <Pressable
           style={[styles.itemRow, unread && styles.itemUnread]}
           onPress={() => tid && openFriendProfile(tid)}
+          android_ripple={Platform.OS === 'android' ? androidRipple.light : undefined}
         >
           <View style={styles.avatar}>
             {avatarUrl ? (
@@ -301,7 +304,11 @@ export default function NotificationsScreen() {
     const avatarUrl = profile?.avatar_url || n.image_url || null
     const bodyLine = n.body || normalizeType(n.type).replace(/_/g, ' ')
     return (
-      <Pressable style={[styles.itemRow, unread && styles.itemUnread]} onPress={() => handleGenericPress(n)}>
+      <Pressable
+        style={[styles.itemRow, unread && styles.itemUnread]}
+        onPress={() => handleGenericPress(n)}
+        android_ripple={Platform.OS === 'android' ? androidRipple.light : undefined}
+      >
         <View style={styles.avatar}>
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
@@ -327,7 +334,12 @@ export default function NotificationsScreen() {
   return (
     <View style={styles.container}>
       {unreadCount > 0 ? (
-        <Pressable style={styles.markAll} onPress={handleMarkAllRead}>
+        <Pressable
+          style={({ pressed }) => [styles.markAll, pressed && { opacity: 0.85 }]}
+          onPress={handleMarkAllRead}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          android_ripple={Platform.OS === 'android' ? androidRipple.light : undefined}
+        >
           <Text style={styles.markAllText}>Mark all read</Text>
         </Pressable>
       ) : null}
@@ -337,8 +349,8 @@ export default function NotificationsScreen() {
         </View>
       ) : notifications.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>Notifications</Text>
-          <Text style={styles.emptySubtitle}>
+          <Text style={[textStyles.emptyTitle, styles.emptyTitleSpacing]}>Notifications</Text>
+          <Text style={textStyles.emptySubtitle}>
             Follow requests, likes, and comments will appear here.
           </Text>
         </View>
@@ -349,6 +361,8 @@ export default function NotificationsScreen() {
           renderItem={renderNotification}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.3}
+          removeClippedSubviews
+          keyboardShouldPersistTaps="handled"
           ListFooterComponent={
             loadingMore ? (
               <View style={styles.footerLoad}>
@@ -364,13 +378,12 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.backgroundCanvas },
   markAll: { padding: spacing.base, alignItems: 'flex-end' },
   markAllText: { fontSize: fontSizes.sm, color: colors.profileAccent, fontWeight: fontWeights.semibold },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
-  emptyTitle: { fontSize: fontSizes.xl, fontWeight: fontWeights.semibold, color: colors.textPrimary, marginBottom: spacing.sm },
-  emptySubtitle: { fontSize: fontSizes.sm, color: colors.textSecondary, textAlign: 'center' },
+  emptyTitleSpacing: { marginBottom: spacing.sm },
   scrollContent: { paddingBottom: spacing['3xl'] },
   footerLoad: { padding: spacing.lg, alignItems: 'center' },
   item: {
@@ -401,8 +414,8 @@ const styles = StyleSheet.create({
   avatarImg: { width: '100%', height: '100%' },
   avatarText: { fontSize: fontSizes.sm, color: colors.textMuted },
   textCol: { flex: 1, marginLeft: spacing.md },
-  text: { fontSize: fontSizes.sm, color: colors.textPrimary },
-  time: { fontSize: fontSizes.xs, color: colors.textMuted, marginTop: 2 },
+  text: { fontSize: fontSizes.sm, lineHeight: 20, color: colors.textPrimary },
+  time: { fontSize: fontSizes.xs, lineHeight: 16, color: colors.textMuted, marginTop: 2 },
   actions: { flexDirection: 'row', gap: spacing.sm },
   acceptBtn: {
     paddingHorizontal: spacing.base,

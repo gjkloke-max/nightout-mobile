@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, Pressable, Image, Platform } from 'react-native'
 import { Heart, MessageCircle } from 'lucide-react-native'
 import { likeReview, unlikeReview } from '../services/reviewLikes'
-import { colors, fontSizes, fontWeights, spacing, iconSizes, fontFamilies } from '../theme'
+import { colors, fontSizes, fontWeights, spacing, iconSizes, fontFamilies, androidRipple, pressOpacity, hitSlop } from '../theme'
 
 function displayName(p) {
   if (!p) return 'Anonymous'
@@ -73,6 +73,7 @@ export default function ReviewPostCard({
           style={({ pressed }) => [styles.headerMain, authorTappable && pressed && styles.headerMainPressed]}
           onPress={() => authorTappable && onAuthorPress(authorId)}
           disabled={!authorTappable}
+          android_ripple={Platform.OS === 'android' ? androidRipple.light : undefined}
         >
           <View style={styles.avatar}>
             {post.author?.avatar_url ? (
@@ -93,7 +94,11 @@ export default function ReviewPostCard({
         ) : null}
       </View>
 
-      <Pressable style={styles.venueRow} onPress={() => onVenuePress?.(venue)}>
+      <Pressable
+        style={styles.venueRow}
+        onPress={() => onVenuePress?.(venue)}
+        android_ripple={Platform.OS === 'android' ? androidRipple.light : undefined}
+      >
         <View style={styles.venueInfo}>
           <Text style={styles.venueName}>{venue?.name || 'Venue'}</Text>
           {venue?.neighborhood_name ? <Text style={styles.venueNeighborhood}>{venue.neighborhood_name}</Text> : null}
@@ -104,13 +109,19 @@ export default function ReviewPostCard({
         <Pressable
           onPress={goToReviewDetail}
           style={({ pressed }) => [pressed && navigation && styles.reviewTextPressed]}
+          android_ripple={Platform.OS === 'android' ? androidRipple.light : undefined}
         >
           <Text style={styles.reviewText}>{post.review_text}</Text>
         </Pressable>
       ) : null}
 
       <View style={styles.actions}>
-        <Pressable style={styles.actionBtn} onPress={handleLike}>
+        <Pressable
+          style={({ pressed }) => [styles.actionBtn, pressed && { opacity: pressOpacity.default }]}
+          onPress={handleLike}
+          hitSlop={hitSlop.sm}
+          android_ripple={Platform.OS === 'android' ? androidRipple.light : undefined}
+        >
           <Heart
             size={iconSizes.card}
             color={liked ? colors.browseAccent : colors.textMuted}
@@ -119,7 +130,12 @@ export default function ReviewPostCard({
           />
           <Text style={styles.actionText}>{likeCount}</Text>
         </Pressable>
-        <Pressable style={styles.actionBtn} onPress={goToReviewDetail}>
+        <Pressable
+          style={({ pressed }) => [styles.actionBtn, pressed && { opacity: pressOpacity.default }]}
+          onPress={goToReviewDetail}
+          hitSlop={hitSlop.sm}
+          android_ripple={Platform.OS === 'android' ? androidRipple.light : undefined}
+        >
           <MessageCircle size={iconSizes.card} color={colors.textMuted} strokeWidth={2} />
           <Text style={styles.actionText}>{commentCount}</Text>
         </Pressable>
@@ -135,8 +151,8 @@ const styles = StyleSheet.create({
   post: {
     backgroundColor: colors.backgroundCanvas,
     paddingHorizontal: spacing.xl,
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -164,28 +180,28 @@ const styles = StyleSheet.create({
   },
   avatarImg: { width: '100%', height: '100%' },
   avatarText: {
-    fontSize: 10,
+    fontSize: fontSizes.meta,
     fontFamily: fontFamilies.interBold,
     fontWeight: fontWeights.bold,
     color: colors.textSecondary,
   },
   authorInfo: { marginLeft: spacing.base },
   authorName: {
-    fontSize: 10,
+    fontSize: fontSizes.meta,
     fontFamily: fontFamilies.interBold,
     fontWeight: fontWeights.bold,
-    letterSpacing: 1,
+    letterSpacing: 0.75,
     textTransform: 'uppercase',
     color: colors.textPrimary,
-    lineHeight: 12,
+    lineHeight: 14,
   },
   time: {
-    fontSize: 10,
+    fontSize: fontSizes.xs,
     fontFamily: serifTime,
     fontStyle: 'italic',
     color: colors.textSecondary,
-    lineHeight: 12,
-    marginTop: 4,
+    lineHeight: 16,
+    marginTop: 2,
   },
   ratingBadge: {
     borderWidth: 1,
@@ -223,20 +239,20 @@ const styles = StyleSheet.create({
     lineHeight: 23,
   },
   venueNeighborhood: {
-    fontSize: 10,
+    fontSize: fontSizes.meta,
     fontFamily: fontFamilies.interBold,
     fontWeight: fontWeights.bold,
-    letterSpacing: 1,
+    letterSpacing: 0.75,
     textTransform: 'uppercase',
     color: colors.textSecondary,
-    lineHeight: 12,
-    marginTop: 4,
+    lineHeight: 14,
+    marginTop: 2,
   },
   reviewText: {
-    fontSize: 18,
+    fontSize: fontSizes.lg,
     fontFamily: serifBody,
     color: '#27272a',
-    lineHeight: 29.25,
+    lineHeight: 28,
     marginBottom: spacing.md,
   },
   reviewTextPressed: {
@@ -245,8 +261,15 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: spacing.lg,
-    paddingTop: 4,
+    paddingTop: spacing.xs,
   },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  actionText: { fontSize: fontSizes.sm, color: colors.textMuted, fontFamily: fontFamilies.inter },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+    paddingRight: spacing.sm,
+  },
+  actionText: { fontSize: fontSizes.sm, color: colors.textMuted, fontFamily: fontFamilies.inter, lineHeight: 20 },
 })

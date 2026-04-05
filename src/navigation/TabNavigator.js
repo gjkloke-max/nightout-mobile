@@ -1,6 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { colors, fontSizes } from '../theme'
+import { colors, fontSizes, fontFamilies } from '../theme'
 import { TabIcon } from '../components/TabIcons'
 import NotificationsBellButton from '../components/NotificationsBellButton'
 import BrowseScreen from '../screens/BrowseScreen'
@@ -18,9 +18,9 @@ const Tab = createBottomTabNavigator()
 const Stack = createNativeStackNavigator()
 
 const screenOptions = () => ({
-  headerStyle: { backgroundColor: colors.background },
+  headerStyle: { backgroundColor: colors.backgroundElevated },
   headerTintColor: colors.textPrimary,
-  headerTitleStyle: { fontSize: fontSizes.lg, fontWeight: '700', fontFamily: 'Fraunces_700Bold' },
+  headerTitleStyle: { fontSize: fontSizes.lg, fontWeight: '600', fontFamily: fontFamilies.frauncesSemiBold },
   headerShadowVisible: false,
   headerRight: () => <NotificationsBellButton />,
 })
@@ -104,7 +104,13 @@ export default function TabNavigator() {
           backgroundColor: 'rgba(255,255,255,0.9)',
           borderTopColor: 'rgba(228,228,231,0.5)',
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', fontFamily: 'Fraunces_600SemiBold' },
+        tabBarLabelStyle: {
+          fontSize: fontSizes.micro,
+          fontWeight: '600',
+          fontFamily: fontFamilies.frauncesSemiBold,
+          letterSpacing: 0.5,
+        },
+        tabBarHideOnKeyboard: true,
         headerShown: false,
       })}
     >

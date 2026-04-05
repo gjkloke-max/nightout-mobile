@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { TouchableOpacity, View, DeviceEventEmitter } from 'react-native'
+import { Pressable, View, DeviceEventEmitter, Platform } from 'react-native'
 import { CommonActions, useNavigation } from '@react-navigation/native'
 import { Bell } from 'lucide-react-native'
 import { useAuth } from '../contexts/AuthContext'
 import { getUnseenCount } from '../services/notifications'
-import { colors, spacing } from '../theme'
+import { colors, spacing, androidRipple, pressOpacity, touchTarget } from '../theme'
 import { iconSizes } from '../theme/icons'
 
 const BADGE_REFRESH = 'notification-badge-refresh'
@@ -28,7 +28,6 @@ export default function NotificationsBellButton() {
   }, [user?.id])
 
   const openNotifications = () => {
-    // Root Stack screen (sibling to MainTabs). CommonActions works from nested tab/stack headers.
     navigation.dispatch(
       CommonActions.navigate({
         name: 'Notifications',
@@ -37,7 +36,24 @@ export default function NotificationsBellButton() {
   }
 
   return (
-    <TouchableOpacity onPress={openNotifications} style={{ padding: spacing.sm, position: 'relative' }} hitSlop={12}>
+    <Pressable
+      onPress={openNotifications}
+      accessibilityRole="button"
+      accessibilityLabel="Notifications"
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      style={({ pressed }) => [
+        {
+          padding: spacing.sm,
+          position: 'relative',
+          minWidth: touchTarget.min,
+          minHeight: touchTarget.min,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        pressed && { opacity: pressOpacity.default },
+      ]}
+      android_ripple={Platform.OS === 'android' ? androidRipple.light : undefined}
+    >
       <Bell size={iconSizes.header} color={colors.textPrimary} strokeWidth={2} />
       {unseenCount > 0 && (
         <View
@@ -52,6 +68,6 @@ export default function NotificationsBellButton() {
           }}
         />
       )}
-    </TouchableOpacity>
+    </Pressable>
   )
 }

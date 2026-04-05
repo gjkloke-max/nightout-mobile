@@ -1,6 +1,6 @@
 import { View, ActivityIndicator, StyleSheet } from 'react-native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { colors, fontSizes, fontWeights } from '../theme'
+import { colors, fontSizes, fontWeights, fontFamilies } from '../theme'
 import { useAuth } from '../contexts/AuthContext'
 import TabNavigator from './TabNavigator'
 import LoginScreen from '../screens/LoginScreen'
@@ -38,8 +38,14 @@ export default function AppNavigator() {
       screenOptions={{
         headerStyle: { backgroundColor: colors.backgroundElevated },
         headerTintColor: colors.textPrimary,
-        headerTitleStyle: { fontSize: fontSizes.lg, fontWeight: fontWeights.semibold },
+        headerTitleStyle: {
+          fontSize: fontSizes.lg,
+          fontWeight: fontWeights.semibold,
+          fontFamily: fontFamilies.frauncesSemiBold,
+        },
         headerShadowVisible: false,
+        contentStyle: { backgroundColor: colors.backgroundCanvas },
+        animation: 'slide_from_right',
       }}
     >
       <Stack.Screen
@@ -84,5 +90,5 @@ export default function AppNavigator() {
 }
 
 const styles = StyleSheet.create({
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  loading: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.backgroundCanvas },
 })

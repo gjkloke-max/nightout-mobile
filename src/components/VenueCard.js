@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native'
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native'
 import { Image as ImageIcon } from 'lucide-react-native'
-import { colors, fontSizes, fontFamilies, spacing } from '../theme'
+import { colors, fontSizes, fontFamilies, spacing, pressOpacity } from '../theme'
 
 function getVenueTypeName(venue) {
   const vt = Array.isArray(venue?.venue_type) ? venue?.venue_type[0] : venue?.venue_type
@@ -21,7 +21,7 @@ export default function VenueCard({ venue, onPress }) {
   const meta = formatNeighborhoodLine(venue)
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+    <Pressable style={({ pressed }) => [styles.card, pressed && { opacity: pressOpacity.default }]} onPress={onPress}>
       <View style={styles.imageContainer}>
         {photoUrl ? (
           <Image source={{ uri: photoUrl }} style={styles.image} resizeMode="cover" />
@@ -48,7 +48,7 @@ export default function VenueCard({ venue, onPress }) {
           </Text>
         ) : null}
       </View>
-    </TouchableOpacity>
+    </Pressable>
   )
 }
 

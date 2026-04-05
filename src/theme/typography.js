@@ -14,6 +14,10 @@ export const fontFamilies = {
 }
 
 export const fontSizes = {
+  /** Tab labels, micro copy — use sparingly */
+  micro: 10,
+  /** Compact uppercase labels / meta (caps) */
+  meta: 11,
   xs: 12,
   sm: 14,
   base: 16,

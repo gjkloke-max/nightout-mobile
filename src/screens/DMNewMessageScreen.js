@@ -16,7 +16,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useDebounce } from '../hooks/useDebounce'
 import { searchUsers } from '../services/userSearch'
 import { listSuggestedDmUsers, getOrCreateDirectConversation, displayNameFromProfile } from '../services/messaging'
-import { colors, fontFamilies, fontSizes, fontWeights, spacing, borderRadius } from '../theme'
+import { colors, fontFamilies, fontSizes, fontWeights, spacing, borderRadius, textStyles } from '../theme'
 
 export default function DMNewMessageScreen() {
   const navigation = useNavigation()
@@ -104,9 +104,7 @@ export default function DMNewMessageScreen() {
     )
   }
 
-  const listHeader = showSuggested ? (
-    <Text style={styles.sectionLabel}>Suggested</Text>
-  ) : null
+  const listHeader = showSuggested ? <Text style={[textStyles.sectionLabel, styles.sectionLabelPad]}>Suggested</Text> : null
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(spacing.lg, insets.top) }]}>
@@ -203,15 +201,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     paddingVertical: 0,
   },
-  sectionLabel: {
+  sectionLabelPad: {
     marginHorizontal: spacing.xl,
     marginBottom: 8,
     marginTop: 4,
-    fontFamily: fontFamilies.interSemiBold,
-    fontSize: 10,
-    letterSpacing: 0.9,
-    textTransform: 'uppercase',
-    color: colors.textTag,
   },
   listContent: { paddingBottom: spacing['3xl'] },
   row: {
