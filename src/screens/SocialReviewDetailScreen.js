@@ -21,12 +21,25 @@ import { supabase } from '../lib/supabase'
 import { getSocialReviewById } from '../services/socialFeed'
 import { likeReview, unlikeReview } from '../services/reviewLikes'
 import { addComment } from '../services/reviewComments'
+import { toggleCommentLike } from '../services/commentLikes'
+import { getFollowing } from '../services/follows'
 import { colors, fontSizes, fontWeights, spacing, iconSizes, fontFamilies } from '../theme'
 
 function displayName(p) {
   if (!p) return 'Anonymous'
   const parts = [p.first_name, p.last_name].filter(Boolean)
   return parts.length ? parts.join(' ') : 'Anonymous'
+}
+
+/** Best-effort @mention detection for friends you follow (matches "@First Last" segments). */
+function extractMentionedUserIdsFromText(text, friends) {
+  if (!text || !friends?.length) return []
+  const ids = []
+  for (const { userId, profile } of friends) {
+    const label = `@${displayName(profile)}`
+    if (text.includes(label)) ids.push(userId)
+  }
+  return ids
 }
 
 function formatTime(d) {
@@ -83,6 +96,8 @@ export default function SocialReviewDetailScreen() {
   const [liked, setLiked] = useState(false)
   const [comments, setComments] = useState([])
   const [commentText, setCommentText] = useState('')
+  const [replyParentId, setReplyParentId] = useState(null)
+  const [mentionFriends, setMentionFriends] = useState([])
   /** Current user's profile row — used for composer avatar and optimistic comment names */
   const [myProfile, setMyProfile] = useState(null)
 
@@ -105,6 +120,14 @@ export default function SocialReviewDetailScreen() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    if (!user?.id) {
+      setMentionFriends([])
+      return
+    }
+    getFollowing(user.id, 200).then(setMentionFriends).catch(() => setMentionFriends([]))
+  }, [user?.id])
 
   useEffect(() => {
     if (!user?.id || !supabase) {
@@ -139,7 +162,11 @@ export default function SocialReviewDetailScreen() {
 
   const handleCommentSubmit = async () => {
     if (!user?.id || !post || !commentText.trim()) return
-    const { success, data } = await addComment(user.id, post.venue_review_id, commentText.trim())
+    const mentionedUserIds = extractMentionedUserIdsFromText(commentText, mentionFriends)
+    const { success, data } = await addComment(user.id, post.venue_review_id, commentText.trim(), {
+      parentCommentId: replyParentId,
+      mentionedUserIds: mentionedUserIds.length ? mentionedUserIds : undefined,
+    })
     if (success && data) {
       const firstName = myProfile?.first_name ?? user?.user_metadata?.first_name ?? ''
       const lastName = myProfile?.last_name ?? user?.user_metadata?.last_name ?? ''
@@ -148,6 +175,8 @@ export default function SocialReviewDetailScreen() {
         ...prev,
         {
           ...data,
+          likeCount: 0,
+          likedByViewer: false,
           profile: {
             id: user.id,
             first_name: firstName,
@@ -157,11 +186,43 @@ export default function SocialReviewDetailScreen() {
         },
       ])
       setCommentText('')
+      setReplyParentId(null)
       Keyboard.dismiss()
       requestAnimationFrame(() => {
         scrollRef.current?.scrollToEnd({ animated: true })
       })
     }
+  }
+
+  const handleToggleCommentLike = async (c) => {
+    if (!user?.id || !post) return
+    const prevCount = c.likeCount ?? 0
+    const prevLiked = !!c.likedByViewer
+    const nextLiked = !prevLiked
+    const nextCount = Math.max(0, prevCount + (nextLiked ? 1 : -1))
+    setComments((prev) =>
+      prev.map((x) => (x.id === c.id ? { ...x, likeCount: nextCount, likedByViewer: nextLiked } : x))
+    )
+    const res = await toggleCommentLike(user.id, c.id, post.venue_review_id)
+    if (!res.success) {
+      setComments((prev) =>
+        prev.map((x) => (x.id === c.id ? { ...x, likeCount: prevCount, likedByViewer: prevLiked } : x))
+      )
+    } else {
+      setComments((prev) =>
+        prev.map((x) =>
+          x.id === c.id ? { ...x, likeCount: res.likeCount ?? x.likeCount, likedByViewer: res.liked } : x
+        )
+      )
+    }
+  }
+
+  const startReply = (c) => {
+    setReplyParentId(c.id)
+    setCommentText(`@${displayName(c.profile)} `)
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated: true })
+    })
   }
 
   const openVenue = (venue) => {
@@ -313,10 +374,18 @@ export default function SocialReviewDetailScreen() {
             {comments.map((c, idx) => {
               const cid = c.user_id || c.profile?.id
               const canOpen = !!(cid && user?.id && cid !== user.id)
+              const isReply = !!c.parent_comment_id
               return (
-                <View key={c.id} style={[styles.commentRow, idx === comments.length - 1 && styles.commentRowLast]}>
+                <View
+                  key={c.id}
+                  style={[
+                    styles.commentRow,
+                    isReply && styles.commentRowIndented,
+                    idx === comments.length - 1 && styles.commentRowLast,
+                  ]}
+                >
                   <Pressable
-                    style={({ pressed }) => [styles.commentPressable, canOpen && pressed && styles.commentPressablePressed]}
+                    style={styles.commentAvatarPress}
                     onPress={() => canOpen && openFriendProfile(cid)}
                     disabled={!canOpen}
                   >
@@ -327,19 +396,33 @@ export default function SocialReviewDetailScreen() {
                         <Text style={styles.commentAvatarText}>{displayName(c.profile).slice(0, 2).toUpperCase()}</Text>
                       )}
                     </View>
-                    <View style={styles.commentMain}>
-                      <View style={styles.commentMeta}>
-                        <Text style={styles.commentName}>{displayName(c.profile)}</Text>
-                        <Text style={styles.commentWhen}>{formatCommentTime(c.created_at)}</Text>
-                      </View>
-                      <Text style={styles.commentBody}>{c.comment_text}</Text>
-                      <Text style={styles.commentReply}>Reply</Text>
-                    </View>
                   </Pressable>
-                  <View style={styles.commentLikeCol}>
-                    <Heart size={14} color={colors.textSecondary} fill="transparent" strokeWidth={2} />
-                    <Text style={styles.commentLikeCount}>0</Text>
+                  <View style={styles.commentMain}>
+                    <View style={styles.commentMeta}>
+                      <Text style={styles.commentName}>{displayName(c.profile)}</Text>
+                      <Text style={styles.commentWhen}>{formatCommentTime(c.created_at)}</Text>
+                    </View>
+                    <Text style={styles.commentBody}>{c.comment_text}</Text>
+                    {user?.id ? (
+                      <Pressable onPress={() => startReply(c)} hitSlop={8}>
+                        <Text style={styles.commentReply}>Reply</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
+                  <Pressable
+                    style={styles.commentLikeCol}
+                    onPress={() => handleToggleCommentLike(c)}
+                    disabled={!user?.id}
+                    hitSlop={8}
+                  >
+                    <Heart
+                      size={14}
+                      color={c.likedByViewer ? '#ec003f' : colors.textSecondary}
+                      fill={c.likedByViewer ? '#ec003f' : 'transparent'}
+                      strokeWidth={2}
+                    />
+                    <Text style={styles.commentLikeCount}>{c.likeCount ?? 0}</Text>
+                  </Pressable>
                 </View>
               )
             })}
@@ -350,6 +433,15 @@ export default function SocialReviewDetailScreen() {
 
         {user?.id ? (
           <View style={[styles.commentsComposer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+            {replyParentId != null ? (
+              <View style={styles.replyHintRow}>
+                <Text style={styles.replyHint}>Replying in thread — </Text>
+                <Pressable onPress={() => setReplyParentId(null)} hitSlop={8}>
+                  <Text style={styles.replyCancel}>Cancel</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            <View style={styles.composerRow}>
             <View style={styles.composerAvatar}>
               {myProfile?.avatar_url || user?.user_metadata?.avatar_url ? (
                 <Image
@@ -373,6 +465,7 @@ export default function SocialReviewDetailScreen() {
             <Pressable onPress={handleCommentSubmit} disabled={!commentText.trim()} hitSlop={8}>
               <Text style={[styles.composerPost, !commentText.trim() && styles.composerPostDisabled]}>Post</Text>
             </Pressable>
+            </View>
           </View>
         ) : null}
       </KeyboardAvoidingView>
@@ -565,7 +658,14 @@ const styles = StyleSheet.create({
     gap: 16,
     marginBottom: 32,
   },
+  commentRowIndented: {
+    marginLeft: 8,
+    paddingLeft: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.border,
+  },
   commentRowLast: { marginBottom: 0 },
+  commentAvatarPress: {},
   commentPressable: {
     flex: 1,
     flexDirection: 'row',
@@ -621,9 +721,10 @@ const styles = StyleSheet.create({
     fontWeight: fontWeights.bold,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTag,
+    color: colors.browseAccent,
+    marginTop: 2,
   },
-  commentLikeCol: { alignItems: 'center', gap: 4, paddingTop: 4, width: 14 },
+  commentLikeCol: { alignItems: 'center', gap: 4, paddingTop: 4, minWidth: 28 },
   commentLikeCount: {
     fontSize: 10,
     fontFamily: fontFamilies.interBold,
@@ -631,15 +732,36 @@ const styles = StyleSheet.create({
     color: colors.textTag,
   },
   commentsComposer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 8,
     flexShrink: 0,
     paddingHorizontal: spacing.xl,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.backgroundCanvas,
+  },
+  replyHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  replyHint: {
+    fontSize: 12,
+    color: colors.textMuted,
+    fontFamily: fontFamilies.inter,
+  },
+  replyCancel: {
+    fontSize: 12,
+    color: colors.browseAccent,
+    fontWeight: '600',
+    fontFamily: fontFamilies.inter,
+  },
+  composerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   composerAvatar: {
     width: 32,

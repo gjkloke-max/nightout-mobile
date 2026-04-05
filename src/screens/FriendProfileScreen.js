@@ -1,7 +1,7 @@
 /**
  * Figma NewCo — Friend Profile (106:1911): Back, identity, stats, Follow + Message, Top 5, Reviews | Lists.
  */
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   View,
   Text,
@@ -67,17 +67,21 @@ export default function FriendProfileScreen() {
   const [activeTab, setActiveTab] = useState('reviews')
   const [myReviews, setMyReviews] = useState([])
   const [topTen, setTopTen] = useState([])
-  const [topTenEligibility, setTopTenEligibility] = useState({ has_unlocked_top_ten: false })
+  const [topTenEligibility, setTopTenEligibility] = useState({
+    has_unlocked_top_five: false,
+    has_unlocked_top_ten: false,
+  })
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 })
   const [publicLists, setPublicLists] = useState([])
   const [followStatus, setFollowStatus] = useState('none')
   const [targetIsPrivate, setTargetIsPrivate] = useState(false)
   const [profileLocked, setProfileLocked] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
-  const [top5Expanded, setTop5Expanded] = useState(false)
   const [reviewCount, setReviewCount] = useState(0)
+  const scrollRef = useRef(null)
+  const [tabsLayoutY, setTabsLayoutY] = useState(0)
 
-  const topFive = useMemo(() => topTen.slice(0, top5Expanded ? 10 : 5), [topTen, top5Expanded])
+  const topFive = useMemo(() => topTen.slice(0, 5), [topTen])
 
   const load = useCallback(async () => {
     if (!userId || !user?.id) return
@@ -218,6 +222,32 @@ export default function FriendProfileScreen() {
     })
   }
 
+  const openReviewedVenuesList = () => {
+    if (!userId) return
+    navigation.navigate('ReviewedVenuesList', { userId })
+  }
+
+  const openFollowers = () => {
+    if (!userId) return
+    navigation.navigate('FollowList', { userId, mode: 'followers' })
+  }
+
+  const openFollowing = () => {
+    if (!userId) return
+    navigation.navigate('FollowList', { userId, mode: 'following' })
+  }
+
+  const scrollToReviews = () => {
+    setActiveTab('reviews')
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, tabsLayoutY - 12), animated: true })
+    }, 100)
+  }
+
+  const openSocialReview = (reviewId) => {
+    navigation.navigate('SocialReviewDetail', { reviewId })
+  }
+
   if (!userId) {
     return (
       <View style={styles.center}>
@@ -244,6 +274,7 @@ export default function FriendProfileScreen() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -329,18 +360,18 @@ export default function FriendProfileScreen() {
               {handle ? <Text style={styles.handle}>{handle}</Text> : null}
 
               <View style={styles.stats}>
-                <View style={[styles.statCell, styles.statCellDivider]}>
+                <Pressable style={[styles.statCell, styles.statCellDivider]} onPress={openFollowers}>
                   <Text style={styles.statValue}>{followCounts.followers}</Text>
                   <Text style={styles.statLabel}>Followers</Text>
-                </View>
-                <View style={[styles.statCell, styles.statCellDivider]}>
+                </Pressable>
+                <Pressable style={[styles.statCell, styles.statCellDivider]} onPress={openFollowing}>
                   <Text style={styles.statValue}>{followCounts.following}</Text>
                   <Text style={styles.statLabel}>Following</Text>
-                </View>
-                <View style={styles.statCell}>
+                </Pressable>
+                <Pressable style={styles.statCell} onPress={scrollToReviews}>
                   <Text style={styles.statValue}>{myReviews.length}</Text>
                   <Text style={styles.statLabel}>Reviews</Text>
-                </View>
+                </Pressable>
               </View>
 
               {user?.id && user.id !== userId ? (
@@ -373,16 +404,16 @@ export default function FriendProfileScreen() {
             <View style={styles.top5Section}>
               <View style={styles.top5Header}>
                 <Text style={styles.top5Title}>Top 5</Text>
-                {topTenEligibility.has_unlocked_top_ten && topTen.length > 5 ? (
-                  <Pressable onPress={() => setTop5Expanded((e) => !e)}>
+                {topTenEligibility.has_unlocked_top_five && topTen.length > 5 ? (
+                  <Pressable onPress={openReviewedVenuesList} hitSlop={8}>
                     <Text style={styles.viewAll}>
                       View all <Text style={styles.viewAllChev}>›</Text>
                     </Text>
                   </Pressable>
                 ) : null}
               </View>
-              {!topTenEligibility.has_unlocked_top_ten ? (
-                <Text style={styles.muted}>Review 10 places to unlock a ranked Top 5.</Text>
+              {!topTenEligibility.has_unlocked_top_five ? (
+                <Text style={styles.muted}>Review more venues to unlock your Top 5</Text>
               ) : topFive.length === 0 ? (
                 <Text style={styles.muted}>No venues yet.</Text>
               ) : (
@@ -413,7 +444,7 @@ export default function FriendProfileScreen() {
               )}
             </View>
 
-            <View style={styles.tabs}>
+            <View style={styles.tabs} onLayout={(e) => setTabsLayoutY(e.nativeEvent.layout.y)}>
               {TABS.map((tab) => (
                 <Pressable
                   key={tab}
@@ -442,19 +473,21 @@ export default function FriendProfileScreen() {
                     return (
                       <View key={r.venue_review_id} style={styles.reviewItem}>
                         <View style={styles.reviewHeaderRow}>
-                          <View style={styles.reviewTitleblock}>
+                          <Pressable style={styles.reviewTitleblock} onPress={() => handleVenuePress(venue)}>
                             <Text style={styles.reviewVenueName} numberOfLines={2}>
                               {venueName}
                             </Text>
                             {meta ? <Text style={styles.reviewMetaCaps}>{meta.toUpperCase()}</Text> : null}
-                          </View>
+                          </Pressable>
                           {r.rating10 != null ? (
                             <Text style={styles.reviewScoreBadge}>{Number(r.rating10).toFixed(1)}</Text>
                           ) : null}
                         </View>
-                        <Text style={styles.reviewBody} numberOfLines={8}>
-                          {r.review_text || '—'}
-                        </Text>
+                        <Pressable onPress={() => openSocialReview(r.venue_review_id)}>
+                          <Text style={styles.reviewBody} numberOfLines={8}>
+                            {r.review_text || '—'}
+                          </Text>
+                        </Pressable>
                       </View>
                     )
                   })

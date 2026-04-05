@@ -73,11 +73,17 @@ export default function ProfileScreen() {
   const [lists, setLists] = useState([])
   const [myReviews, setMyReviews] = useState([])
   const [topTen, setTopTen] = useState([])
-  const [topTenEligibility, setTopTenEligibility] = useState({ total_reviewed_count: 0, has_unlocked_top_ten: false })
+  const [topTenEligibility, setTopTenEligibility] = useState({
+    total_reviewed_count: 0,
+    has_unlocked_top_five: false,
+    has_unlocked_top_ten: false,
+  })
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 })
   const topFive = useMemo(() => topTen.slice(0, 5), [topTen])
   const profileRef = useRef(null)
   profileRef.current = profile
+  const scrollRef = useRef(null)
+  const [tabsLayoutY, setTabsLayoutY] = useState(0)
 
   const loadProfile = useCallback(async () => {
     if (!user?.id) return
@@ -156,6 +162,34 @@ export default function ProfileScreen() {
     navigation.navigate('ListDetail', { listId: list.list_id })
   }
 
+  const rootNav = () => navigation.getParent()?.getParent?.()
+
+  const openReviewedVenuesList = () => {
+    if (!user?.id) return
+    rootNav()?.navigate?.('ReviewedVenuesList', { userId: user.id })
+  }
+
+  const openFollowers = () => {
+    if (!user?.id) return
+    rootNav()?.navigate?.('FollowList', { userId: user.id, mode: 'followers' })
+  }
+
+  const openFollowing = () => {
+    if (!user?.id) return
+    rootNav()?.navigate?.('FollowList', { userId: user.id, mode: 'following' })
+  }
+
+  const scrollToReviews = () => {
+    setActiveTab('reviews')
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, tabsLayoutY - 12), animated: true })
+    }, 100)
+  }
+
+  const openSocialReview = (reviewId) => {
+    rootNav()?.navigate?.('SocialReviewDetail', { reviewId })
+  }
+
   if (loading && !profile) {
     return (
       <View style={styles.center}>
@@ -167,6 +201,7 @@ export default function ProfileScreen() {
   return (
     <>
     <ScrollView
+      ref={scrollRef}
       style={styles.container}
       contentContainerStyle={[
         styles.content,
@@ -205,18 +240,18 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.stats}>
-          <View style={[styles.statCell, styles.statCellDivider]}>
+          <Pressable style={[styles.statCell, styles.statCellDivider]} onPress={openFollowers}>
             <Text style={styles.statValue}>{followCounts.followers}</Text>
             <Text style={styles.statLabel}>Followers</Text>
-          </View>
-          <View style={[styles.statCell, styles.statCellDivider]}>
+          </Pressable>
+          <Pressable style={[styles.statCell, styles.statCellDivider]} onPress={openFollowing}>
             <Text style={styles.statValue}>{followCounts.following}</Text>
             <Text style={styles.statLabel}>Following</Text>
-          </View>
-          <View style={styles.statCell}>
+          </Pressable>
+          <Pressable style={styles.statCell} onPress={scrollToReviews}>
             <Text style={styles.statValue}>{myReviews.length}</Text>
             <Text style={styles.statLabel}>Reviews</Text>
-          </View>
+          </Pressable>
         </View>
 
         <View style={styles.actionRow}>
@@ -233,10 +268,17 @@ export default function ProfileScreen() {
       <View style={styles.top5Section}>
         <View style={styles.top5Header}>
           <Text style={styles.top5Title}>Top 5</Text>
+          {topTenEligibility.has_unlocked_top_five && topTen.length > 5 ? (
+            <Pressable onPress={openReviewedVenuesList} hitSlop={8}>
+              <Text style={styles.top5ViewAllText}>
+                View all <Text style={styles.top5ViewAllChev}>›</Text>
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
-        {!topTenEligibility.has_unlocked_top_ten ? (
+        {!topTenEligibility.has_unlocked_top_five ? (
           <View style={styles.top5Locked}>
-            <Text style={styles.top5LockedText}>Review 10 places to unlock your ranked favorites.</Text>
+            <Text style={styles.top5LockedText}>Review more venues to unlock your Top 5</Text>
             <Pressable onPress={handleWriteReview}>
               <Text style={styles.top5LockedCta}>Write a review</Text>
             </Pressable>
@@ -273,7 +315,7 @@ export default function ProfileScreen() {
         )}
       </View>
 
-      <View style={styles.tabs}>
+      <View style={styles.tabs} onLayout={(e) => setTabsLayoutY(e.nativeEvent.layout.y)}>
         {TABS.map((tab) => (
           <Pressable
             key={tab}
@@ -305,19 +347,21 @@ export default function ProfileScreen() {
                 return (
                   <View key={r.venue_review_id} style={styles.reviewItem}>
                     <View style={styles.reviewHeaderRow}>
-                      <View style={styles.reviewTitleblock}>
+                      <Pressable style={styles.reviewTitleblock} onPress={() => handleVenuePress(venue)}>
                         <Text style={styles.reviewVenueName} numberOfLines={2}>
                           {venueName}
                         </Text>
                         {meta ? <Text style={styles.reviewMetaCaps}>{meta}</Text> : null}
-                      </View>
+                      </Pressable>
                       {r.rating10 != null && (
                         <Text style={styles.reviewScoreBadge}>{Number(r.rating10).toFixed(1)}</Text>
                       )}
                     </View>
-                    <Text style={styles.reviewBody} numberOfLines={6}>
-                      {r.review_text || '—'}
-                    </Text>
+                    <Pressable onPress={() => openSocialReview(r.venue_review_id)}>
+                      <Text style={styles.reviewBody} numberOfLines={6}>
+                        {r.review_text || '—'}
+                      </Text>
+                    </Pressable>
                   </View>
                 )
               })
@@ -511,7 +555,18 @@ const styles = StyleSheet.create({
     marginHorizontal: -spacing.lg,
     paddingHorizontal: spacing.lg,
   },
-  top5Header: { marginBottom: spacing.sm },
+  top5Header: {
+    marginBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  top5ViewAllText: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.interBold,
+    color: colors.browseAccent,
+  },
+  top5ViewAllChev: { fontFamily: fontFamilies.fraunces },
   top5Title: {
     fontSize: fontSizes['2xl'],
     fontFamily: fontFamilies.fraunces,

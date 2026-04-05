@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { enrichCommentsWithLikes } from './commentLikes'
 
 export async function getSocialFeed(userId, limit = 30) {
   if (!userId || !supabase) return []
@@ -28,7 +29,11 @@ export async function getSocialFeed(userId, limit = 30) {
   const [profilesRes, likesRes, commentsRes, photosRes] = await Promise.all([
     supabase.from('profiles').select('id, first_name, last_name, avatar_url').in('id', [...new Set((reviews || []).map((r) => r.user_id).filter(Boolean))]),
     supabase.from('review_likes').select('review_id, user_id').in('review_id', reviewIds),
-    supabase.from('review_comments').select('id, review_id, user_id, comment_text, created_at').in('review_id', reviewIds).order('created_at', { ascending: true }),
+    supabase
+      .from('review_comments')
+      .select('id, review_id, user_id, comment_text, created_at, parent_comment_id')
+      .in('review_id', reviewIds)
+      .order('created_at', { ascending: true }),
     supabase.from('review_photos').select('id, review_id, photo_url').in('review_id', reviewIds),
   ])
 
@@ -49,18 +54,22 @@ export async function getSocialFeed(userId, limit = 30) {
     photosByReview[p.review_id].push(p)
   })
 
-  return (reviews || []).map((r) => {
+  const out = []
+  for (const r of reviews || []) {
     const venue = Array.isArray(r.venue) ? r.venue[0] : r.venue
-    return {
+    const rawComments = commentsByReview[r.venue_review_id] || []
+    const comments = await enrichCommentsWithLikes(rawComments, userId)
+    out.push({
       ...r,
       venue,
       author: profilesById[r.user_id] || null,
       likeCount: (likesByReview[r.venue_review_id] || []).length,
       likedBy: likesByReview[r.venue_review_id] || [],
-      comments: commentsByReview[r.venue_review_id] || [],
+      comments,
       photos: photosByReview[r.venue_review_id] || [],
-    }
-  })
+    })
+  }
+  return out
 }
 
 export async function getSocialReviewById(userId, venueReviewId) {
@@ -92,7 +101,11 @@ export async function getSocialReviewById(userId, venueReviewId) {
   const [profilesRes, likesRes, commentsRes, photosRes] = await Promise.all([
     supabase.from('profiles').select('id, first_name, last_name, avatar_url').in('id', [r.user_id]),
     supabase.from('review_likes').select('review_id, user_id').in('review_id', reviewIds),
-    supabase.from('review_comments').select('id, review_id, user_id, comment_text, created_at').in('review_id', reviewIds).order('created_at', { ascending: true }),
+    supabase
+      .from('review_comments')
+      .select('id, review_id, user_id, comment_text, created_at, parent_comment_id')
+      .in('review_id', reviewIds)
+      .order('created_at', { ascending: true }),
     supabase.from('review_photos').select('id, review_id, photo_url').in('review_id', reviewIds),
   ])
 
@@ -120,13 +133,15 @@ export async function getSocialReviewById(userId, venueReviewId) {
   })
 
   const venue = Array.isArray(r.venue) ? r.venue[0] : r.venue
+  const rawComments = commentsByReview[r.venue_review_id] || []
+  const comments = await enrichCommentsWithLikes(rawComments, userId)
   return {
     ...r,
     venue,
     author: profilesById[r.user_id] || null,
     likeCount: (likesByReview[r.venue_review_id] || []).length,
     likedBy: likesByReview[r.venue_review_id] || [],
-    comments: commentsByReview[r.venue_review_id] || [],
+    comments,
     photos: photosByReview[r.venue_review_id] || [],
   }
 }

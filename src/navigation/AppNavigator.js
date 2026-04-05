@@ -10,6 +10,8 @@ import WriteReviewScreen from '../screens/WriteReviewScreen'
 import FriendProfileScreen from '../screens/FriendProfileScreen'
 import SocialReviewDetailScreen from '../screens/SocialReviewDetailScreen'
 import ListDetailScreen from '../screens/ListDetailScreen'
+import FollowListScreen from '../screens/FollowListScreen'
+import ReviewedVenuesListScreen from '../screens/ReviewedVenuesListScreen'
 
 const Stack = createNativeStackNavigator()
 
@@ -69,6 +71,8 @@ export default function AppNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ title: 'List' }} />
+      <Stack.Screen name="FollowList" component={FollowListScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="ReviewedVenuesList" component={ReviewedVenuesListScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   )
 }

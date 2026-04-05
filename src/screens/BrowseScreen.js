@@ -27,7 +27,7 @@ const CITY_TITLE = 'Chicago'
 const TABS = [
   { id: 'trending', label: 'Trending' },
   { id: 'forYou', label: 'For You' },
-  { id: 'popularLists', label: 'Popular Lists' },
+  { id: 'popularLists', label: 'Top Lists' },
 ]
 
 /** Figma Browse — secondary tag when we only have venue_type (no editorial vibes) */
@@ -669,7 +669,7 @@ export default function BrowseScreen() {
 
           {mainTab === 'popularLists' && (
             <View style={styles.placeholderBox}>
-              <Text style={styles.placeholderTitle}>Popular lists</Text>
+              <Text style={styles.placeholderTitle}>Top lists</Text>
               <Text style={styles.placeholderBody}>
                 Curated lists from the community will appear here. Save venues to lists from a venue profile to build your own.
               </Text>

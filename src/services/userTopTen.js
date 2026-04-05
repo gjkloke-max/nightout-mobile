@@ -1,18 +1,22 @@
 import { supabase } from '../lib/supabase'
 
 export async function getUserTopTenEligibility(userId) {
-  if (!userId || !supabase) return { total_reviewed_count: 0, has_unlocked_top_ten: false }
+  if (!userId || !supabase) return { total_reviewed_count: 0, has_unlocked_top_five: false, has_unlocked_top_ten: false }
   const { count, error } = await supabase
     .from('venue_review')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .not('rating10', 'is', null)
-  if (error) return { total_reviewed_count: 0, has_unlocked_top_ten: false }
+  if (error) return { total_reviewed_count: 0, has_unlocked_top_five: false, has_unlocked_top_ten: false }
   const total = count ?? 0
-  return { total_reviewed_count: total, has_unlocked_top_ten: total >= 10 }
+  return {
+    total_reviewed_count: total,
+    has_unlocked_top_five: total >= 5,
+    has_unlocked_top_ten: total >= 10,
+  }
 }
 
-export async function getUserTopTenVenues(userId) {
+async function getRankedVenueRowsForUser(userId, maxVenues) {
   if (!userId || !supabase) return []
   const { data: reviews, error } = await supabase
     .from('venue_review')
@@ -35,7 +39,12 @@ export async function getUserTopTenVenues(userId) {
     if (scoreB !== scoreA) return scoreB - scoreA
     return new Date(b.created_at) - new Date(a.created_at)
   })
-  return withVenue.slice(0, 10).map((r, i) => ({
+  const byVenue = new Map()
+  for (const r of withVenue) {
+    if (!byVenue.has(r.venue_id)) byVenue.set(r.venue_id, r)
+  }
+  const ranked = Array.from(byVenue.values()).slice(0, maxVenues)
+  return ranked.map((r, i) => ({
     rank: i + 1,
     venue_id: r.venue_id,
     venue_name: r.venue?.name,
@@ -44,4 +53,12 @@ export async function getUserTopTenVenues(userId) {
     primary_photo_url: r.venue?.primary_photo_url,
     venue: r.venue,
   }))
+}
+
+export async function getUserTopTenVenues(userId) {
+  return getRankedVenueRowsForUser(userId, 10)
+}
+
+export async function getUserReviewedVenuesSorted(userId) {
+  return getRankedVenueRowsForUser(userId, 5000)
 }
