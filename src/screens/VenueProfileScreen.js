@@ -16,6 +16,20 @@ import VenueReviewList from '../components/VenueProfile/VenueReviewList'
 import { X } from 'lucide-react-native'
 import { colors, fontSizes, fontFamilies, spacing, iconSizes } from '../theme'
 
+const REVIEWS_PAGE_SIZE = 15
+
+async function mergeReviewsWithProfiles(rows) {
+  const list = rows || []
+  const userIds = [...new Set(list.map((r) => r.user_id).filter(Boolean))]
+  if (!userIds.length) return list
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name, avatar_url')
+    .in('id', userIds)
+  const byId = Object.fromEntries((profiles || []).map((p) => [p.id, p]))
+  return list.map((r) => ({ ...r, profile: byId[r.user_id] || null }))
+}
+
 export default function VenueProfileScreen() {
   const route = useRoute()
   const navigation = useNavigation()
@@ -26,12 +40,15 @@ export default function VenueProfileScreen() {
   const [venue, setVenue] = useState(null)
   const [loading, setLoading] = useState(true)
   const [venueReviews, setVenueReviews] = useState([])
+  const [totalReviewCount, setTotalReviewCount] = useState(null)
   const [loadingReviews, setLoadingReviews] = useState(false)
+  const [loadingMoreReviews, setLoadingMoreReviews] = useState(false)
+  const [hasMoreReviews, setHasMoreReviews] = useState(false)
+  const reviewsNextOffsetRef = useRef(0)
   const [favoriteVenueIds, setFavoriteVenueIds] = useState(new Set())
   const [togglingFavorite, setTogglingFavorite] = useState(null)
   const [addToListVenue, setAddToListVenue] = useState(null)
   const [photoViewerIndex, setPhotoViewerIndex] = useState(null)
-  const [showReviewComposer, setShowReviewComposer] = useState(false)
   const scrollRef = useRef(null)
   const reviewsLayoutRef = useRef({ y: 0 })
 
@@ -53,30 +70,61 @@ export default function VenueProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!venueId || !supabase) return
+      let cancelled = false
       setLoadingReviews(true)
+      reviewsNextOffsetRef.current = 0
       ;(async () => {
+        const { count } = await supabase
+          .from('venue_review')
+          .select('*', { count: 'exact', head: true })
+          .eq('venue_id', venueId)
+        if (cancelled) return
+        const total = typeof count === 'number' ? count : 0
+        setTotalReviewCount(total)
+
         const { data: rows } = await supabase
           .from('venue_review')
           .select('venue_review_id, rating10, review_text, review_date, relative_time_description, user_id')
           .eq('venue_id', venueId)
           .order('review_date', { ascending: false })
-          .limit(15)
+          .range(0, REVIEWS_PAGE_SIZE - 1)
+        if (cancelled) return
         const list = rows || []
-        const userIds = [...new Set(list.map((r) => r.user_id).filter(Boolean))]
-        let merged = list
-        if (userIds.length) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name, avatar_url')
-            .in('id', userIds)
-          const byId = Object.fromEntries((profiles || []).map((p) => [p.id, p]))
-          merged = list.map((r) => ({ ...r, profile: byId[r.user_id] || null }))
-        }
+        reviewsNextOffsetRef.current = list.length
+        const merged = await mergeReviewsWithProfiles(list)
+        if (cancelled) return
         setVenueReviews(merged)
+        setHasMoreReviews(total > merged.length)
         setLoadingReviews(false)
       })()
+      return () => {
+        cancelled = true
+      }
     }, [venueId])
   )
+
+  const loadMoreReviews = useCallback(async () => {
+    if (!venueId || !supabase || loadingMoreReviews || !hasMoreReviews) return
+    setLoadingMoreReviews(true)
+    const from = reviewsNextOffsetRef.current
+    const { data: rows } = await supabase
+      .from('venue_review')
+      .select('venue_review_id, rating10, review_text, review_date, relative_time_description, user_id')
+      .eq('venue_id', venueId)
+      .order('review_date', { ascending: false })
+      .range(from, from + REVIEWS_PAGE_SIZE - 1)
+    const list = rows || []
+    const merged = await mergeReviewsWithProfiles(list)
+    setVenueReviews((prev) => {
+      const seen = new Set(prev.map((r) => r.venue_review_id))
+      const extra = merged.filter((r) => r.venue_review_id && !seen.has(r.venue_review_id))
+      return [...prev, ...extra]
+    })
+    reviewsNextOffsetRef.current += list.length
+    const total = totalReviewCount ?? 0
+    setHasMoreReviews(reviewsNextOffsetRef.current < total)
+    setLoadingMoreReviews(false)
+  }, [venueId, loadingMoreReviews, hasMoreReviews, totalReviewCount])
 
   const handleToggleFavorite = async (vid) => {
     if (!user?.id) return
@@ -165,7 +213,7 @@ export default function VenueProfileScreen() {
 
         <VenueHeader
           venue={venue}
-          reviewCount={venueReviews.length}
+          reviewCount={totalReviewCount ?? venueReviews.length}
           onReviewsClick={() => scrollRef.current?.scrollTo({ y: reviewsLayoutRef.current.y, animated: true })}
         />
 
@@ -180,20 +228,6 @@ export default function VenueProfileScreen() {
           hasUserReview={!!userReview}
         />
 
-        {showReviewComposer ? (
-          <VenueReviewComposer
-            embeddedInFlow
-            showEmbeddedActions
-            venueId={venue.venue_id}
-            venueName={venue.name}
-            venuePhotoUrl={venue.primary_photo_url}
-            venueNeighborhood={(venue.neighborhood_name || venue.city || '').trim()}
-            existingReview={userReview}
-            onSubmit={handleReviewSubmit}
-            onCancel={() => setShowReviewComposer(false)}
-          />
-        ) : null}
-
         <VenueCrowdSentimentSection venue={venue} reviews={venueReviews} />
 
         <View onLayout={(e) => { reviewsLayoutRef.current.y = e.nativeEvent.layout.y }}>
@@ -204,6 +238,9 @@ export default function VenueProfileScreen() {
             onReviewClick={openWriteReview}
             currentUserId={user?.id}
             onReviewerPress={openFriendProfile}
+            hasMoreReviews={hasMoreReviews}
+            loadingMoreReviews={loadingMoreReviews}
+            onLoadMoreReviews={loadMoreReviews}
           />
         </View>
       </ScrollView>

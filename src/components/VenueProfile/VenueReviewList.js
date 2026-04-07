@@ -1,5 +1,5 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native'
-import { colors, fontSizes, fontFamilies, spacing } from '../../theme'
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native'
+import { colors, fontSizes, fontFamilies, spacing, borderRadius } from '../../theme'
 
 function formatReviewDate(d) {
   if (!d) return ''
@@ -24,6 +24,9 @@ export default function VenueReviewList({
   onReviewClick,
   currentUserId,
   onReviewerPress,
+  hasMoreReviews = false,
+  loadingMoreReviews = false,
+  onLoadMoreReviews,
 }) {
   const displayReviews = [...reviews]
   if (userReview && !displayReviews.some((r) => r.venue_review_id === userReview.venue_review_id)) {
@@ -91,6 +94,21 @@ export default function VenueReviewList({
           </View>
         ))}
       </View>
+      {hasMoreReviews && onLoadMoreReviews ? (
+        <Pressable
+          style={[styles.loadMoreBtn, loadingMoreReviews && styles.loadMoreBtnDisabled]}
+          onPress={onLoadMoreReviews}
+          disabled={loadingMoreReviews}
+          accessibilityRole="button"
+          accessibilityLabel="Load more reviews"
+        >
+          {loadingMoreReviews ? (
+            <ActivityIndicator size="small" color={colors.textPrimary} />
+          ) : (
+            <Text style={styles.loadMoreText}>See more reviews</Text>
+          )}
+        </Pressable>
+      ) : null}
     </View>
   )
 }
@@ -164,5 +182,21 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     fontFamily: fontFamilies.frauncesItalic,
     color: '#27272a',
+  },
+  loadMoreBtn: {
+    marginTop: spacing.lg,
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    borderWidth: 2,
+    borderColor: colors.borderInput,
+    backgroundColor: colors.backgroundElevated,
+  },
+  loadMoreBtnDisabled: { opacity: 0.7 },
+  loadMoreText: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.interSemiBold,
+    color: colors.textPrimary,
   },
 })

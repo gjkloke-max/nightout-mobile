@@ -23,6 +23,7 @@ export function deriveCrowdSentiment(combinedText) {
   if (!combinedText || typeof combinedText !== 'string') return []
   const lower = combinedText.toLowerCase()
   const themes = []
+  /** Grounded in review/summary text only; labels kept fair (no harsh callouts). */
   const patterns = [
     { phrases: ['cozy', 'intimate'], label: 'Cozy, intimate atmosphere', cat: 'ambience-cozy' },
     { phrases: ['romantic'], label: 'Romantic vibe', cat: 'ambience-romantic' },
@@ -38,10 +39,13 @@ export function deriveCrowdSentiment(combinedText) {
     { phrases: ['sushi'], label: 'Sushi gets attention', cat: 'food-sushi' },
     { phrases: ['brunch'], label: 'Brunch favorite', cat: 'food-brunch' },
     { phrases: ['pizza'], label: 'Pizza often mentioned', cat: 'food-pizza' },
-    { phrases: ['service', 'attentive', 'friendly'], label: 'Service is often praised', cat: 'service-praised' },
-    { phrases: ['slow', 'wait'], label: 'Service timing can be inconsistent', cat: 'service-timing' },
-    { phrases: ['crowded', 'busy'], label: 'Can get crowded', cat: 'crowd-busy' },
-    { phrases: ['weekend', 'weekends'], label: 'Busier on weekends', cat: 'crowd-weekend' },
+    {
+      phrases: ['great service', 'good service', 'friendly staff', 'attentive', 'excellent service', 'helpful staff'],
+      label: 'Service is often praised',
+      cat: 'service-praised',
+    },
+    { phrases: ['crowded', 'packed'], label: 'Lively and popular', cat: 'crowd-busy' },
+    { phrases: ['weekend', 'weekends'], label: 'Popular on weekends', cat: 'crowd-weekend' },
     { phrases: ['portion', 'portions'], label: 'Portions are a recurring talking point', cat: 'practical-portions' },
     { phrases: ['patio', 'outdoor'], label: 'Patio or outdoor seating', cat: 'practical-outdoor' },
     { phrases: ['happy hour'], label: 'Happy hour noted', cat: 'practical-hh' },

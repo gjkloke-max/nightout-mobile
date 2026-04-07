@@ -74,6 +74,10 @@ export async function fetchVenuesByIds(venueIds) {
       rating10,
       latitude,
       longitude,
+      cuisine_type,
+      compact_summary,
+      review_summary,
+      editorial_summary,
       venue_type(venue_type_name),
       state(state_code)
     `)

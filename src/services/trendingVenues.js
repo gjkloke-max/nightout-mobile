@@ -47,7 +47,9 @@ export async function getTrendingVenues(limit = 15) {
 
   const { data: venues, error: venueError } = await supabase
     .from('venue')
-    .select('venue_id, name, neighborhood_name, primary_photo_url, city, rating10, venue_type(venue_type_name)')
+    .select(
+      'venue_id, name, neighborhood_name, primary_photo_url, city, rating10, cuisine_type, compact_summary, review_summary, editorial_summary, venue_type(venue_type_name)'
+    )
     .in('venue_id', venueIds)
 
   if (venueError) {

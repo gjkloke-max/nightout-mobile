@@ -21,6 +21,7 @@ import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes, fontF
 import { bm25Search } from '../lib/searchApi'
 import { fetchVenuesByIds, searchVenuesByName } from '../lib/venueService'
 import { getTrendingVenues } from '../services/trendingVenues'
+import { deriveBrowseTagPair } from '../utils/browseVenueTags'
 
 const CITY_TITLE = 'Chicago'
 
@@ -29,9 +30,6 @@ const TABS = [
   { id: 'forYou', label: 'For You' },
   { id: 'popularLists', label: 'Top Lists' },
 ]
-
-/** Figma Browse — secondary tag when we only have venue_type (no editorial vibes) */
-const VIBE_TAGS = ['Date Night', 'Cozy', 'Community', 'Local spot']
 
 function dedupeByVenueId(rows) {
   const seen = new Set()
@@ -66,23 +64,14 @@ function mergeVenueDetails(apiRows, supabaseVenues) {
       venue_type: details.venue_type,
       state: details.state,
       city: details.city,
+      cuisine_type: details.cuisine_type ?? null,
+      compact_summary: details.compact_summary ?? null,
+      review_summary: details.review_summary ?? null,
+      editorial_summary: details.editorial_summary ?? null,
       latitude: pickCoord(details.latitude, r.latitude),
       longitude: pickCoord(details.longitude, r.longitude),
     }
   })
-}
-
-function getVenueTypeName(venue) {
-  const vt = Array.isArray(venue?.venue_type) ? venue.venue_type[0] : venue?.venue_type
-  return (vt?.venue_type_name || '').trim()
-}
-
-function formatTagPair(venue) {
-  const typeName = getVenueTypeName(venue)
-  const primary = typeName ? typeName : 'Venue'
-  const id = parseInt(String(venue?.venue_id || '0'), 10) || 0
-  const secondary = VIBE_TAGS[Math.abs(id) % VIBE_TAGS.length]
-  return { primary, secondary }
 }
 
 function formatRating10(venue) {
@@ -278,7 +267,7 @@ export default function BrowseScreen() {
   }
 
   const renderVenueCard = (venue) => {
-    const { primary: tagPrimary, secondary: tagSecondary } = formatTagPair(venue)
+    const { primary: tagPrimary, secondary: tagSecondary } = deriveBrowseTagPair(venue)
     return (
       <TouchableOpacity
         style={styles.cardRow}
@@ -322,7 +311,7 @@ export default function BrowseScreen() {
   const renderTrendingItem = ({ item }) => renderVenueCard(item.venue)
 
   const renderSearchCompactRow = (venue) => {
-    const { primary: tagPrimary, secondary: tagSecondary } = formatTagPair(venue)
+    const { primary: tagPrimary, secondary: tagSecondary } = deriveBrowseTagPair(venue)
     return (
       <TouchableOpacity
         style={styles.searchCompactRow}
