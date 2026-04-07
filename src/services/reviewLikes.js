@@ -47,3 +47,29 @@ export async function unlikeReview(userId, reviewId) {
     .eq('review_id', reviewId)
   return { success: !error, error: error?.message }
 }
+
+export async function getLikedReviewIds(userId, reviewIds) {
+  if (!userId || !reviewIds?.length || !supabase) return new Set()
+  const { data } = await supabase
+    .from('review_likes')
+    .select('review_id')
+    .eq('user_id', userId)
+    .in('review_id', reviewIds)
+  return new Set((data || []).map((r) => r.review_id))
+}
+
+export async function getLikeCountsByReviewIds(reviewIds) {
+  const ids = [...new Set((reviewIds || []).filter(Boolean))]
+  if (!ids.length || !supabase) return {}
+  const { data, error } = await supabase.from('review_likes').select('review_id').in('review_id', ids)
+  if (error) {
+    console.error('getLikeCountsByReviewIds', error)
+    return {}
+  }
+  const counts = {}
+  for (const row of data || []) {
+    const id = row.review_id
+    counts[id] = (counts[id] || 0) + 1
+  }
+  return counts
+}

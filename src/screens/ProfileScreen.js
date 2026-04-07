@@ -23,7 +23,9 @@ import { Plus, Settings } from 'lucide-react-native'
 import { colors, fontSizes, fontWeights, fontFamilies, spacing } from '../theme'
 import { WRITE_REVIEW_ORIGIN } from '../navigation/writeReviewOrigin'
 import ProfilePhotoViewerModal from '../components/ProfilePhotoViewerModal'
+import ProfileReviewEngagementRow from '../components/ProfileReviewEngagementRow'
 import { pickAndUploadProfileAvatar, removeAvatar } from '../services/profileAvatar'
+import { useProfileReviewEngagement } from '../hooks/useProfileReviewEngagement'
 
 const TABS = ['reviews', 'lists', 'saved']
 
@@ -219,6 +221,16 @@ export default function ProfileScreen() {
   const openSocialReview = (reviewId) => {
     rootNav()?.navigate?.('SocialReviewDetail', { reviewId })
   }
+
+  const {
+    engagementLoading,
+    likeCounts,
+    commentCounts,
+    likedIds,
+    toggleLike,
+    countFromMap,
+    likedFromSet,
+  } = useProfileReviewEngagement(myReviews, user?.id)
 
   const handleViewerChangePhoto = useCallback(async () => {
     if (!user?.id) return
@@ -442,6 +454,15 @@ export default function ProfileScreen() {
                         {r.review_text || '—'}
                       </Text>
                     </Pressable>
+                    <ProfileReviewEngagementRow
+                      likeCount={countFromMap(likeCounts, r.venue_review_id)}
+                      commentCount={countFromMap(commentCounts, r.venue_review_id)}
+                      liked={likedFromSet(likedIds, r.venue_review_id)}
+                      loading={engagementLoading}
+                      onLike={() => toggleLike(r.venue_review_id)}
+                      onCommentPress={() => openSocialReview(r.venue_review_id)}
+                      currentUserId={user?.id}
+                    />
                   </View>
                 )
               })

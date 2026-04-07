@@ -2,7 +2,7 @@ import { useLayoutEffect } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Pencil, Bell, Lock, LogOut, ChevronRight } from 'lucide-react-native'
+import { Pencil, Bell, SlidersHorizontal, Lock, LogOut, ChevronRight } from 'lucide-react-native'
 import { useAuth } from '../contexts/AuthContext'
 import { colors, fontFamilies, spacing } from '../theme'
 
@@ -61,6 +61,18 @@ export default function SettingsScreen() {
           <View style={styles.rowLeft}>
             <Bell size={20} color={colors.textPrimary} strokeWidth={2} />
             <Text style={styles.rowLabel}>Notification Settings</Text>
+          </View>
+          <ChevronRight size={20} color={colors.textMuted} strokeWidth={2} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.row, styles.rowBorder]}
+          onPress={() => navigation.navigate('EditPreferences')}
+          activeOpacity={0.65}
+        >
+          <View style={styles.rowLeft}>
+            <SlidersHorizontal size={20} color={colors.textPrimary} strokeWidth={2} />
+            <Text style={styles.rowLabel}>Edit Preferences</Text>
           </View>
           <ChevronRight size={20} color={colors.textMuted} strokeWidth={2} />
         </TouchableOpacity>

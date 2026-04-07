@@ -10,6 +10,7 @@ import SocialReviewDetailScreen from '../screens/SocialReviewDetailScreen'
 import ProfileScreen from '../screens/ProfileScreen'
 import EditProfileScreen from '../screens/EditProfileScreen'
 import NotificationSettingsScreen from '../screens/NotificationSettingsScreen'
+import EditPreferencesScreen from '../screens/EditPreferencesScreen'
 import SettingsScreen from '../screens/SettingsScreen'
 import AccountPrivacyScreen from '../screens/AccountPrivacyScreen'
 import ListDetailScreen from '../screens/ListDetailScreen'
@@ -83,6 +84,11 @@ function ProfileStack() {
         name="NotificationSettings"
         component={NotificationSettingsScreen}
         options={{ title: 'Notification Settings', headerShown: true }}
+      />
+      <Stack.Screen
+        name="EditPreferences"
+        component={EditPreferencesScreen}
+        options={{ title: 'Edit Preferences', headerShown: true, headerRight: () => null }}
       />
       <Stack.Screen
         name="AccountPrivacy"

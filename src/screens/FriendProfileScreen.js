@@ -30,6 +30,8 @@ import { getUserTopTenVenues, getUserTopTenEligibility } from '../services/userT
 import { getPublicListsForUser } from '../utils/venueLists'
 import { colors, fontSizes, fontWeights, spacing, fontFamilies } from '../theme'
 import ProfilePhotoViewerModal from '../components/ProfilePhotoViewerModal'
+import ProfileReviewEngagementRow from '../components/ProfileReviewEngagementRow'
+import { useProfileReviewEngagement } from '../hooks/useProfileReviewEngagement'
 
 const TABS = ['reviews', 'lists']
 
@@ -272,6 +274,16 @@ export default function FriendProfileScreen() {
   const openSocialReview = (reviewId) => {
     navigation.navigate('SocialReviewDetail', { reviewId })
   }
+
+  const {
+    engagementLoading,
+    likeCounts,
+    commentCounts,
+    likedIds,
+    toggleLike,
+    countFromMap,
+    likedFromSet,
+  } = useProfileReviewEngagement(myReviews, user?.id)
 
   if (!userId) {
     return (
@@ -525,6 +537,15 @@ export default function FriendProfileScreen() {
                             {r.review_text || '—'}
                           </Text>
                         </Pressable>
+                        <ProfileReviewEngagementRow
+                          likeCount={countFromMap(likeCounts, r.venue_review_id)}
+                          commentCount={countFromMap(commentCounts, r.venue_review_id)}
+                          liked={likedFromSet(likedIds, r.venue_review_id)}
+                          loading={engagementLoading}
+                          onLike={() => toggleLike(r.venue_review_id)}
+                          onCommentPress={() => openSocialReview(r.venue_review_id)}
+                          currentUserId={user?.id}
+                        />
                       </View>
                     )
                   })

@@ -178,3 +178,19 @@ export async function getCommentsWithProfiles(reviewId, viewerUserId) {
   }))
   return enrichCommentsWithLikes(withProfiles, viewerUserId)
 }
+
+export async function getCommentCountsByReviewIds(reviewIds) {
+  const ids = [...new Set((reviewIds || []).filter(Boolean))]
+  if (!ids.length || !supabase) return {}
+  const { data, error } = await supabase.from('review_comments').select('review_id').in('review_id', ids)
+  if (error) {
+    console.error('getCommentCountsByReviewIds', error)
+    return {}
+  }
+  const counts = {}
+  for (const row of data || []) {
+    const id = row.review_id
+    counts[id] = (counts[id] || 0) + 1
+  }
+  return counts
+}
