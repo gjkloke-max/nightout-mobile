@@ -18,7 +18,7 @@ import { getUserFavorites } from '../utils/favorites'
 import { getUserLists } from '../utils/venueLists'
 import { getUserTopTenVenues, getUserTopTenEligibility } from '../services/userTopTen'
 import { getFollowCounts } from '../services/follows'
-import VenueCard from '../components/VenueCard'
+import TrendingVenueRow from '../components/TrendingVenueRow'
 import { Plus, Settings } from 'lucide-react-native'
 import { colors, fontSizes, fontWeights, fontFamilies, spacing } from '../theme'
 import { WRITE_REVIEW_ORIGIN } from '../navigation/writeReviewOrigin'
@@ -518,7 +518,11 @@ export default function ProfileScreen() {
               <Text style={styles.empty}>No saved venues.</Text>
             ) : (
               favorites.map((f) => (
-                <VenueCard key={f.venue_id} venue={f.venue} onPress={() => handleVenuePress(f.venue)} />
+                <TrendingVenueRow
+                  key={f.venue_id}
+                  venue={f.venue}
+                  onPress={() => handleVenuePress(f.venue)}
+                />
               ))
             )}
           </View>

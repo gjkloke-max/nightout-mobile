@@ -8,13 +8,12 @@ import {
   Image,
   TextInput,
   ActivityIndicator,
-  Share,
   Platform,
   KeyboardAvoidingView,
   Keyboard,
 } from 'react-native'
 import { useRoute, useNavigation } from '@react-navigation/native'
-import { Heart, MessageCircle, ChevronLeft, Share2 } from 'lucide-react-native'
+import { Heart, MessageCircle, ChevronLeft } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -25,7 +24,7 @@ import { toggleCommentLike } from '../services/commentLikes'
 import { searchUsersForMention } from '../services/userSearch'
 import { resolveMentionedUserIds } from '../services/mentionResolve'
 import MentionText from '../components/MentionText'
-import { colors, fontSizes, fontWeights, spacing, iconSizes, fontFamilies } from '../theme'
+import { colors, fontSizes, fontWeights, spacing, iconSizes, fontFamilies, androidRipple } from '../theme'
 
 function displayName(p) {
   if (!p) return 'Anonymous'
@@ -263,16 +262,6 @@ export default function SocialReviewDetailScreen() {
     root?.navigate?.('FriendProfile', { userId })
   }
 
-  const shareReview = async () => {
-    if (!post) return
-    const msg = post.venue?.name ? `Review — ${post.venue.name}` : 'Review'
-    try {
-      await Share.share({ message: msg })
-    } catch {
-      /* ignore */
-    }
-  }
-
   const scrollToComments = () => {
     scrollRef.current?.scrollTo({ y: Math.max(0, commentsY - 8), animated: true })
   }
@@ -320,9 +309,7 @@ export default function SocialReviewDetailScreen() {
           <ChevronLeft size={22} color={colors.textPrimary} strokeWidth={2} />
         </Pressable>
         <Text style={styles.headerTitle}>Review</Text>
-        <Pressable style={styles.headerBtn} onPress={shareReview} hitSlop={12}>
-          <Share2 size={20} color={colors.textPrimary} strokeWidth={2} />
-        </Pressable>
+        <View style={styles.headerBtnPlaceholder} />
       </View>
 
       <KeyboardAvoidingView
@@ -365,9 +352,17 @@ export default function SocialReviewDetailScreen() {
               ) : null}
             </View>
 
-            <Pressable style={styles.venueInline} onPress={() => openVenue(venue)}>
-              <Text style={styles.venueNameLg}>{venue?.name || 'Venue'}</Text>
-              {venue?.neighborhood_name ? <Text style={styles.venueNeighborhood}>{venue.neighborhood_name}</Text> : null}
+            <Pressable
+              style={styles.venueRow}
+              onPress={() => openVenue(venue)}
+              android_ripple={Platform.OS === 'android' ? androidRipple.light : undefined}
+            >
+              <View style={styles.venueInfo}>
+                <Text style={styles.venueName}>{venue?.name || 'Venue'}</Text>
+                {venue?.neighborhood_name ? (
+                  <Text style={styles.venueNeighborhood}>{venue.neighborhood_name}</Text>
+                ) : null}
+              </View>
             </Pressable>
           </View>
 
@@ -625,60 +620,73 @@ const styles = StyleSheet.create({
   },
   authorInfo: { marginLeft: spacing.base },
   authorName: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: fontFamilies.interBold,
     fontWeight: fontWeights.bold,
-    letterSpacing: 1,
+    letterSpacing: 0.85,
     textTransform: 'uppercase',
     color: colors.textPrimary,
   },
   time: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: serifTime,
     fontStyle: 'italic',
     color: colors.textSecondary,
     marginTop: 4,
   },
+  /* Match ReviewPostCard rating badge */
   ratingBadgeLg: {
     borderWidth: 1,
     borderColor: colors.browseAccentBorder,
     backgroundColor: colors.browseAccent,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
     borderRadius: 4,
     alignSelf: 'flex-start',
   },
   ratingBadgeLgText: {
     fontFamily: fontFamilies.fraunces,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
     color: colors.textOnDark,
+    letterSpacing: -0.3,
   },
-  venueInline: {
-    alignSelf: 'stretch',
-    paddingVertical: 0,
-    paddingHorizontal: 0,
+  /* Same card as social feed ReviewPostCard venue row */
+  venueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.backgroundElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
-  venueNameLg: {
-    fontSize: 20,
+  venueInfo: { flex: 1, minWidth: 0 },
+  venueName: {
+    fontSize: 18,
     fontFamily: fontFamilies.frauncesSemiBold,
     color: colors.textPrimary,
-    lineHeight: 25,
+    lineHeight: 23,
   },
   venueNeighborhood: {
-    fontSize: 10,
+    fontSize: fontSizes.meta,
     fontFamily: fontFamilies.interBold,
     fontWeight: fontWeights.bold,
-    letterSpacing: 1,
+    letterSpacing: 0.75,
     textTransform: 'uppercase',
     color: colors.textSecondary,
-    marginTop: 4,
+    lineHeight: 14,
+    marginTop: 2,
   },
+  /* Aligned with feed review body (ReviewPostCard reviewText) */
   reviewTextLg: {
-    fontSize: 20,
-    fontFamily: fontFamilies.frauncesRegular,
+    fontSize: fontSizes.lg,
+    fontFamily: serifBody,
     color: '#27272a',
-    lineHeight: 30,
+    lineHeight: 28,
     marginBottom: spacing.md,
   },
   actionsRow: {
@@ -748,23 +756,23 @@ const styles = StyleSheet.create({
   commentMain: { flex: 1, minWidth: 0 },
   commentMeta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 4 },
   commentName: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: fontFamilies.interBold,
     fontWeight: fontWeights.bold,
-    letterSpacing: 1,
+    letterSpacing: 0.85,
     textTransform: 'uppercase',
     color: colors.textPrimary,
   },
   commentWhen: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: serifTime,
     fontStyle: 'italic',
     color: colors.textSecondary,
   },
   commentBody: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: serifBody,
-    lineHeight: 22.75,
+    lineHeight: 23,
     color: '#3f3f47',
     marginBottom: 8,
   },
@@ -864,7 +872,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borderInput,
     paddingVertical: 8,
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: fontFamilies.interMedium,
     fontWeight: fontWeights.medium,
     color: colors.textPrimary,
