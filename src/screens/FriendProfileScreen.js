@@ -41,6 +41,15 @@ function deriveHandle(displayName) {
   return first && first + last ? `@${first}${last}` : null
 }
 
+function resolveProfileHandle(profile, displayName) {
+  const u = profile?.username != null ? String(profile.username).trim() : ''
+  if (u) {
+    const clean = u.replace(/^@/, '').toLowerCase()
+    if (clean) return `@${clean}`
+  }
+  return deriveHandle(displayName)
+}
+
 function formatRelativeSentence(dateStr) {
   if (!dateStr) return 'recently'
   const d = new Date(dateStr)
@@ -161,7 +170,7 @@ export default function FriendProfileScreen() {
   const displayName = profile?.first_name
     ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
     : 'User'
-  const handle = deriveHandle(displayName)
+  const handle = resolveProfileHandle(profile, displayName)
 
   const goBack = () => {
     if (navigation.canGoBack()) navigation.goBack()
