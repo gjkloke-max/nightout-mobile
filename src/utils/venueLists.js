@@ -112,32 +112,69 @@ export async function getListWithItems(listId) {
   if (!supabase) return { data: null, error: { message: 'Not configured' } }
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: { message: 'User not authenticated' } }
-  const { data: list, error: le } = await supabase
+  const { data: list, error: listError } = await supabase
     .from('venue_list')
     .select('list_id, list_name, cover_image_url, created_at, updated_at, user_id, list_visibility')
     .eq('list_id', listId)
     .maybeSingle()
-  if (le || !list) return { data: null, error: le || { message: 'List not found' } }
-  const { data: items, error: ie } = await supabase
+  if (listError || !list) return { data: null, error: listError || { message: 'List not found' } }
+
+  const { data: items, error: itemsError } = await supabase
     .from('venue_list_item')
     .select('list_item_id, venue_id, note, sort_order, created_at')
     .eq('list_id', listId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true })
-  if (ie) return { data: null, error: ie }
+  if (itemsError) return { data: null, error: itemsError }
+
+  const { data: creatorProfile } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name')
+    .eq('id', list.user_id)
+    .maybeSingle()
+
   const venueIds = (items || []).map((i) => i.venue_id).filter(Boolean)
-  if (venueIds.length === 0) return { data: { ...list, items: [] }, error: null }
-  const { data: venues, error: ve } = await supabase
+  if (venueIds.length === 0) {
+    return {
+      data: { ...list, items: [], creator_profile: creatorProfile || null },
+      error: null,
+    }
+  }
+
+  const { data: venues, error: venuesError } = await supabase
     .from('venue')
-    .select('venue_id, name, city, primary_photo_url, venue_type(venue_type_name), state(state_code)')
+    .select(`
+      venue_id,
+      name,
+      city,
+      neighborhood_name,
+      primary_photo_url,
+      rating10,
+      compact_summary,
+      review_summary,
+      editorial_summary,
+      cuisine_type,
+      venue_type(venue_type_name),
+      state(state_code)
+    `)
     .in('venue_id', venueIds)
-  if (ve) return { data: null, error: ve }
+
+  if (venuesError) return { data: null, error: venuesError }
+
   const venueMap = new Map((venues || []).map((v) => [v.venue_id, v]))
   const itemsWithVenues = (items || []).map((item) => ({
     ...item,
     venue: venueMap.get(item.venue_id) || null,
   })).filter((i) => i.venue)
-  return { data: { ...list, items: itemsWithVenues }, error: null }
+
+  return {
+    data: {
+      ...list,
+      items: itemsWithVenues,
+      creator_profile: creatorProfile || null,
+    },
+    error: null,
+  }
 }
 
 export async function addVenueToList(listId, venueId, note = null) {
@@ -158,6 +195,44 @@ export async function addVenueToList(listId, venueId, note = null) {
     .single()
   if (error?.code === '23505') return { data: null, error: { message: 'Venue is already in this list' } }
   return { data, error }
+}
+
+/**
+ * Add many venues to one of the current user's lists (skips duplicates).
+ */
+export async function addVenuesToListBulk(targetListId, venueIds) {
+  const ids = [...new Set((venueIds || []).map((id) => Number(id)).filter((n) => !Number.isNaN(n)))]
+  if (ids.length === 0) return { data: { added: 0, skipped: 0 }, error: null }
+  let added = 0
+  let skipped = 0
+  for (const venueId of ids) {
+    const { error } = await addVenueToList(targetListId, venueId)
+    if (error) {
+      const dup =
+        error.code === '23505' ||
+        String(error.message || '').toLowerCase().includes('already')
+      if (dup) skipped += 1
+      else return { data: { added, skipped }, error }
+    } else {
+      added += 1
+    }
+  }
+  return { data: { added, skipped }, error: null }
+}
+
+/**
+ * Delete a list owned by the current user.
+ */
+export async function deleteList(listId) {
+  if (!supabase) return { data: null, error: { message: 'Not configured' } }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: { message: 'User not authenticated' } }
+  const { error } = await supabase
+    .from('venue_list')
+    .delete()
+    .eq('list_id', listId)
+    .eq('user_id', user.id)
+  return { data: { success: !error }, error }
 }
 
 export async function removeVenueFromList(listItemId) {

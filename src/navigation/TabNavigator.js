@@ -89,7 +89,7 @@ function ProfileStack() {
         component={AccountPrivacyScreen}
         options={{ headerShown: true, title: 'Account Privacy', headerRight: () => null }}
       />
-      <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ title: 'List' }} />
+      <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ headerShown: false }} />
       <Stack.Screen
         name="CreateList"
         component={CreateListScreen}

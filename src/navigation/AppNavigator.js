@@ -78,7 +78,7 @@ export default function AppNavigator() {
         component={SocialReviewDetailScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ title: 'List' }} />
+      <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ headerShown: false }} />
       <Stack.Screen name="FollowList" component={FollowListScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ReviewedVenuesList" component={ReviewedVenuesListScreen} options={{ headerShown: false }} />
       <Stack.Screen name="DMMessagesHome" component={DMMessagesHomeScreen} options={{ headerShown: false }} />
