@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react'
 import {
   View,
   Text,
@@ -97,6 +97,8 @@ export default function ProfileScreen() {
   const profileRef = useRef(null)
   profileRef.current = profile
   const scrollRef = useRef(null)
+  const scrollYTracked = useRef(0)
+  const tabChangeScrollLockRef = useRef(null)
   const [tabsLayoutY, setTabsLayoutY] = useState(0)
   const [photoViewerVisible, setPhotoViewerVisible] = useState(false)
   const [avatarBusy, setAvatarBusy] = useState(false)
@@ -195,6 +197,18 @@ export default function ProfileScreen() {
     rootNav()?.navigate?.('FollowList', { userId: user.id, mode: 'following' })
   }
 
+  const handleProfileTabChange = useCallback((tab) => {
+    tabChangeScrollLockRef.current = scrollYTracked.current
+    setActiveTab(tab)
+  }, [])
+
+  useLayoutEffect(() => {
+    const y = tabChangeScrollLockRef.current
+    if (y == null) return
+    tabChangeScrollLockRef.current = null
+    scrollRef.current?.scrollTo({ y: Math.max(0, y), animated: false })
+  }, [activeTab])
+
   const scrollToReviews = () => {
     setActiveTab('reviews')
     setTimeout(() => {
@@ -260,6 +274,10 @@ export default function ProfileScreen() {
     <ScrollView
       ref={scrollRef}
       style={styles.container}
+      scrollEventThrottle={16}
+      onScroll={(e) => {
+        scrollYTracked.current = e.nativeEvent.contentOffset.y
+      }}
       contentContainerStyle={[
         styles.content,
         { paddingTop: Math.max(spacing.lg, insets.top) + spacing.md },
@@ -382,7 +400,7 @@ export default function ProfileScreen() {
           <Pressable
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => setActiveTab(tab)}
+            onPress={() => handleProfileTabChange(tab)}
           >
             <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
               {tab.toUpperCase()}

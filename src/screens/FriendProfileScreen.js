@@ -1,7 +1,7 @@
 /**
  * Figma NewCo — Friend Profile (106:1911): Back, identity, stats, Follow + Message, Top 5, Reviews | Lists.
  */
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import {
   View,
   Text,
@@ -90,6 +90,8 @@ export default function FriendProfileScreen() {
   const [reviewCount, setReviewCount] = useState(0)
   const [photoViewerVisible, setPhotoViewerVisible] = useState(false)
   const scrollRef = useRef(null)
+  const scrollYTracked = useRef(0)
+  const tabChangeScrollLockRef = useRef(null)
   const [tabsLayoutY, setTabsLayoutY] = useState(0)
 
   const topFive = useMemo(() => topTen.slice(0, 5), [topTen])
@@ -247,6 +249,18 @@ export default function FriendProfileScreen() {
     if (!userId) return
     navigation.navigate('FollowList', { userId, mode: 'following' })
   }
+
+  const handleProfileTabChange = useCallback((tab) => {
+    tabChangeScrollLockRef.current = scrollYTracked.current
+    setActiveTab(tab)
+  }, [])
+
+  useLayoutEffect(() => {
+    const y = tabChangeScrollLockRef.current
+    if (y == null) return
+    tabChangeScrollLockRef.current = null
+    scrollRef.current?.scrollTo({ y: Math.max(0, y), animated: false })
+  }, [activeTab])
 
   const scrollToReviews = () => {
     setActiveTab('reviews')
@@ -472,7 +486,7 @@ export default function FriendProfileScreen() {
                 <Pressable
                   key={tab}
                   style={[styles.tab, activeTab === tab && styles.tabActive]}
-                  onPress={() => setActiveTab(tab)}
+                  onPress={() => handleProfileTabChange(tab)}
                 >
                   <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab.toUpperCase()}</Text>
                 </Pressable>
