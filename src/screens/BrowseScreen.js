@@ -16,11 +16,11 @@ import * as Location from 'expo-location'
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Search, List, Map as MapIcon } from 'lucide-react-native'
-import MapView, { Marker } from 'react-native-maps'
 import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes, fontFamilies } from '../theme'
 import { bm25Search } from '../lib/searchApi'
 import { fetchVenuesByIds, searchVenuesByName } from '../lib/venueService'
-import { getTrendingVenues } from '../services/trendingVenues'
+import { getTrendingVenues, getBrowseForYouVenues } from '../services/trendingVenues'
+import BrowseVenueMapView from '../components/browse/BrowseVenueMapView'
 import { deriveBrowseTagPair } from '../utils/browseVenueTags'
 
 const CITY_TITLE = 'Chicago'
@@ -136,6 +136,7 @@ export default function BrowseScreen() {
   const insets = useSafeAreaInsets()
   const searchInputRef = useRef(null)
   const searchMapRef = useRef(null)
+  const browseMapRef = useRef(null)
 
   const [searchFocused, setSearchFocused] = useState(false)
   const [mainTab, setMainTab] = useState('trending')
@@ -152,6 +153,14 @@ export default function BrowseScreen() {
   const [searchResultsTab, setSearchResultsTab] = useState('list')
   /** { latitude, longitude } from GPS — custom marker; native showsUserLocation is unreliable on Expo/Android */
   const [userMapCoords, setUserMapCoords] = useState(null)
+
+  const [forYouItems, setForYouItems] = useState([])
+  const [forYouLoading, setForYouLoading] = useState(false)
+  const [forYouError, setForYouError] = useState(null)
+  const [forYouRefreshing, setForYouRefreshing] = useState(false)
+  /** Trending / For You: list vs map (same datasets; reuses Smart Search map behavior) */
+  const [browseViewMode, setBrowseViewMode] = useState('list')
+  const [selectedBrowseVenue, setSelectedBrowseVenue] = useState(null)
 
   const loadTrending = useCallback(async () => {
     setTrendingLoading(true)
@@ -173,10 +182,35 @@ export default function BrowseScreen() {
     loadTrending()
   }, [mainTab, loadTrending])
 
+  const loadForYou = useCallback(async () => {
+    setForYouLoading(true)
+    setForYouError(null)
+    try {
+      const data = await getBrowseForYouVenues(15)
+      setForYouItems(data)
+    } catch (e) {
+      setForYouError(e?.message || 'Failed to load recommendations')
+      setForYouItems([])
+    } finally {
+      setForYouLoading(false)
+      setForYouRefreshing(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (mainTab !== 'forYou') return
+    loadForYou()
+  }, [mainTab, loadForYou])
+
   const onTrendingRefresh = useCallback(() => {
     setTrendingRefreshing(true)
     loadTrending()
   }, [loadTrending])
+
+  const onForYouRefresh = useCallback(() => {
+    setForYouRefreshing(true)
+    loadForYou()
+  }, [loadForYou])
 
   const runSearch = useCallback(async (query) => {
     const q = (query || '').trim()
@@ -264,6 +298,8 @@ export default function BrowseScreen() {
     setVenues([])
     setError(null)
     setSearchQuery('')
+    setBrowseViewMode('list')
+    setSelectedBrowseVenue(null)
   }
 
   const renderVenueCard = (venue) => {
@@ -361,8 +397,29 @@ export default function BrowseScreen() {
   const mapRegion = useMemo(() => regionForVenueMap(venues), [venues])
   const mapViewKey = useMemo(() => venues.map((v) => String(v.venue_id)).join(','), [venues])
 
+  const browseVenues = useMemo(() => {
+    if (mainTab === 'trending') return trendingItems.map((i) => i.venue)
+    if (mainTab === 'forYou') return forYouItems.map((i) => i.venue)
+    return []
+  }, [mainTab, trendingItems, forYouItems])
+
+  const browseVenuesWithCoords = useMemo(
+    () => browseVenues.filter((v) => pickCoord(v.latitude) != null && pickCoord(v.longitude) != null),
+    [browseVenues]
+  )
+  const browseMapRegion = useMemo(() => regionForVenueMap(browseVenues), [browseVenues])
+  const browseMapKey = useMemo(() => browseVenues.map((v) => String(v.venue_id)).join(','), [browseVenues])
+
+  const searchMapGeoActive =
+    searchFocused && hasSearched && searchResultsTab === 'map' && venuesWithMapCoords.length > 0
+  const browseMapGeoActive =
+    !searchFocused &&
+    browseViewMode === 'map' &&
+    (mainTab === 'trending' || mainTab === 'forYou') &&
+    browseVenuesWithCoords.length > 0
+
   useEffect(() => {
-    if (searchResultsTab !== 'map' || venuesWithMapCoords.length === 0) {
+    if (!searchMapGeoActive && !browseMapGeoActive) {
       setUserMapCoords(null)
       return
     }
@@ -394,27 +451,55 @@ export default function BrowseScreen() {
     return () => {
       cancelled = true
     }
-  }, [searchResultsTab, venuesWithMapCoords.length])
+  }, [searchMapGeoActive, browseMapGeoActive])
 
   useEffect(() => {
-    if (!userMapCoords || venuesWithMapCoords.length === 0) return
-    const coords = [
+    if (!userMapCoords) return
+    const coordsSearch = [
       ...venuesWithMapCoords.map((v) => ({
         latitude: pickCoord(v.latitude),
         longitude: pickCoord(v.longitude),
       })),
       userMapCoords,
     ]
+    const coordsBrowse = [
+      ...browseVenuesWithCoords.map((v) => ({
+        latitude: pickCoord(v.latitude),
+        longitude: pickCoord(v.longitude),
+      })),
+      userMapCoords,
+    ]
     const id = setTimeout(() => {
-      searchMapRef.current?.fitToCoordinates(coords, {
-        edgePadding: { top: 56, right: 32, bottom: 72, left: 32 },
-        animated: true,
-      })
+      if (searchMapGeoActive && venuesWithMapCoords.length > 0) {
+        searchMapRef.current?.fitToCoordinates(coordsSearch, {
+          edgePadding: { top: 56, right: 32, bottom: 72, left: 32 },
+          animated: true,
+        })
+      } else if (browseMapGeoActive && browseVenuesWithCoords.length > 0) {
+        browseMapRef.current?.fitToCoordinates(coordsBrowse, {
+          edgePadding: { top: 56, right: 32, bottom: 120, left: 32 },
+          animated: true,
+        })
+      }
     }, 400)
     return () => clearTimeout(id)
-  }, [userMapCoords, mapViewKey, venuesWithMapCoords])
+  }, [
+    userMapCoords,
+    mapViewKey,
+    browseMapKey,
+    venuesWithMapCoords,
+    browseVenuesWithCoords,
+    searchMapGeoActive,
+    browseMapGeoActive,
+  ])
 
   const showSearchResults = searchFocused && hasSearched
+  const fabBottom = Math.max(insets.bottom, 12) + 10
+  const browsePreviewBottom = fabBottom + 44
+
+  const onBrowseMarkerPress = useCallback((venue) => {
+    setSelectedBrowseVenue(venue)
+  }, [])
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(spacing.lg, insets.top) + spacing.md }]}>
@@ -484,92 +569,53 @@ export default function BrowseScreen() {
               </View>
             ) : (
               <View style={styles.searchResultsWrap}>
-                <View style={styles.segmentOuter}>
-                  <View style={styles.segmentTrack}>
-                    <TouchableOpacity
-                      style={[styles.segSide, searchResultsTab === 'list' ? styles.segSideOn : styles.segSideOff]}
-                      onPress={() => setSearchResultsTab('list')}
-                      activeOpacity={0.85}
-                    >
-                      <List
-                        size={14}
-                        color={searchResultsTab === 'list' ? colors.textOnDark : colors.textSecondary}
-                        strokeWidth={2}
-                      />
-                      <Text style={[styles.segLabel, searchResultsTab === 'list' ? styles.segLabelOn : styles.segLabelOff]}>List</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.segSide, styles.segSideRight, searchResultsTab === 'map' ? styles.segSideOn : styles.segSideOff]}
-                      onPress={() => setSearchResultsTab('map')}
-                      activeOpacity={0.85}
-                    >
-                      <MapIcon
-                        size={14}
-                        color={searchResultsTab === 'map' ? colors.textOnDark : colors.textSecondary}
-                        strokeWidth={2}
-                      />
-                      <Text style={[styles.segLabel, searchResultsTab === 'map' ? styles.segLabelOn : styles.segLabelOff]}>Map</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
                 <Text style={styles.resultsCountText} accessibilityRole="header">
                   {venues.length} {venues.length === 1 ? 'Result' : 'Results'}
                 </Text>
 
-                {searchResultsTab === 'list' ? (
-                  <FlatList
-                    style={styles.flexList}
-                    data={venues}
-                    keyExtractor={(item) => String(item.venue_id)}
-                    renderItem={renderSearchVenue}
-                    contentContainerStyle={styles.searchListContent}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                  />
-                ) : (
-                  <View style={styles.mapWrap}>
-                    {venuesWithMapCoords.length === 0 ? (
-                      <View style={styles.mapEmpty}>
-                        <Text style={styles.mapEmptyText}>No location data for these results. Try another search.</Text>
-                      </View>
-                    ) : (
-                      <MapView
-                        ref={searchMapRef}
-                        key={mapViewKey}
-                        style={styles.map}
+                <View style={styles.searchResultsInner}>
+                  {searchResultsTab === 'list' ? (
+                    <FlatList
+                      style={styles.flexList}
+                      data={venues}
+                      keyExtractor={(item) => String(item.venue_id)}
+                      renderItem={renderSearchVenue}
+                      contentContainerStyle={[styles.searchListContent, styles.searchListContentFabPad]}
+                      showsVerticalScrollIndicator={false}
+                      keyboardShouldPersistTaps="handled"
+                    />
+                  ) : (
+                    <View style={styles.searchMapShell}>
+                      <BrowseVenueMapView
+                        venues={venues}
+                        mapRef={searchMapRef}
+                        onMarkerPress={handleVenuePress}
+                        selectedVenueId={null}
+                        userMapCoords={userMapCoords}
                         initialRegion={mapRegion}
-                        showsPointsOfInterest={false}
-                      >
-                        {venuesWithMapCoords.map((v) => {
-                          const lat = pickCoord(v.latitude)
-                          const lng = pickCoord(v.longitude)
-                          return (
-                            <Marker
-                              key={String(v.venue_id)}
-                              coordinate={{ latitude: lat, longitude: lng }}
-                              title={v.name || 'Venue'}
-                              description={v.neighborhood_name ? String(v.neighborhood_name) : undefined}
-                              onCalloutPress={() => handleVenuePress(v)}
-                              onPress={() => handleVenuePress(v)}
-                            />
-                          )
-                        })}
-                        {userMapCoords ? (
-                          <Marker
-                            coordinate={userMapCoords}
-                            anchor={{ x: 0.5, y: 0.5 }}
-                            tracksViewChanges={false}
-                            title="Your location"
-                            zIndex={1000}
-                          >
-                            <View style={styles.userLocationDot} />
-                          </Marker>
-                        ) : null}
-                      </MapView>
+                        mapViewKey={mapViewKey}
+                      />
+                    </View>
+                  )}
+                  <Pressable
+                    style={[styles.browseFab, { bottom: fabBottom }]}
+                    onPress={() => setSearchResultsTab((t) => (t === 'list' ? 'map' : 'list'))}
+                    accessibilityRole="button"
+                    accessibilityLabel={searchResultsTab === 'list' ? 'Show map' : 'Show list'}
+                  >
+                    {searchResultsTab === 'list' ? (
+                      <>
+                        <MapIcon size={16} color="#ffffff" strokeWidth={2} />
+                        <Text style={styles.browseFabLabel}>Map</Text>
+                      </>
+                    ) : (
+                      <>
+                        <List size={16} color="#ffffff" strokeWidth={2} />
+                        <Text style={styles.browseFabLabel}>List</Text>
+                      </>
                     )}
-                  </View>
-                )}
+                  </Pressable>
+                </View>
               </View>
             )
           ) : (
@@ -596,6 +642,7 @@ export default function BrowseScreen() {
             })}
           </View>
 
+          <View style={styles.browseMain}>
           {error ? (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{error}</Text>
@@ -621,39 +668,167 @@ export default function BrowseScreen() {
                   </Text>
                 </View>
               ) : (
-                <>
-                  <View style={styles.sectionRow}>
-                    <Text style={styles.sectionTitle}>Hot Right Now</Text>
-                    <View style={styles.sectionLine} />
-                  </View>
-                  <FlatList
-                    style={styles.flexList}
-                    data={trendingItems}
-                    keyExtractor={(item) => String(item.venue.venue_id)}
-                    renderItem={renderTrendingItem}
-                    ListFooterComponent={<View style={styles.listFooterPad} />}
-                    contentContainerStyle={styles.trendingListContent}
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={
-                      <RefreshControl
-                        refreshing={trendingRefreshing}
-                        onRefresh={onTrendingRefresh}
-                        tintColor={colors.browseAccent}
+                <View style={styles.browseTabBody}>
+                  {browseViewMode === 'list' ? (
+                    <>
+                      <View style={styles.sectionRow}>
+                        <Text style={styles.sectionTitle}>Hot Right Now</Text>
+                        <View style={styles.sectionLine} />
+                      </View>
+                      <FlatList
+                        style={styles.flexList}
+                        data={trendingItems}
+                        keyExtractor={(item) => String(item.venue.venue_id)}
+                        renderItem={renderTrendingItem}
+                        ListFooterComponent={<View style={styles.listFooterPad} />}
+                        contentContainerStyle={[styles.trendingListContent, styles.browseListFabPad]}
+                        showsVerticalScrollIndicator={false}
+                        refreshControl={
+                          <RefreshControl
+                            refreshing={trendingRefreshing}
+                            onRefresh={onTrendingRefresh}
+                            tintColor={colors.browseAccent}
+                          />
+                        }
                       />
-                    }
-                  />
-                </>
+                    </>
+                  ) : (
+                    <View style={styles.browseMapStack}>
+                      <BrowseVenueMapView
+                        venues={browseVenues}
+                        mapRef={browseMapRef}
+                        onMarkerPress={onBrowseMarkerPress}
+                        onMapBackgroundPress={() => setSelectedBrowseVenue(null)}
+                        selectedVenueId={selectedBrowseVenue?.venue_id}
+                        userMapCoords={userMapCoords}
+                        initialRegion={browseMapRegion}
+                        mapViewKey={browseMapKey}
+                      />
+                      {selectedBrowseVenue ? (
+                        <View style={[styles.browseMapPreview, { bottom: browsePreviewBottom }]} pointerEvents="box-none">
+                          {renderVenueCard(selectedBrowseVenue)}
+                        </View>
+                      ) : null}
+                    </View>
+                  )}
+                  <Pressable
+                    style={[styles.browseFab, { bottom: fabBottom }]}
+                    onPress={() => {
+                      if (browseViewMode === 'map') {
+                        setSelectedBrowseVenue(null)
+                        setBrowseViewMode('list')
+                      } else {
+                        setBrowseViewMode('map')
+                      }
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={browseViewMode === 'list' ? 'Show map' : 'Back to list'}
+                  >
+                    {browseViewMode === 'list' ? (
+                      <>
+                        <MapIcon size={16} color="#ffffff" strokeWidth={2} />
+                        <Text style={styles.browseFabLabel}>Map</Text>
+                      </>
+                    ) : (
+                      <>
+                        <List size={16} color="#ffffff" strokeWidth={2} />
+                        <Text style={styles.browseFabLabel}>List</Text>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
               )}
             </>
           )}
 
           {mainTab === 'forYou' && (
-            <View style={styles.placeholderBox}>
-              <Text style={styles.placeholderTitle}>For you</Text>
-              <Text style={styles.placeholderBody}>
-                Personalized picks based on your taste and history will appear here.
-              </Text>
-            </View>
+            <>
+              {forYouError ? (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{forYouError}</Text>
+                </View>
+              ) : null}
+              {forYouLoading && forYouItems.length === 0 ? (
+                <View style={styles.loadingBox}>
+                  <ActivityIndicator size="large" color={colors.browseAccent} />
+                  <Text style={styles.loadingText}>Loading...</Text>
+                </View>
+              ) : !forYouLoading && forYouItems.length === 0 ? (
+                <View style={styles.emptyBox}>
+                  <Text style={styles.emptyText}>No venues to show yet.</Text>
+                </View>
+              ) : (
+                <View style={styles.browseTabBody}>
+                  {browseViewMode === 'list' ? (
+                    <>
+                      <View style={styles.sectionRow}>
+                        <Text style={styles.sectionTitle}>For You</Text>
+                        <View style={styles.sectionLine} />
+                      </View>
+                      <FlatList
+                        style={styles.flexList}
+                        data={forYouItems}
+                        keyExtractor={(item) => String(item.venue.venue_id)}
+                        renderItem={renderTrendingItem}
+                        ListFooterComponent={<View style={styles.listFooterPad} />}
+                        contentContainerStyle={[styles.trendingListContent, styles.browseListFabPad]}
+                        showsVerticalScrollIndicator={false}
+                        refreshControl={
+                          <RefreshControl
+                            refreshing={forYouRefreshing}
+                            onRefresh={onForYouRefresh}
+                            tintColor={colors.browseAccent}
+                          />
+                        }
+                      />
+                    </>
+                  ) : (
+                    <View style={styles.browseMapStack}>
+                      <BrowseVenueMapView
+                        venues={browseVenues}
+                        mapRef={browseMapRef}
+                        onMarkerPress={onBrowseMarkerPress}
+                        onMapBackgroundPress={() => setSelectedBrowseVenue(null)}
+                        selectedVenueId={selectedBrowseVenue?.venue_id}
+                        userMapCoords={userMapCoords}
+                        initialRegion={browseMapRegion}
+                        mapViewKey={browseMapKey}
+                      />
+                      {selectedBrowseVenue ? (
+                        <View style={[styles.browseMapPreview, { bottom: browsePreviewBottom }]} pointerEvents="box-none">
+                          {renderVenueCard(selectedBrowseVenue)}
+                        </View>
+                      ) : null}
+                    </View>
+                  )}
+                  <Pressable
+                    style={[styles.browseFab, { bottom: fabBottom }]}
+                    onPress={() => {
+                      if (browseViewMode === 'map') {
+                        setSelectedBrowseVenue(null)
+                        setBrowseViewMode('list')
+                      } else {
+                        setBrowseViewMode('map')
+                      }
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={browseViewMode === 'list' ? 'Show map' : 'Back to list'}
+                  >
+                    {browseViewMode === 'list' ? (
+                      <>
+                        <MapIcon size={16} color="#ffffff" strokeWidth={2} />
+                        <Text style={styles.browseFabLabel}>Map</Text>
+                      </>
+                    ) : (
+                      <>
+                        <List size={16} color="#ffffff" strokeWidth={2} />
+                        <Text style={styles.browseFabLabel}>List</Text>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+              )}
+            </>
           )}
 
           {mainTab === 'popularLists' && (
@@ -664,6 +839,7 @@ export default function BrowseScreen() {
               </Text>
             </View>
           )}
+          </View>
         </>
       )}
     </View>
@@ -674,6 +850,50 @@ const TAB_GAP = 8
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.backgroundCanvas },
+  browseMain: { flex: 1, minHeight: 0 },
+  browseTabBody: { flex: 1, minHeight: 0, position: 'relative' },
+  browseMapStack: { flex: 1, minHeight: 0 },
+  browseMapPreview: {
+    position: 'absolute',
+    left: spacing.xl,
+    right: spacing.xl,
+    backgroundColor: colors.backgroundCanvas,
+    borderRadius: borderRadius.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  /** Figma April — pill FAB: dark bg, white label + icon */
+  browseFab: {
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    height: 36,
+    borderRadius: 999,
+    backgroundColor: '#18181b',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 25,
+    elevation: 8,
+  },
+  browseFabLabel: {
+    fontSize: 12,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: '#ffffff',
+  },
+  searchResultsInner: { flex: 1, position: 'relative', minHeight: 0 },
+  searchMapShell: { flex: 1, minHeight: 320 },
+  searchListContentFabPad: { paddingBottom: 72 },
+  browseListFabPad: { paddingBottom: 72 },
   headerBlock: {
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xl,
@@ -864,52 +1084,7 @@ const styles = StyleSheet.create({
   },
   searchResultsWrap: {
     flex: 1,
-  },
-  segmentOuter: {
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.xl,
-  },
-  /** Figma 56:182 — ~203×38.7, border #d4d4d8 */
-  segmentTrack: {
-    flexDirection: 'row',
-    borderWidth: 1.33,
-    borderColor: colors.borderInput,
-    width: 203,
-    minHeight: 38.67,
-    padding: 1.33,
-    backgroundColor: colors.backgroundElevated,
-  },
-  segSide: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 36,
-    gap: 5,
-  },
-  segSideRight: {
-    borderLeftWidth: 1.33,
-    borderLeftColor: colors.borderInput,
-  },
-  segSideOn: {
-    backgroundColor: colors.backgroundDark,
-  },
-  segSideOff: {
-    backgroundColor: colors.backgroundElevated,
-  },
-  segLabel: {
-    fontSize: 12,
-    fontFamily: fontFamilies.interBold,
-    fontWeight: fontWeights.bold,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  segLabelOn: {
-    color: colors.textOnDark,
-  },
-  segLabelOff: {
-    color: colors.textSecondary,
+    minHeight: 0,
   },
   resultsCountText: {
     fontSize: fontSizes.sm,
@@ -920,47 +1095,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   searchListContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing['3xl'] },
-  mapWrap: {
-    flex: 1,
-    marginHorizontal: spacing.xl,
-    marginBottom: spacing.lg,
-    minHeight: 320,
-    borderWidth: 1.33,
-    borderColor: colors.borderInput,
-    overflow: 'hidden',
-  },
-  map: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-  },
-  userLocationDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#1A73E8',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.35,
-    shadowRadius: 2,
-    elevation: 4,
-  },
-  mapEmpty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-    minHeight: 280,
-  },
-  mapEmptyText: {
-    fontSize: fontSizes.sm,
-    fontFamily: fontFamilies.inter,
-    color: colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
   searchCompactRow: {
     flexDirection: 'row',
     alignItems: 'center',
