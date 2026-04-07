@@ -20,6 +20,7 @@ import { getFollowCounts } from '../services/follows'
 import VenueCard from '../components/VenueCard'
 import { Plus, Settings } from 'lucide-react-native'
 import { colors, fontSizes, fontWeights, fontFamilies, spacing } from '../theme'
+import { WRITE_REVIEW_ORIGIN } from '../navigation/writeReviewOrigin'
 
 const TABS = ['reviews', 'lists', 'saved']
 
@@ -147,7 +148,7 @@ export default function ProfileScreen() {
 
   const handleWriteReview = () => {
     const root = navigation.getParent()?.getParent()
-    root?.navigate('WriteReview')
+    root?.navigate('WriteReview', { origin: WRITE_REVIEW_ORIGIN.PROFILE })
   }
 
   const handleEditProfile = () => {

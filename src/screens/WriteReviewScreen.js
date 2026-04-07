@@ -10,8 +10,10 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  BackHandler,
 } from 'react-native'
-import { useNavigation, useRoute } from '@react-navigation/native'
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native'
+import { WRITE_REVIEW_ORIGIN } from '../navigation/writeReviewOrigin'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { X, Search } from 'lucide-react-native'
 import { supabase } from '../lib/supabase'
@@ -28,6 +30,7 @@ export default function WriteReviewScreen() {
   const navigation = useNavigation()
   const route = useRoute()
   const presetVenueId = route.params?.venueId
+  const origin = route.params?.origin
   const { user } = useAuth()
   const composerRef = useRef(null)
 
@@ -166,6 +169,28 @@ export default function WriteReviewScreen() {
     setCanPostReview(false)
   }
 
+  const exitWriteReview = useCallback(() => {
+    if (origin === WRITE_REVIEW_ORIGIN.SOCIAL_FEED) {
+      navigation.navigate('MainTabs', {
+        screen: 'Social',
+        params: { screen: 'SocialMain' },
+      })
+      return
+    }
+    navigation.goBack()
+  }, [navigation, origin])
+
+  useFocusEffect(
+    useCallback(() => {
+      if (origin !== WRITE_REVIEW_ORIGIN.SOCIAL_FEED || Platform.OS !== 'android') return undefined
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        exitWriteReview()
+        return true
+      })
+      return () => sub.remove()
+    }, [origin, exitWriteReview])
+  )
+
   const headerTitle = 'Write a Review'
 
   const postDisabled =
@@ -189,7 +214,7 @@ export default function WriteReviewScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.presetCenter}>
           <Text style={styles.presetError}>{presetError}</Text>
-          <Pressable style={styles.presetBackBtn} onPress={() => navigation.goBack()}>
+          <Pressable style={styles.presetBackBtn} onPress={exitWriteReview}>
             <Text style={styles.presetBackText}>Go back</Text>
           </Pressable>
         </View>
@@ -208,7 +233,7 @@ export default function WriteReviewScreen() {
           <View style={[styles.headerSlot, styles.headerSlotLeft]}>
             <Pressable
               style={styles.iconBtn}
-              onPress={() => navigation.goBack()}
+              onPress={exitWriteReview}
               hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel="Close"
@@ -216,9 +241,11 @@ export default function WriteReviewScreen() {
               <X size={24} color="#18181b" strokeWidth={2} />
             </Pressable>
           </View>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {headerTitle}
-          </Text>
+          <View style={styles.headerTitleWrap} pointerEvents="none">
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {headerTitle}
+            </Text>
+          </View>
           <View style={[styles.headerSlot, styles.headerSlotEnd]}>
             <Pressable
               style={[styles.postBtn, !postDisabled && styles.postBtnActive]}
@@ -307,7 +334,7 @@ export default function WriteReviewScreen() {
                 venueNeighborhood={selectedVenue.neighborhood_name || selectedVenue.city || ''}
                 existingReview={existingReview}
                 onSubmit={handleSubmitReview}
-                onCancel={() => navigation.goBack()}
+                onCancel={exitWriteReview}
                 embeddedInFlow
                 onSubmittingChange={setComposerSubmitting}
                 onChangePlace={presetVenueId ? undefined : handleBackToSearch}
@@ -347,6 +374,7 @@ const styles = StyleSheet.create({
     color: colors.browseAccent,
   },
   header: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 56,
@@ -356,13 +384,31 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f4f4f5',
     backgroundColor: '#ffffff',
   },
+  /** Side columns keep controls tappable; title is layered full-width so it is not squeezed. */
   headerSlot: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    zIndex: 1,
   },
-  headerSlotLeft: { justifyContent: 'flex-start' },
-  headerSlotEnd: { justifyContent: 'flex-end' },
+  headerSlotLeft: {
+    justifyContent: 'flex-start',
+    minWidth: 44,
+  },
+  headerSlotEnd: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    minWidth: 72,
+  },
+  headerTitleWrap: {
+    position: 'absolute',
+    left: 48,
+    right: 76,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 0,
+  },
   iconBtn: {
     width: 40,
     height: 40,
@@ -371,11 +417,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   headerTitle: {
-    flex: 1,
-    fontSize: 24,
+    fontSize: 20,
     fontFamily: fontFamilies.interSemiBold,
     color: '#18181b',
-    lineHeight: 32,
+    lineHeight: 26,
     textAlign: 'center',
   },
   postBtn: {

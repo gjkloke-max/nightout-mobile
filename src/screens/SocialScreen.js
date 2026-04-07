@@ -29,6 +29,7 @@ import NotificationsBellButton from '../components/NotificationsBellButton'
 import { Plus, Search, MessageCircle } from 'lucide-react-native'
 import { getGlobalUnreadDmCount } from '../services/messaging'
 import { colors, fontSizes, fontWeights, spacing, borderRadius, fontFamilies, hitSlop, textStyles } from '../theme'
+import { WRITE_REVIEW_ORIGIN } from '../navigation/writeReviewOrigin'
 
 /** Figma Social — search placeholder (ellipsis) */
 const SEARCH_PLACEHOLDER = 'Search friends or reviews…'
@@ -186,9 +187,9 @@ export default function SocialScreen() {
 
   const isSearching = searchQuery.trim().length >= 2
 
-  const openSearchMode = () => {
-    setSearchFocused(true)
-    setTimeout(() => searchInputRef.current?.focus(), 50)
+  const openWriteReview = () => {
+    const root = navigation.getParent()?.getParent?.()
+    root?.navigate?.('WriteReview', { origin: WRITE_REVIEW_ORIGIN.SOCIAL_FEED })
   }
 
   const exitSearchMode = () => {
@@ -222,10 +223,10 @@ export default function SocialScreen() {
               {dmUnread > 0 ? <View style={styles.dmDot} /> : null}
             </View>
             <TouchableOpacity
-              onPress={openSearchMode}
+              onPress={openWriteReview}
               style={styles.headerIconBtn}
               accessibilityRole="button"
-              accessibilityLabel="Search for friends"
+              accessibilityLabel="Write a review"
               hitSlop={hitSlop.md}
               activeOpacity={0.85}
             >
