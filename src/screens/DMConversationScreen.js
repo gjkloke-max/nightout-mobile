@@ -6,6 +6,7 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  Pressable,
   KeyboardAvoidingView,
   Platform,
   Image,
@@ -36,6 +37,7 @@ export default function DMConversationScreen() {
   const { user } = useAuth()
   const conversationId = route.params?.conversationId
   const [peer, setPeer] = useState({ name: 'Messages', handle: '', avatarUrl: null })
+  const [peerUserId, setPeerUserId] = useState(null)
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -52,7 +54,11 @@ export default function DMConversationScreen() {
       .select('user_id')
       .eq('conversation_id', conversationId)
     const otherId = (parts || []).map((p) => p.user_id).find((id) => id !== user.id)
-    if (!otherId) return
+    if (!otherId) {
+      setPeerUserId(null)
+      return
+    }
+    setPeerUserId(otherId)
     const { data: prof } = await supabase
       .from('profiles')
       .select('first_name, last_name, avatar_url')
@@ -90,6 +96,11 @@ export default function DMConversationScreen() {
     })
     return () => unsub()
   }, [conversationId, user?.id, loadMessages, loadPeerProfile])
+
+  const openPeerProfile = useCallback(() => {
+    if (!peerUserId) return
+    navigation.navigate('FriendProfile', { userId: peerUserId })
+  }, [navigation, peerUserId])
 
   const onSend = async () => {
     const text = input.trim()
@@ -138,21 +149,43 @@ export default function DMConversationScreen() {
             <ChevronLeft size={24} color={colors.textPrimary} strokeWidth={2} />
           </TouchableOpacity>
           <View style={styles.headerPeer}>
-            <View style={styles.headerAvatar}>
+            <Pressable
+              onPress={openPeerProfile}
+              disabled={!peerUserId}
+              style={({ pressed }) => [styles.headerAvatar, pressed && styles.headerPeerPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={`Open profile for ${peer.name}`}
+            >
               {peer.avatarUrl ? (
                 <Image source={{ uri: peer.avatarUrl }} style={styles.headerAvatarImg} />
               ) : (
                 <Text style={styles.headerAvatarText}>{peerInitials}</Text>
               )}
-            </View>
+            </Pressable>
             <View style={styles.headerText}>
-              <Text style={styles.headerName} numberOfLines={1}>
-                {peer.name}
-              </Text>
-              {peer.handle ? (
-                <Text style={styles.headerHandle} numberOfLines={1}>
-                  {peer.handle}
+              <Pressable
+                onPress={openPeerProfile}
+                disabled={!peerUserId}
+                style={({ pressed }) => pressed && styles.headerPeerPressed}
+                accessibilityRole="button"
+                accessibilityLabel={`Open profile for ${peer.name}`}
+              >
+                <Text style={styles.headerName} numberOfLines={1}>
+                  {peer.name}
                 </Text>
+              </Pressable>
+              {peer.handle ? (
+                <Pressable
+                  onPress={openPeerProfile}
+                  disabled={!peerUserId}
+                  style={({ pressed }) => [styles.headerHandlePress, pressed && styles.headerPeerPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open profile for ${peer.handle}`}
+                >
+                  <Text style={styles.headerHandle} numberOfLines={1}>
+                    {peer.handle}
+                  </Text>
+                </Pressable>
               ) : null}
             </View>
           </View>
@@ -228,6 +261,7 @@ const styles = StyleSheet.create({
   },
   headerBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   headerPeer: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minWidth: 0 },
+  headerPeerPressed: { opacity: 0.75 },
   headerAvatar: {
     width: 40,
     height: 40,
@@ -238,6 +272,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerHandlePress: { alignSelf: 'flex-start' },
   headerAvatarImg: { width: '100%', height: '100%' },
   headerAvatarText: { fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, color: colors.textSecondary },
   headerText: { flex: 1, minWidth: 0 },
