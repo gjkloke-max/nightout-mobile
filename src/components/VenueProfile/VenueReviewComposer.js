@@ -14,12 +14,20 @@ import Slider from '@react-native-community/slider'
 import * as Haptics from 'expo-haptics'
 import * as ImagePicker from 'expo-image-picker'
 import { MapPin } from 'lucide-react-native'
+import { searchUsersForMention } from '../../services/userSearch'
+import { resolveMentionedUserIds } from '../../services/mentionResolve'
 import { colors, fontSizes, fontFamilies, spacing } from '../../theme'
 
 const MAX_PHOTOS = 5
 
 const REVIEW_PLACEHOLDER_EMBEDDED =
   'What did you think? How was the vibe? The service?'
+
+function displayNameForMention(p) {
+  if (!p) return ''
+  const parts = [p.first_name, p.last_name].filter(Boolean)
+  return parts.length ? parts.join(' ') : ''
+}
 
 const VenueReviewComposer = forwardRef(function VenueReviewComposer(
   {
@@ -28,6 +36,7 @@ const VenueReviewComposer = forwardRef(function VenueReviewComposer(
     venuePhotoUrl,
     venueNeighborhood,
     existingReview,
+    currentUserId,
     onSubmit,
     onCancel,
     embeddedInFlow = false,
@@ -43,6 +52,11 @@ const VenueReviewComposer = forwardRef(function VenueReviewComposer(
   const [photos, setPhotos] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [mentionOpen, setMentionOpen] = useState(false)
+  const [mentionFilter, setMentionFilter] = useState('')
+  const [mentionResults, setMentionResults] = useState([])
+  const [mentionPickIds, setMentionPickIds] = useState(() => new Set())
+  const mentionDebounce = useRef(null)
   const lastHapticSliderStepRef = useRef(
     Math.round(Number(existingReview?.rating10 ?? 8) * 10)
   )
@@ -88,7 +102,11 @@ const VenueReviewComposer = forwardRef(function VenueReviewComposer(
     onSubmittingChange?.(true)
     setError(null)
     try {
-      await onSubmit({ venueId, rating: numRating, text, photos })
+      let mentionedUserIds = []
+      if (embeddedInFlow && currentUserId) {
+        mentionedUserIds = await resolveMentionedUserIds(text, [...mentionPickIds])
+      }
+      await onSubmit({ venueId, rating: numRating, text, photos, mentionedUserIds })
       onCancel?.()
     } catch (err) {
       setError(err?.message || 'Failed to save review')
@@ -96,7 +114,18 @@ const VenueReviewComposer = forwardRef(function VenueReviewComposer(
       setSubmitting(false)
       onSubmittingChange?.(false)
     }
-  }, [onSubmit, venueId, rating, text, photos, onCancel, onSubmittingChange, embeddedInFlow])
+  }, [
+    onSubmit,
+    venueId,
+    rating,
+    text,
+    photos,
+    onCancel,
+    onSubmittingChange,
+    embeddedInFlow,
+    currentUserId,
+    mentionPickIds,
+  ])
 
   useImperativeHandle(
     ref,
@@ -122,6 +151,59 @@ const VenueReviewComposer = forwardRef(function VenueReviewComposer(
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     }
   }, [])
+
+  const runMentionSearch = useCallback(
+    async (q) => {
+      if (!embeddedInFlow || !currentUserId || !q.length) {
+        setMentionResults([])
+        return
+      }
+      const rows = await searchUsersForMention(currentUserId, q, 10)
+      setMentionResults(rows || [])
+    },
+    [embeddedInFlow, currentUserId]
+  )
+
+  useEffect(() => {
+    if (!mentionOpen || !embeddedInFlow) return
+    if (mentionDebounce.current) clearTimeout(mentionDebounce.current)
+    mentionDebounce.current = setTimeout(() => {
+      void runMentionSearch(mentionFilter)
+    }, 200)
+    return () => {
+      if (mentionDebounce.current) clearTimeout(mentionDebounce.current)
+    }
+  }, [mentionFilter, mentionOpen, embeddedInFlow, runMentionSearch])
+
+  const onReviewTextChange = (v) => {
+    setText(v)
+    if (!embeddedInFlow || !currentUserId) {
+      setMentionOpen(false)
+      return
+    }
+    const at = v.lastIndexOf('@')
+    if (at >= 0) {
+      const after = v.slice(at + 1)
+      if (!after.includes(' ') && !after.includes('\n')) {
+        setMentionFilter(after)
+        setMentionOpen(true)
+        return
+      }
+    }
+    setMentionOpen(false)
+  }
+
+  const pickMention = (profile) => {
+    const at = text.lastIndexOf('@')
+    if (at < 0 || !profile?.id) return
+    const un = (profile.username || '').toLowerCase()
+    if (!un) return
+    const before = text.slice(0, at)
+    setText(`${before}@${un} `)
+    setMentionPickIds((prev) => new Set(prev).add(String(profile.id)))
+    setMentionOpen(false)
+    setMentionFilter('')
+  }
 
   const renderEmbedded = () => (
     <>
@@ -177,17 +259,27 @@ const VenueReviewComposer = forwardRef(function VenueReviewComposer(
         />
       </View>
 
-      <View style={styles.embedSection}>
+      <View style={[styles.embedSection, styles.embedMentionWrap]}>
         <Text style={styles.embedLabel}>Your review</Text>
         <TextInput
           style={styles.embedTextarea}
           value={text}
-          onChangeText={setText}
+          onChangeText={onReviewTextChange}
           placeholder={REVIEW_PLACEHOLDER_EMBEDDED}
           placeholderTextColor="#d4d4d8"
           multiline
           textAlignVertical="top"
         />
+        {embeddedInFlow && currentUserId && mentionOpen && mentionResults.length > 0 ? (
+          <View style={styles.mentionList}>
+            {mentionResults.map((p) => (
+              <Pressable key={p.id} style={styles.mentionRow} onPress={() => pickMention(p)}>
+                <Text style={styles.mentionName}>{displayNameForMention(p)}</Text>
+                {p.username ? <Text style={styles.mentionHandle}>@{p.username}</Text> : null}
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       </View>
 
       <View style={[styles.embedSection, styles.embedPhotosWrap]}>
@@ -393,6 +485,24 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.inter,
     color: '#18181b',
   },
+  embedMentionWrap: { position: 'relative', zIndex: 2 },
+  mentionList: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#e4e4e7',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    maxHeight: 180,
+    overflow: 'hidden',
+  },
+  mentionRow: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#f4f4f5',
+  },
+  mentionName: { fontSize: 14, fontFamily: fontFamilies.interSemiBold, color: '#18181b' },
+  mentionHandle: { fontSize: 12, fontFamily: fontFamilies.inter, color: '#71717b', marginTop: 2 },
   embedPhotosWrap: {
     paddingTop: 16,
     borderTopWidth: 0.89,

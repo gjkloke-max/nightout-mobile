@@ -91,17 +91,19 @@ export async function addComment(userId, reviewId, commentText, opts = {}) {
   const parentCommentId = opts.parentCommentId != null ? Number(opts.parentCommentId) : null
   const mentionedUserIds = Array.isArray(opts.mentionedUserIds) ? opts.mentionedUserIds : []
 
+  const mentionIds = [...new Set((mentionedUserIds || []).filter(Boolean).map(String))]
   const insert = {
     review_id: reviewId,
     user_id: userId,
     comment_text: trimmed,
+    mentioned_user_ids: mentionIds.length ? mentionIds : [],
     ...(parentCommentId && Number.isFinite(parentCommentId) ? { parent_comment_id: parentCommentId } : {}),
   }
 
   const { data, error } = await supabase
     .from('review_comments')
     .insert(insert)
-    .select('id, review_id, user_id, comment_text, created_at, parent_comment_id')
+    .select('id, review_id, user_id, comment_text, created_at, parent_comment_id, mentioned_user_ids')
     .single()
   if (error) return { success: false, error: error?.message, data: null }
 
@@ -138,16 +140,41 @@ export async function getCommentsWithProfiles(reviewId, viewerUserId) {
   if (!reviewId || !supabase) return []
   const { data: comments } = await supabase
     .from('review_comments')
-    .select('id, review_id, user_id, comment_text, created_at, parent_comment_id')
+    .select('id, review_id, user_id, comment_text, created_at, parent_comment_id, mentioned_user_ids')
     .eq('review_id', reviewId)
     .order('created_at', { ascending: true })
   if (!comments?.length) return []
   const userIds = [...new Set(comments.map((c) => c.user_id))]
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, first_name, last_name, avatar_url')
+    .select('id, first_name, last_name, avatar_url, username')
     .in('id', userIds)
   const byId = Object.fromEntries((profiles || []).map((p) => [p.id, p]))
-  const withProfiles = comments.map((c) => ({ ...c, profile: byId[c.user_id] || null }))
+  const mentionIdSet = new Set()
+  for (const c of comments) {
+    for (const mid of c.mentioned_user_ids || []) mentionIdSet.add(String(mid))
+  }
+  let mentionById = {}
+  if (mentionIdSet.size > 0) {
+    const { data: mp } = await supabase.from('profiles').select('id, username').in('id', [...mentionIdSet])
+    mentionById = Object.fromEntries((mp || []).map((p) => [p.id, p]))
+  }
+  const mentionProfilesForIds = (ids) => {
+    const out = []
+    const seen = new Set()
+    for (const raw of ids || []) {
+      const id = raw != null ? String(raw) : ''
+      if (!id || seen.has(id)) continue
+      seen.add(id)
+      const p = mentionById[id]
+      if (p?.username) out.push({ id: p.id, username: p.username })
+    }
+    return out
+  }
+  const withProfiles = comments.map((c) => ({
+    ...c,
+    profile: byId[c.user_id] || null,
+    mentionProfiles: mentionProfilesForIds(c.mentioned_user_ids),
+  }))
   return enrichCommentsWithLikes(withProfiles, viewerUserId)
 }

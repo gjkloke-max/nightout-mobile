@@ -22,7 +22,9 @@ import { getSocialReviewById } from '../services/socialFeed'
 import { likeReview, unlikeReview } from '../services/reviewLikes'
 import { addComment } from '../services/reviewComments'
 import { toggleCommentLike } from '../services/commentLikes'
-import { getFollowing } from '../services/follows'
+import { searchUsersForMention } from '../services/userSearch'
+import { resolveMentionedUserIds } from '../services/mentionResolve'
+import MentionText from '../components/MentionText'
 import { colors, fontSizes, fontWeights, spacing, iconSizes, fontFamilies } from '../theme'
 
 function displayName(p) {
@@ -31,15 +33,10 @@ function displayName(p) {
   return parts.length ? parts.join(' ') : 'Anonymous'
 }
 
-/** Best-effort @mention detection for friends you follow (matches "@First Last" segments). */
-function extractMentionedUserIdsFromText(text, friends) {
-  if (!text || !friends?.length) return []
-  const ids = []
-  for (const { userId, profile } of friends) {
-    const label = `@${displayName(profile)}`
-    if (text.includes(label)) ids.push(userId)
-  }
-  return ids
+function displayNameForMention(p) {
+  if (!p) return ''
+  const parts = [p.first_name, p.last_name].filter(Boolean)
+  return parts.length ? parts.join(' ') : ''
 }
 
 function formatTime(d) {
@@ -97,7 +94,11 @@ export default function SocialReviewDetailScreen() {
   const [comments, setComments] = useState([])
   const [commentText, setCommentText] = useState('')
   const [replyParentId, setReplyParentId] = useState(null)
-  const [mentionFriends, setMentionFriends] = useState([])
+  const [mentionOpen, setMentionOpen] = useState(false)
+  const [mentionFilter, setMentionFilter] = useState('')
+  const [mentionResults, setMentionResults] = useState([])
+  const [mentionPickIds, setMentionPickIds] = useState(() => new Set())
+  const mentionDebounce = useRef(null)
   /** Current user's profile row — used for composer avatar and optimistic comment names */
   const [myProfile, setMyProfile] = useState(null)
 
@@ -122,14 +123,6 @@ export default function SocialReviewDetailScreen() {
   }, [load])
 
   useEffect(() => {
-    if (!user?.id) {
-      setMentionFriends([])
-      return
-    }
-    getFollowing(user.id, 200).then(setMentionFriends).catch(() => setMentionFriends([]))
-  }, [user?.id])
-
-  useEffect(() => {
     if (!user?.id || !supabase) {
       setMyProfile(null)
       return
@@ -137,7 +130,7 @@ export default function SocialReviewDetailScreen() {
     let cancelled = false
     supabase
       .from('profiles')
-      .select('first_name, last_name, avatar_url')
+      .select('first_name, last_name, avatar_url, username')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }) => {
@@ -160,34 +153,66 @@ export default function SocialReviewDetailScreen() {
     }
   }
 
+  const runMentionSearch = useCallback(async (q) => {
+    if (!user?.id || !q.length) {
+      setMentionResults([])
+      return
+    }
+    const rows = await searchUsersForMention(user.id, q, 10)
+    setMentionResults(rows || [])
+  }, [user?.id])
+
+  useEffect(() => {
+    if (!mentionOpen || !user?.id) return
+    if (mentionDebounce.current) clearTimeout(mentionDebounce.current)
+    mentionDebounce.current = setTimeout(() => {
+      void runMentionSearch(mentionFilter)
+    }, 200)
+    return () => {
+      if (mentionDebounce.current) clearTimeout(mentionDebounce.current)
+    }
+  }, [mentionFilter, mentionOpen, user?.id, runMentionSearch])
+
+  const onCommentTextChange = (v) => {
+    setCommentText(v)
+    const at = v.lastIndexOf('@')
+    if (at >= 0 && user?.id) {
+      const after = v.slice(at + 1)
+      if (!after.includes(' ') && !after.includes('\n')) {
+        setMentionFilter(after)
+        setMentionOpen(true)
+        return
+      }
+    }
+    setMentionOpen(false)
+  }
+
+  const pickCommentMention = (profile) => {
+    const at = commentText.lastIndexOf('@')
+    if (at < 0 || !profile?.id) return
+    const un = (profile.username || '').toLowerCase()
+    if (!un) return
+    const before = commentText.slice(0, at)
+    setCommentText(`${before}@${un} `)
+    setMentionPickIds((prev) => new Set(prev).add(String(profile.id)))
+    setMentionOpen(false)
+    setMentionFilter('')
+  }
+
   const handleCommentSubmit = async () => {
     if (!user?.id || !post || !commentText.trim()) return
-    const mentionedUserIds = extractMentionedUserIdsFromText(commentText, mentionFriends)
-    const { success, data } = await addComment(user.id, post.venue_review_id, commentText.trim(), {
+    const mentionedUserIds = await resolveMentionedUserIds(commentText, [...mentionPickIds])
+    const { success } = await addComment(user.id, post.venue_review_id, commentText.trim(), {
       parentCommentId: replyParentId,
       mentionedUserIds: mentionedUserIds.length ? mentionedUserIds : undefined,
     })
-    if (success && data) {
-      const firstName = myProfile?.first_name ?? user?.user_metadata?.first_name ?? ''
-      const lastName = myProfile?.last_name ?? user?.user_metadata?.last_name ?? ''
-      const avatarUrl = myProfile?.avatar_url ?? user?.user_metadata?.avatar_url ?? null
-      setComments((prev) => [
-        ...prev,
-        {
-          ...data,
-          likeCount: 0,
-          likedByViewer: false,
-          profile: {
-            id: user.id,
-            first_name: firstName,
-            last_name: lastName,
-            avatar_url: avatarUrl,
-          },
-        },
-      ])
+    if (success) {
       setCommentText('')
       setReplyParentId(null)
+      setMentionPickIds(new Set())
+      setMentionOpen(false)
       Keyboard.dismiss()
+      await load()
       requestAnimationFrame(() => {
         scrollRef.current?.scrollToEnd({ animated: true })
       })
@@ -219,7 +244,9 @@ export default function SocialReviewDetailScreen() {
 
   const startReply = (c) => {
     setReplyParentId(c.id)
-    setCommentText(`@${displayName(c.profile)} `)
+    const un = (c.profile?.username || '').trim().toLowerCase()
+    const prefix = un ? `@${un} ` : `@${displayName(c.profile)} `
+    setCommentText(prefix)
     requestAnimationFrame(() => {
       scrollRef.current?.scrollToEnd({ animated: true })
     })
@@ -344,7 +371,13 @@ export default function SocialReviewDetailScreen() {
             </Pressable>
           </View>
 
-          {post.review_text ? <Text style={styles.reviewTextLg}>{post.review_text}</Text> : null}
+          {post.review_text ? (
+            <MentionText
+              text={post.review_text}
+              mentionProfiles={post.mentionProfiles || []}
+              style={styles.reviewTextLg}
+            />
+          ) : null}
 
           <View style={styles.actionsRow}>
             <Pressable style={styles.actionBtn} onPress={handleLike}>
@@ -402,7 +435,13 @@ export default function SocialReviewDetailScreen() {
                       <Text style={styles.commentName}>{displayName(c.profile)}</Text>
                       <Text style={styles.commentWhen}>{formatCommentTime(c.created_at)}</Text>
                     </View>
-                    <Text style={styles.commentBody}>{c.comment_text}</Text>
+                    <View style={styles.commentBodyWrap}>
+                      <MentionText
+                        text={c.comment_text}
+                        mentionProfiles={c.mentionProfiles || []}
+                        style={styles.commentBody}
+                      />
+                    </View>
                     {user?.id ? (
                       <Pressable onPress={() => startReply(c)} hitSlop={8}>
                         <Text style={styles.commentReply}>Reply</Text>
@@ -441,6 +480,20 @@ export default function SocialReviewDetailScreen() {
                 </Pressable>
               </View>
             ) : null}
+            {mentionOpen && user?.id && mentionResults.length > 0 ? (
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+                style={styles.mentionListScroll}
+              >
+                {mentionResults.map((p) => (
+                  <Pressable key={p.id} style={styles.mentionRow} onPress={() => pickCommentMention(p)}>
+                    <Text style={styles.mentionName}>{displayNameForMention(p) || p.username || 'User'}</Text>
+                    {p.username ? <Text style={styles.mentionHandle}>@{p.username}</Text> : null}
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : null}
             <View style={styles.composerRow}>
             <View style={styles.composerAvatar}>
               {myProfile?.avatar_url || user?.user_metadata?.avatar_url ? (
@@ -455,7 +508,7 @@ export default function SocialReviewDetailScreen() {
             <TextInput
               style={styles.composerInput}
               value={commentText}
-              onChangeText={setCommentText}
+              onChangeText={onCommentTextChange}
               placeholder="Add a comment..."
               placeholderTextColor={colors.textTag}
               onSubmitEditing={handleCommentSubmit}
@@ -757,6 +810,30 @@ const styles = StyleSheet.create({
     color: colors.browseAccent,
     fontWeight: '600',
     fontFamily: fontFamilies.inter,
+  },
+  mentionListScroll: {
+    maxHeight: 180,
+    borderWidth: 1,
+    borderColor: '#e4e4e7',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  mentionRow: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#f4f4f5',
+  },
+  mentionName: {
+    fontSize: 14,
+    fontFamily: fontFamilies.interSemiBold,
+    color: '#18181b',
+  },
+  mentionHandle: {
+    fontSize: 12,
+    fontFamily: fontFamilies.inter,
+    color: '#71717b',
+    marginTop: 2,
   },
   composerRow: {
     flexDirection: 'row',

@@ -153,3 +153,18 @@ export async function onCommentMentioned(ctx) {
     metadata: { actor_display_name: ctx.actorName, review_id: ctx.reviewId },
   })
 }
+
+export async function onVenueReviewMentioned(ctx) {
+  const { recipientUserId, actorUserId, reviewId, actorName } = ctx
+  if (!recipientUserId || !actorUserId || reviewId == null) return { skipped: true }
+  return createOrAggregateNotification({
+    recipientUserId,
+    type: 'mentioned_in_post',
+    actorUserId,
+    entityType: 'venue_review',
+    entityId: String(reviewId),
+    skipIfSelf: true,
+    metadata: { actor_display_name: actorName, review_id: String(reviewId) },
+    body: actorName ? `${actorName} mentioned you in a post` : undefined,
+  })
+}

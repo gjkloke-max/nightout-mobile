@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Switch,
   Modal,
   FlatList,
   ActivityIndicator,
@@ -20,6 +19,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { setUserHomeNeighborhood } from '../services/userHomeLocation'
 import { pickAndUploadProfileAvatar, removeAvatar } from '../services/profileAvatar'
+import { checkUsernameAvailable } from '../services/profileUsername'
+import { validateUsernameFormat } from '../utils/mentions'
 import { colors, fontSizes, fontFamilies, spacing } from '../theme'
 
 export default function EditProfileScreen({ navigation }) {
@@ -29,7 +30,8 @@ export default function EditProfileScreen({ navigation }) {
   const [saving, setSaving] = useState(false)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [isPrivate, setIsPrivate] = useState(false)
+  const [username, setUsername] = useState('')
+  const [usernameError, setUsernameError] = useState('')
   const [homeNeighborhood, setHomeNeighborhood] = useState('')
   const [neighborhoods, setNeighborhoods] = useState([])
   const [hoodModalOpen, setHoodModalOpen] = useState(false)
@@ -48,7 +50,7 @@ export default function EditProfileScreen({ navigation }) {
       if (profile) {
         setFirstName(profile.first_name || '')
         setLastName(profile.last_name || '')
-        setIsPrivate(!!profile.is_private)
+        setUsername(profile.username || '')
         setHomeNeighborhood(profile.home_neighborhood_name || '')
         setAvatarUrl(profile.avatar_url || null)
         setProfileSnapshot(profile)
@@ -141,17 +143,33 @@ export default function EditProfileScreen({ navigation }) {
     if (!user?.id) return
     setSaving(true)
     try {
+      const v = validateUsernameFormat(username)
+      if (!v.ok) {
+        setUsernameError(v.error || 'Invalid username')
+        return
+      }
+      if (v.normalized && v.normalized !== (profileSnapshot?.username || '').toLowerCase()) {
+        const avail = await checkUsernameAvailable(v.normalized, user.id)
+        if (!avail.available) {
+          setUsernameError(avail.error || 'Username unavailable')
+          return
+        }
+      }
+      setUsernameError('')
       const { error } = await supabase.from('profiles').upsert(
         {
           id: user.id,
           first_name: firstName.trim() || null,
           last_name: lastName.trim() || null,
-          is_private: !!isPrivate,
+          username: v.normalized || null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'id' }
       )
-      if (error) throw error
+      if (error) {
+        if (error.code === '23505') setUsernameError('That username is already taken.')
+        throw error
+      }
 
       const trimmedHood = (homeNeighborhood || '').trim()
       if (trimmedHood) {
@@ -247,13 +265,21 @@ export default function EditProfileScreen({ navigation }) {
           autoCapitalize="words"
         />
 
-        <View style={styles.row}>
-          <Text style={styles.labelInline}>Private account</Text>
-          <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ false: '#ccc', true: colors.profileAccent }} />
-        </View>
-        <Text style={styles.hint}>
-          Private accounts require approval for new followers. Your profile is only visible to approved followers.
-        </Text>
+        <Text style={styles.label}>Username</Text>
+        <TextInput
+          style={[styles.input, usernameError ? styles.inputError : null]}
+          value={username}
+          onChangeText={(t) => {
+            setUsername(t.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase())
+            setUsernameError('')
+          }}
+          placeholder="your_handle"
+          placeholderTextColor={colors.textMuted}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
+        <Text style={styles.hint}>3–30 characters, letters, numbers, underscores. Used for @mentions.</Text>
 
         <Text style={styles.label}>Home neighborhood</Text>
         <TouchableOpacity style={styles.selectBtn} onPress={() => setHoodModalOpen(true)} activeOpacity={0.7}>
@@ -267,7 +293,7 @@ export default function EditProfileScreen({ navigation }) {
         <TouchableOpacity
           style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
           onPress={handleSave}
-          disabled={saving}
+          disabled={saving || !!usernameError}
           activeOpacity={0.85}
         >
           {saving ? (
@@ -370,7 +396,8 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
-  labelInline: { fontSize: fontSizes.base, fontFamily: fontFamilies.interMedium, color: colors.textPrimary, flex: 1 },
+  inputError: { borderColor: '#b91c1c' },
+  errorText: { fontSize: fontSizes.xs, color: '#b91c1c', marginBottom: spacing.sm },
   input: {
     borderWidth: 1,
     borderColor: 'rgba(228,228,231,0.9)',
@@ -381,13 +408,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.md,
     backgroundColor: colors.surface,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
-    marginTop: spacing.sm,
   },
   hint: { fontSize: fontSizes.xs, color: colors.textMuted, marginBottom: spacing.md, lineHeight: 18 },
   selectBtn: {
