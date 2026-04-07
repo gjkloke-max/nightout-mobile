@@ -13,6 +13,7 @@ import NotificationSettingsScreen from '../screens/NotificationSettingsScreen'
 import SettingsScreen from '../screens/SettingsScreen'
 import AccountPrivacyScreen from '../screens/AccountPrivacyScreen'
 import ListDetailScreen from '../screens/ListDetailScreen'
+import CreateListScreen from '../screens/CreateListScreen'
 
 const Tab = createBottomTabNavigator()
 const Stack = createNativeStackNavigator()
@@ -89,6 +90,11 @@ function ProfileStack() {
         options={{ headerShown: true, title: 'Account Privacy', headerRight: () => null }}
       />
       <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ title: 'List' }} />
+      <Stack.Screen
+        name="CreateList"
+        component={CreateListScreen}
+        options={{ headerShown: false, title: 'New List' }}
+      />
     </Stack.Navigator>
   )
 }

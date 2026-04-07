@@ -450,6 +450,16 @@ export default function ProfileScreen() {
         )}
         {activeTab === 'lists' && (
           <View style={styles.section}>
+            <Pressable style={styles.listCreateRow} onPress={() => navigation.navigate('CreateList')}>
+              <View style={styles.listCreateIcon}>
+                <Text style={styles.listCreatePlus}>+</Text>
+              </View>
+              <View style={styles.listCreateTextCol}>
+                <Text style={styles.listCreateTitle}>Create New List</Text>
+                <Text style={styles.listCreateSub}>START ORGANIZING YOUR FAVORITES</Text>
+              </View>
+              <Text style={styles.listChevron}>›</Text>
+            </Pressable>
             {lists.length === 0 ? (
               <Text style={styles.empty}>No lists yet.</Text>
             ) : (
@@ -794,6 +804,38 @@ const styles = StyleSheet.create({
     color: '#3F3F47',
     lineHeight: 22,
   },
+  listCreateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  listCreateIcon: {
+    width: 48,
+    height: 48,
+    backgroundColor: colors.textPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  listCreatePlus: { fontSize: 22, color: '#fff', fontWeight: fontWeights.normal, lineHeight: 26 },
+  listCreateTextCol: { flex: 1, minWidth: 0 },
+  listCreateTitle: {
+    fontSize: fontSizes.base,
+    fontFamily: fontFamilies.frauncesSemiBold,
+    color: colors.textPrimary,
+  },
+  listCreateSub: {
+    fontSize: 10,
+    fontWeight: fontWeights.bold,
+    fontFamily: fontFamilies.interBold,
+    letterSpacing: 0.6,
+    color: colors.textTag,
+    marginTop: 4,
+  },
+  listChevron: { fontSize: 22, color: '#d4d4d8', fontWeight: fontWeights.normal },
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',

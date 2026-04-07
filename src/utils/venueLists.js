@@ -13,15 +13,16 @@ export const SUGGESTED_LIST_NAMES = [
   'Hidden Gems',
 ]
 
-export async function createList(listName) {
+export async function createList(listName, options = {}) {
   if (!supabase) return { data: null, error: { message: 'Not configured' } }
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: { message: 'User not authenticated' } }
   const name = (listName || '').trim()
   if (!name) return { data: null, error: { message: 'List name is required' } }
+  const list_visibility = options.list_visibility === 'public' ? 'public' : 'private'
   const { data, error } = await supabase
     .from('venue_list')
-    .insert({ user_id: user.id, list_name: name })
+    .insert({ user_id: user.id, list_name: name, list_visibility })
     .select()
     .single()
   return { data, error }
