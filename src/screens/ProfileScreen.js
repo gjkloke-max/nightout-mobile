@@ -8,6 +8,7 @@ import {
   Pressable,
   Image,
   ActivityIndicator,
+  Alert,
 } from 'react-native'
 import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -21,6 +22,8 @@ import VenueCard from '../components/VenueCard'
 import { Plus, Settings } from 'lucide-react-native'
 import { colors, fontSizes, fontWeights, fontFamilies, spacing } from '../theme'
 import { WRITE_REVIEW_ORIGIN } from '../navigation/writeReviewOrigin'
+import ProfilePhotoViewerModal from '../components/ProfilePhotoViewerModal'
+import { pickAndUploadProfileAvatar, removeAvatar } from '../services/profileAvatar'
 
 const TABS = ['reviews', 'lists', 'saved']
 
@@ -85,6 +88,8 @@ export default function ProfileScreen() {
   profileRef.current = profile
   const scrollRef = useRef(null)
   const [tabsLayoutY, setTabsLayoutY] = useState(0)
+  const [photoViewerVisible, setPhotoViewerVisible] = useState(false)
+  const [avatarBusy, setAvatarBusy] = useState(false)
 
   const loadProfile = useCallback(async () => {
     if (!user?.id) return
@@ -191,6 +196,47 @@ export default function ProfileScreen() {
     rootNav()?.navigate?.('SocialReviewDetail', { reviewId })
   }
 
+  const handleViewerChangePhoto = useCallback(async () => {
+    if (!user?.id) return
+    setAvatarBusy(true)
+    try {
+      const res = await pickAndUploadProfileAvatar(user.id)
+      if (res.error === 'PERMISSION_DENIED') {
+        Alert.alert('Permission needed', 'Allow photo library access to set your profile picture.')
+        return
+      }
+      if (res.error === 'CANCELLED') return
+      if (res.success && res.avatarUrl) {
+        setProfile((p) => (p ? { ...p, avatar_url: res.avatarUrl } : p))
+      } else {
+        Alert.alert('Upload failed', res.error || 'Please try again.')
+      }
+    } finally {
+      setAvatarBusy(false)
+    }
+  }, [user?.id])
+
+  const handleViewerRemovePhoto = useCallback(() => {
+    if (!user?.id || avatarBusy) return
+    Alert.alert('Remove profile photo', 'Your profile will show your initial instead.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          setAvatarBusy(true)
+          try {
+            const res = await removeAvatar(user.id)
+            if (res.success) setProfile((p) => (p ? { ...p, avatar_url: null } : p))
+            else Alert.alert('Could not remove', res.error || 'Please try again.')
+          } finally {
+            setAvatarBusy(false)
+          }
+        },
+      },
+    ])
+  }, [user?.id, avatarBusy])
+
   if (loading && !profile) {
     return (
       <View style={styles.center}>
@@ -212,7 +258,12 @@ export default function ProfileScreen() {
       <View style={styles.profileHeader}>
         <View style={styles.identityTopRow}>
           <View style={styles.avatarRow}>
-            <View style={styles.avatarWrapper}>
+            <Pressable
+              onPress={() => setPhotoViewerVisible(true)}
+              style={({ pressed }) => [styles.avatarWrapper, pressed && styles.avatarWrapperPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="View profile photo"
+            >
               <View style={styles.avatarPlaceholder}>
                 {profile?.avatar_url ? (
                   <Image source={{ uri: profile.avatar_url }} style={styles.avatar} resizeMode="cover" />
@@ -220,10 +271,10 @@ export default function ProfileScreen() {
                   <Text style={styles.avatarText}>{(displayName || '?')[0]}</Text>
                 )}
               </View>
-              <View style={styles.avatarAddBadge}>
+              <View style={styles.avatarAddBadge} pointerEvents="none">
                 <Plus size={14} color="#FFFFFF" strokeWidth={2.5} />
               </View>
-            </View>
+            </Pressable>
           </View>
           <TouchableOpacity
             style={styles.gearBtn}
@@ -415,6 +466,16 @@ export default function ProfileScreen() {
         )}
       </View>
     </ScrollView>
+    <ProfilePhotoViewerModal
+      visible={photoViewerVisible}
+      onClose={() => setPhotoViewerVisible(false)}
+      avatarUrl={profile?.avatar_url}
+      initialLetter={(displayName || '?')[0]}
+      showEditActions
+      onChangePhoto={handleViewerChangePhoto}
+      onRemovePhoto={profile?.avatar_url ? handleViewerRemovePhoto : undefined}
+      busy={avatarBusy}
+    />
     </>
   )
 }
@@ -444,10 +505,11 @@ const styles = StyleSheet.create({
   gearBtn: { padding: spacing.xs, marginTop: 8 },
   avatarRow: { flexDirection: 'row', justifyContent: 'flex-start' },
   avatarWrapper: { position: 'relative' },
+  avatarWrapperPressed: { opacity: 0.9 },
   avatarPlaceholder: {
     width: 96,
     height: 96,
-    borderRadius: 8,
+    borderRadius: 48,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',

@@ -5,6 +5,7 @@
  * expo-image-manipulator and upload raw bytes (Supabase RN guidance).
  */
 
+import * as ImagePicker from 'expo-image-picker'
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator'
 import { supabase } from '../lib/supabase'
 
@@ -65,6 +66,29 @@ export async function uploadAvatarFromUri(userId, uri, _mimeType = 'image/jpeg')
   } catch (e) {
     return { success: false, error: e?.message || 'Upload failed' }
   }
+}
+
+/**
+ * Opens the photo library and uploads the selected image as the user’s avatar.
+ * @returns {Promise<{ success: boolean, avatarUrl?: string, error?: string }>}
+ *   `error` may be `PERMISSION_DENIED`, `CANCELLED`, or a message string.
+ */
+export async function pickAndUploadProfileAvatar(userId) {
+  if (!userId) return { success: false, error: 'Invalid input' }
+  const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+  if (!perm.granted) return { success: false, error: 'PERMISSION_DENIED' }
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.85,
+  })
+  if (result.canceled || !result.assets?.[0]?.uri) {
+    return { success: false, error: 'CANCELLED' }
+  }
+  const asset = result.assets[0]
+  const mime = asset.mimeType || 'image/jpeg'
+  return uploadAvatarFromUri(userId, asset.uri, mime)
 }
 
 export async function removeAvatar(userId) {

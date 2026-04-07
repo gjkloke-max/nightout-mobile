@@ -16,7 +16,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useDebounce } from '../hooks/useDebounce'
 import { searchUsers } from '../services/userSearch'
 import { listSuggestedDmUsers, getOrCreateDirectConversation, displayNameFromProfile } from '../services/messaging'
-import { colors, fontFamilies, fontSizes, fontWeights, spacing, borderRadius, textStyles } from '../theme'
+import { colors, fontFamilies, fontSizes, fontWeights, spacing, textStyles } from '../theme'
 
 export default function DMNewMessageScreen() {
   const navigation = useNavigation()
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 48,
     height: 48,
-    borderRadius: borderRadius.sm,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',

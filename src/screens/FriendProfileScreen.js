@@ -29,6 +29,7 @@ import {
 import { getUserTopTenVenues, getUserTopTenEligibility } from '../services/userTopTen'
 import { getPublicListsForUser } from '../utils/venueLists'
 import { colors, fontSizes, fontWeights, spacing, fontFamilies } from '../theme'
+import ProfilePhotoViewerModal from '../components/ProfilePhotoViewerModal'
 
 const TABS = ['reviews', 'lists']
 
@@ -78,6 +79,7 @@ export default function FriendProfileScreen() {
   const [profileLocked, setProfileLocked] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [reviewCount, setReviewCount] = useState(0)
+  const [photoViewerVisible, setPhotoViewerVisible] = useState(false)
   const scrollRef = useRef(null)
   const [tabsLayoutY, setTabsLayoutY] = useState(0)
 
@@ -282,14 +284,20 @@ export default function FriendProfileScreen() {
         {profileLocked ? (
           <>
             <View style={styles.hero}>
-              <View style={styles.lockedHeroTop}>
-                <View style={styles.avatarWrap}>
+                <View style={styles.lockedHeroTop}>
+                <Pressable
+                  onPress={() => profile && setPhotoViewerVisible(true)}
+                  disabled={!profile}
+                  style={({ pressed }) => [styles.avatarWrap, pressed && profile && styles.avatarPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel="View profile photo"
+                >
                   {profile?.avatar_url ? (
                     <Image source={{ uri: profile.avatar_url }} style={styles.avatar} resizeMode="cover" />
                   ) : (
                     <Text style={styles.avatarLetter}>{(displayName || '?')[0]}</Text>
                   )}
-                </View>
+                </Pressable>
                 <View style={styles.lockIconTopRight} accessibilityLabel="Private account">
                   <Lock size={22} color={colors.textSecondary} strokeWidth={2} />
                 </View>
@@ -349,13 +357,19 @@ export default function FriendProfileScreen() {
         ) : (
           <>
             <View style={styles.hero}>
-              <View style={styles.avatarWrap}>
+              <Pressable
+                onPress={() => profile && setPhotoViewerVisible(true)}
+                disabled={!profile}
+                style={({ pressed }) => [styles.avatarWrap, pressed && profile && styles.avatarPressed]}
+                accessibilityRole="button"
+                accessibilityLabel="View profile photo"
+              >
                 {profile?.avatar_url ? (
                   <Image source={{ uri: profile.avatar_url }} style={styles.avatar} resizeMode="cover" />
                 ) : (
                   <Text style={styles.avatarLetter}>{(displayName || '?')[0]}</Text>
                 )}
-              </View>
+              </Pressable>
               <Text style={styles.displayName}>{displayName}</Text>
               {handle ? <Text style={styles.handle}>{handle}</Text> : null}
 
@@ -516,6 +530,14 @@ export default function FriendProfileScreen() {
           </>
         )}
       </ScrollView>
+
+      <ProfilePhotoViewerModal
+        visible={photoViewerVisible}
+        onClose={() => setPhotoViewerVisible(false)}
+        avatarUrl={profile?.avatar_url}
+        initialLetter={(displayName || '?')[0]}
+        showEditActions={false}
+      />
     </View>
   )
 }
@@ -550,7 +572,7 @@ const styles = StyleSheet.create({
   avatarWrap: {
     width: 96,
     height: 96,
-    borderRadius: 8,
+    borderRadius: 48,
     borderWidth: 2,
     borderColor: colors.border,
     overflow: 'hidden',
@@ -559,6 +581,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.md,
   },
+  avatarPressed: { opacity: 0.9 },
   avatar: { width: '100%', height: '100%' },
   avatarLetter: { fontSize: fontSizes['2xl'], fontFamily: fontFamilies.fraunces, color: colors.textMuted },
   displayName: {

@@ -15,12 +15,11 @@ import {
   Platform,
   Image,
 } from 'react-native'
-import * as ImagePicker from 'expo-image-picker'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { setUserHomeNeighborhood } from '../services/userHomeLocation'
-import { uploadAvatarFromUri, removeAvatar } from '../services/profileAvatar'
+import { pickAndUploadProfileAvatar, removeAvatar } from '../services/profileAvatar'
 import { colors, fontSizes, fontFamilies, spacing } from '../theme'
 
 export default function EditProfileScreen({ navigation }) {
@@ -102,23 +101,14 @@ export default function EditProfileScreen({ navigation }) {
 
   const pickProfilePhoto = async () => {
     if (!user?.id || avatarBusy) return
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow photo library access to set your profile picture.')
-      return
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
-    })
-    if (result.canceled || !result.assets?.[0]?.uri) return
-    const asset = result.assets[0]
-    const mime = asset.mimeType || 'image/jpeg'
     setAvatarBusy(true)
     try {
-      const res = await uploadAvatarFromUri(user.id, asset.uri, mime)
+      const res = await pickAndUploadProfileAvatar(user.id)
+      if (res.error === 'PERMISSION_DENIED') {
+        Alert.alert('Permission needed', 'Allow photo library access to set your profile picture.')
+        return
+      }
+      if (res.error === 'CANCELLED') return
       if (res.success && res.avatarUrl) setAvatarUrl(res.avatarUrl)
       else Alert.alert('Upload failed', res.error || 'Please try again.')
     } finally {

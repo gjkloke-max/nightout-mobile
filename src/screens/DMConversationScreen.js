@@ -265,6 +265,7 @@ const styles = StyleSheet.create({
   headerAvatar: {
     width: 40,
     height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
