@@ -11,7 +11,8 @@ import { manipulateAsync, SaveFormat } from 'expo-image-manipulator'
 import { supabase } from './supabase'
 
 const BUCKET = 'review-photos'
-const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+/** Must stay at or under storage.buckets.file_size_limit for review-photos (see migrations). */
+const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
 async function uriToJpegForUpload(uri) {
   const { uri: out } = await manipulateAsync(uri, [], {
@@ -21,10 +22,14 @@ async function uriToJpegForUpload(uri) {
   return out
 }
 
-async function uriToBlob(uri) {
+/**
+ * Read file bytes for upload. Must use ArrayBuffer (not Blob) with Supabase on React Native:
+ * storage-js wraps Blob in FormData, which often drops/corrupts the body on RN → empty objects → gray images.
+ */
+async function uriToArrayBuffer(uri) {
   const res = await fetch(uri)
   if (!res.ok) return null
-  return res.blob()
+  return res.arrayBuffer()
 }
 
 export async function uploadReviewPhoto(photo, userId, reviewId, index) {
@@ -37,18 +42,18 @@ export async function uploadReviewPhoto(photo, userId, reviewId, index) {
     console.warn('[reviewPhotoStorage] JPEG normalize failed, uploading original uri', e)
   }
   const path = `${userId}/${reviewId}/${Date.now()}-${index}.jpg`
-  const blob = await uriToBlob(uploadUri)
-  if (!blob?.size) {
-    console.warn('[reviewPhotoStorage] Empty or unreadable image blob')
+  const buf = await uriToArrayBuffer(uploadUri)
+  if (!buf || buf.byteLength === 0) {
+    console.warn('[reviewPhotoStorage] Empty or unreadable image bytes')
     return null
   }
-  if (blob.size > MAX_SIZE) {
-    console.warn('[reviewPhotoStorage] File too large:', blob.size)
+  if (buf.byteLength > MAX_SIZE) {
+    console.warn('[reviewPhotoStorage] File too large:', buf.byteLength)
     return null
   }
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .upload(path, blob, { contentType: 'image/jpeg', upsert: false })
+    .upload(path, buf, { contentType: 'image/jpeg', upsert: false })
   if (error) {
     console.warn('[reviewPhotoStorage] Upload error:', error.message || error)
     return null

@@ -163,7 +163,7 @@ export default function WriteReviewScreen() {
           }
         } else {
           console.warn('[WriteReviewScreen] Photo upload produced no URLs (storage or validation).')
-          throw new Error('Photos could not be uploaded. Use JPEG, PNG, or WebP under 5MB.')
+          throw new Error('Photos could not be uploaded. Use JPEG, PNG, or WebP under 10MB.')
         }
       }
     },
