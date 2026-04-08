@@ -22,6 +22,7 @@ import TrendingVenueRow from '../components/TrendingVenueRow'
 import { Plus, Settings } from 'lucide-react-native'
 import { colors, fontSizes, fontWeights, fontFamilies, spacing } from '../theme'
 import { WRITE_REVIEW_ORIGIN } from '../navigation/writeReviewOrigin'
+import { LIST_BUILDER_ORIGIN_PROFILE } from '../constants/listBuilderOrigin'
 import ProfilePhotoViewerModal from '../components/ProfilePhotoViewerModal'
 import ProfileReviewEngagementRow from '../components/ProfileReviewEngagementRow'
 import { pickAndUploadProfileAvatar, removeAvatar } from '../services/profileAvatar'
@@ -471,7 +472,12 @@ export default function ProfileScreen() {
         )}
         {activeTab === 'lists' && (
           <View style={styles.section}>
-            <Pressable style={styles.listCreateRow} onPress={() => navigation.navigate('CreateList')}>
+            <Pressable
+              style={styles.listCreateRow}
+              onPress={() =>
+                navigation.navigate('CreateList', { listBuilderOrigin: LIST_BUILDER_ORIGIN_PROFILE })
+              }
+            >
               <View style={styles.listCreateIcon}>
                 <Text style={styles.listCreatePlus}>+</Text>
               </View>

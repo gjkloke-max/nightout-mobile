@@ -17,6 +17,7 @@ import VenueTemporarilyClosedBanner from '../components/VenueProfile/VenueTempor
 import VenueDmShareModal from '../components/VenueProfile/VenueDmShareModal'
 import { isVenueTemporarilyClosed } from '../utils/venueProfileUtils'
 import { X } from 'lucide-react-native'
+import { LIST_BUILDER_ORIGIN_VENUE_PROFILE_ADD_TO_LIST } from '../constants/listBuilderOrigin'
 import { colors, fontSizes, fontFamilies, spacing, iconSizes } from '../theme'
 
 const REVIEWS_PAGE_SIZE = 15
@@ -259,6 +260,13 @@ export default function VenueProfileScreen() {
         venueId={addToListVenue?.id}
         venueName={addToListVenue?.name}
         onAdded={() => setAddToListVenue(null)}
+        onNavigateToFullCreateList={({ venueId: vid, venueName: vName }) => {
+          navigation.navigate('CreateList', {
+            listBuilderOrigin: LIST_BUILDER_ORIGIN_VENUE_PROFILE_ADD_TO_LIST,
+            venueId: vid,
+            venueName: vName,
+          })
+        }}
       />
 
       {user?.id ? (

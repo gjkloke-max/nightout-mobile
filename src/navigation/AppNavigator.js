@@ -10,6 +10,7 @@ import WriteReviewScreen from '../screens/WriteReviewScreen'
 import FriendProfileScreen from '../screens/FriendProfileScreen'
 import SocialReviewDetailScreen from '../screens/SocialReviewDetailScreen'
 import ListDetailScreen from '../screens/ListDetailScreen'
+import CreateListScreen from '../screens/CreateListScreen'
 import FollowListScreen from '../screens/FollowListScreen'
 import ReviewedVenuesListScreen from '../screens/ReviewedVenuesListScreen'
 import DMMessagesHomeScreen from '../screens/DMMessagesHomeScreen'
@@ -79,6 +80,8 @@ export default function AppNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ headerShown: false }} />
+      {/* Same CreateList as Profile tab stack — used when opened from Venue Profile (return to venue). */}
+      <Stack.Screen name="CreateList" component={CreateListScreen} options={{ headerShown: false }} />
       <Stack.Screen name="FollowList" component={FollowListScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ReviewedVenuesList" component={ReviewedVenuesListScreen} options={{ headerShown: false }} />
       <Stack.Screen name="DMMessagesHome" component={DMMessagesHomeScreen} options={{ headerShown: false }} />

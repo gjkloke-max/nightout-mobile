@@ -263,10 +263,29 @@ export async function getListsForAddModal() {
   if (!supabase) return { data: [], error: null }
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: { message: 'User not authenticated' } }
-  const { data, error } = await supabase
+  const { data: lists, error } = await supabase
     .from('venue_list')
-    .select('list_id, list_name')
+    .select('list_id, list_name, list_visibility')
     .eq('user_id', user.id)
     .order('updated_at', { ascending: false })
-  return { data: data || [], error }
+  if (error) return { data: null, error }
+  if (!lists?.length) return { data: [], error: null }
+
+  const listIds = lists.map((l) => l.list_id)
+  const { data: items, error: itemsError } = await supabase
+    .from('venue_list_item')
+    .select('list_id')
+    .in('list_id', listIds)
+  if (itemsError) return { data: null, error: itemsError }
+
+  const countByList = {}
+  for (const row of items || []) {
+    countByList[row.list_id] = (countByList[row.list_id] || 0) + 1
+  }
+
+  const enriched = lists.map((l) => ({
+    ...l,
+    item_count: countByList[l.list_id] || 0,
+  }))
+  return { data: enriched, error: null }
 }

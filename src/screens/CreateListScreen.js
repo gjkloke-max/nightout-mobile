@@ -11,11 +11,12 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useRoute } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Search } from 'lucide-react-native'
 import { searchVenuesByName, fetchVenuesByIds } from '../lib/venueService'
 import { createList, addVenueToList } from '../utils/venueLists'
+import { LIST_BUILDER_ORIGIN_PROFILE, isVenueProfileListBuilderOrigin } from '../constants/listBuilderOrigin'
 import { colors, fontSizes, fontWeights, fontFamilies, spacing } from '../theme'
 
 const nid = (id) => {
@@ -36,7 +37,10 @@ function neighborhoodLabel(v) {
 
 export default function CreateListScreen() {
   const navigation = useNavigation()
+  const route = useRoute()
   const insets = useSafeAreaInsets()
+  const listBuilderOrigin = route.params?.listBuilderOrigin ?? LIST_BUILDER_ORIGIN_PROFILE
+  const isFromVenueProfile = isVenueProfileListBuilderOrigin(listBuilderOrigin)
   const [listName, setListName] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -66,6 +70,20 @@ export default function CreateListScreen() {
     const t = setTimeout(runSearch, 280)
     return () => clearTimeout(t)
   }, [searchQuery, runSearch])
+
+  useEffect(() => {
+    const vid = nid(route.params?.venueId)
+    if (!vid) return
+    let cancelled = false
+    ;(async () => {
+      const { data } = await fetchVenuesByIds([vid])
+      if (cancelled || !data?.[0]) return
+      setSelectedVenues([data[0]])
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [route.params?.venueId])
 
   const handleAdd = (venue) => {
     const vid = nid(venue.venue_id)
@@ -97,7 +115,16 @@ export default function CreateListScreen() {
       if (vid) await addVenueToList(listId, vid)
     }
     setSaving(false)
-    navigation.replace('ListDetail', { listId })
+    if (isFromVenueProfile) {
+      navigation.goBack()
+    } else {
+      navigation.replace('ListDetail', { listId })
+    }
+  }
+
+  /** Close (×) / back: pops to whichever screen pushed CreateList (Profile vs Venue Profile). */
+  const handleClose = () => {
+    navigation.goBack()
   }
 
   const saveDisabled = saving || !listName.trim()
@@ -108,7 +135,7 @@ export default function CreateListScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.topBar}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.topBtn} hitSlop={12}>
+        <Pressable onPress={handleClose} style={styles.topBtn} hitSlop={12}>
           <Text style={styles.topBtnText}>×</Text>
         </Pressable>
         <Pressable
