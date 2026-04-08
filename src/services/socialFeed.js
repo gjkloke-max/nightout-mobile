@@ -35,7 +35,7 @@ export async function getSocialFeed(userId, limit = 30) {
       review_text,
       review_date,
       created_at,
-      venue:venue_id (venue_id, name, neighborhood_name, primary_photo_url)
+      venue:venue_id (venue_id, name, neighborhood_name, primary_photo_url, photo_urls)
     `)
     .in('user_id', authorIds)
     .not('user_id', 'is', null)
@@ -59,7 +59,11 @@ export async function getSocialFeed(userId, limit = 30) {
       .select('id, review_id, user_id, comment_text, created_at, parent_comment_id')
       .in('review_id', reviewIds)
       .order('created_at', { ascending: true }),
-    supabase.from('review_photos').select('id, review_id, photo_url').in('review_id', reviewIds),
+    supabase
+      .from('review_photos')
+      .select('id, review_id, photo_url')
+      .in('review_id', reviewIds)
+      .order('id', { ascending: true }),
   ])
 
   ;(commentsRes.data || []).forEach((c) => commenterIds.add(c.user_id))
@@ -129,7 +133,7 @@ export async function getSocialReviewById(userId, venueReviewId) {
       review_text,
       review_date,
       created_at,
-      venue:venue_id (venue_id, name, neighborhood_name, primary_photo_url)
+      venue:venue_id (venue_id, name, neighborhood_name, primary_photo_url, photo_urls)
     `)
     .eq('venue_review_id', id)
     .in('user_id', authorIds)
@@ -147,7 +151,11 @@ export async function getSocialReviewById(userId, venueReviewId) {
       .select('id, review_id, user_id, comment_text, created_at, parent_comment_id')
       .in('review_id', reviewIds)
       .order('created_at', { ascending: true }),
-    supabase.from('review_photos').select('id, review_id, photo_url').in('review_id', reviewIds),
+    supabase
+      .from('review_photos')
+      .select('id, review_id, photo_url')
+      .in('review_id', reviewIds)
+      .order('id', { ascending: true }),
   ])
 
   ;(commentsRes.data || []).forEach((c) => commenterIds.add(c.user_id))

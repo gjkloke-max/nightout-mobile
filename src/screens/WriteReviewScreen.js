@@ -154,9 +154,16 @@ export default function WriteReviewScreen() {
       if (photos?.length > 0 && reviewId) {
         const urls = await uploadReviewPhotos(photos, user.id, reviewId)
         if (urls.length > 0) {
-          await supabase
+          const { error: photoErr } = await supabase
             .from('review_photos')
             .insert(urls.map((photo_url) => ({ review_id: reviewId, photo_url })))
+          if (photoErr) {
+            console.error('review_photos insert', photoErr)
+            throw new Error(photoErr.message || 'Could not save review photos')
+          }
+        } else {
+          console.warn('[WriteReviewScreen] Photo upload produced no URLs (storage or validation).')
+          throw new Error('Photos could not be uploaded. Use JPEG, PNG, or WebP under 5MB.')
         }
       }
     },

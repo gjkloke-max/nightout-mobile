@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -18,6 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getSocialReviewById } from '../services/socialFeed'
+import VenuePhotoViewer from '../components/VenueProfile/VenuePhotoViewer'
+import { venueFeedThumbUrl } from '../utils/venueFeedThumb'
 import { likeReview, unlikeReview } from '../services/reviewLikes'
 import { addComment } from '../services/reviewComments'
 import { toggleCommentLike } from '../services/commentLikes'
@@ -87,6 +89,8 @@ export default function SocialReviewDetailScreen() {
   const commentInputRef = useRef(null)
   /** Current user's profile row — used for composer avatar and optimistic comment names */
   const [myProfile, setMyProfile] = useState(null)
+  const [photoViewerOpen, setPhotoViewerOpen] = useState(false)
+  const [photoIndex, setPhotoIndex] = useState(0)
 
   const load = useCallback(async () => {
     if (!user?.id || reviewId == null) {
@@ -126,6 +130,13 @@ export default function SocialReviewDetailScreen() {
       cancelled = true
     }
   }, [user?.id])
+
+  const venue = post ? (Array.isArray(post.venue) ? post.venue[0] : post.venue) : null
+  const venueThumb = venueFeedThumbUrl(venue)
+  const photos = useMemo(
+    () => [...(post?.photos || [])].sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0)),
+    [post?.photos, post?.venue_review_id]
+  )
 
   const handleLike = async () => {
     if (!user?.id || !post) return
@@ -235,7 +246,6 @@ export default function SocialReviewDetailScreen() {
     )
   }
 
-  const venue = Array.isArray(post.venue) ? post.venue[0] : post.venue
   const postAuthorId = post.author?.id || post.user_id
   const authorRowTappable = !!(postAuthorId && user?.id && postAuthorId !== user.id)
 
@@ -294,6 +304,13 @@ export default function SocialReviewDetailScreen() {
               onPress={() => openVenue(venue)}
               android_ripple={Platform.OS === 'android' ? androidRipple.light : undefined}
             >
+              <View style={styles.venueThumb}>
+                {venueThumb ? (
+                  <Image source={{ uri: venueThumb }} style={styles.venueThumbImg} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.venueThumbImg, styles.venueThumbEmpty]} />
+                )}
+              </View>
               <View style={styles.venueInfo}>
                 <Text style={styles.venueName}>{venue?.name || 'Venue'}</Text>
                 {venue?.neighborhood_name ? (
@@ -304,6 +321,23 @@ export default function SocialReviewDetailScreen() {
           </View>
 
           {post.review_text ? <Text style={styles.reviewTextLg}>{post.review_text}</Text> : null}
+
+          {photos.length > 0 ? (
+            <View style={styles.reviewPhotos}>
+              {photos.map((p, i) => (
+                <Pressable
+                  key={p.id != null ? String(p.id) : `rp-${i}`}
+                  style={styles.reviewPhotoCell}
+                  onPress={() => {
+                    setPhotoIndex(i)
+                    setPhotoViewerOpen(true)
+                  }}
+                >
+                  <Image source={{ uri: p.photo_url }} style={styles.reviewPhotoImg} resizeMode="cover" />
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
 
           <View style={styles.actionsRow}>
             <Pressable style={styles.actionBtn} onPress={handleLike}>
@@ -323,6 +357,14 @@ export default function SocialReviewDetailScreen() {
             </Pressable>
           </View>
         </View>
+
+        {photoViewerOpen && photos.length > 0 ? (
+          <VenuePhotoViewer
+            photos={photos.map((x) => x.photo_url)}
+            initialIndex={photoIndex}
+            onClose={() => setPhotoViewerOpen(false)}
+          />
+        ) : null}
 
         <View
           style={styles.commentsBlock}
@@ -569,6 +611,7 @@ const styles = StyleSheet.create({
   venueRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     marginBottom: spacing.md,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -578,6 +621,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
+  venueThumb: {
+    width: 64,
+    height: 64,
+    flexShrink: 0,
+    overflow: 'hidden',
+    backgroundColor: colors.backgroundMuted,
+  },
+  venueThumbImg: { width: '100%', height: '100%' },
+  venueThumbEmpty: { backgroundColor: colors.borderInput },
   venueInfo: { flex: 1, minWidth: 0 },
   venueName: {
     fontSize: 18,
@@ -603,6 +655,20 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     marginBottom: spacing.md,
   },
+  reviewPhotos: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: spacing.md,
+  },
+  reviewPhotoCell: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: colors.backgroundMuted,
+  },
+  reviewPhotoImg: { width: '100%', height: '100%' },
   actionsRow: {
     flexDirection: 'row',
     gap: spacing.lg,

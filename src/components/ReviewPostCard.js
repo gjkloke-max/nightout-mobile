@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { View, Text, StyleSheet, Pressable, Image, Platform } from 'react-native'
 import { Heart, MessageCircle } from 'lucide-react-native'
 import { likeReview, unlikeReview } from '../services/reviewLikes'
+import VenuePhotoViewer from './VenueProfile/VenuePhotoViewer'
+import { venueFeedThumbUrl } from '../utils/venueFeedThumb'
 import { colors, fontSizes, fontWeights, spacing, iconSizes, fontFamilies, androidRipple, pressOpacity, hitSlop } from '../theme'
 
 function displayName(p) {
@@ -36,6 +38,8 @@ export default function ReviewPostCard({
 }) {
   const [likeCount, setLikeCount] = useState(post.likeCount ?? 0)
   const [liked, setLiked] = useState(!!(currentUserId && (post.likedBy || []).includes(currentUserId)))
+  const [photoViewerOpen, setPhotoViewerOpen] = useState(false)
+  const [photoIndex, setPhotoIndex] = useState(0)
 
   useEffect(() => {
     setLikeCount(post.likeCount ?? 0)
@@ -45,6 +49,11 @@ export default function ReviewPostCard({
   const commentCount = (post.comments || []).length
 
   const venue = Array.isArray(post.venue) ? post.venue[0] : post.venue
+  const venueThumb = venueFeedThumbUrl(venue)
+  const photos = useMemo(
+    () => [...(post.photos || [])].sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0)),
+    [post.photos, post.venue_review_id]
+  )
   const authorId = post.author?.id || post.user_id
   const authorTappable = !!(onAuthorPress && authorId && currentUserId && authorId !== currentUserId)
 
@@ -99,6 +108,13 @@ export default function ReviewPostCard({
         onPress={() => onVenuePress?.(venue)}
         android_ripple={Platform.OS === 'android' ? androidRipple.light : undefined}
       >
+        <View style={styles.venueThumb}>
+          {venueThumb ? (
+            <Image source={{ uri: venueThumb }} style={styles.venueThumbImg} resizeMode="cover" />
+          ) : (
+            <View style={[styles.venueThumbImg, styles.venueThumbEmpty]} />
+          )}
+        </View>
         <View style={styles.venueInfo}>
           <Text style={styles.venueName}>{venue?.name || 'Venue'}</Text>
           {venue?.neighborhood_name ? <Text style={styles.venueNeighborhood}>{venue.neighborhood_name}</Text> : null}
@@ -113,6 +129,23 @@ export default function ReviewPostCard({
         >
           <Text style={styles.reviewText}>{post.review_text}</Text>
         </Pressable>
+      ) : null}
+
+      {photos.length > 0 ? (
+        <View style={styles.reviewPhotos}>
+          {photos.map((p, i) => (
+            <Pressable
+              key={p.id != null ? String(p.id) : `rp-${i}`}
+              style={styles.reviewPhotoCell}
+              onPress={() => {
+                setPhotoIndex(i)
+                setPhotoViewerOpen(true)
+              }}
+            >
+              <Image source={{ uri: p.photo_url }} style={styles.reviewPhotoImg} resizeMode="cover" />
+            </Pressable>
+          ))}
+        </View>
       ) : null}
 
       <View style={styles.actions}>
@@ -140,6 +173,14 @@ export default function ReviewPostCard({
           <Text style={styles.actionText}>{commentCount}</Text>
         </Pressable>
       </View>
+
+      {photoViewerOpen && photos.length > 0 ? (
+        <VenuePhotoViewer
+          photos={photos.map((x) => x.photo_url)}
+          initialIndex={photoIndex}
+          onClose={() => setPhotoViewerOpen(false)}
+        />
+      ) : null}
     </View>
   )
 }
@@ -222,6 +263,7 @@ const styles = StyleSheet.create({
   venueRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     marginBottom: spacing.md,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -231,6 +273,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
+  venueThumb: {
+    width: 64,
+    height: 64,
+    flexShrink: 0,
+    overflow: 'hidden',
+    backgroundColor: colors.backgroundMuted,
+  },
+  venueThumbImg: { width: '100%', height: '100%' },
+  venueThumbEmpty: { backgroundColor: colors.borderInput },
   venueInfo: { flex: 1, minWidth: 0 },
   venueName: {
     fontSize: 18,
@@ -258,6 +309,20 @@ const styles = StyleSheet.create({
   reviewTextPressed: {
     opacity: 0.85,
   },
+  reviewPhotos: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: spacing.md,
+  },
+  reviewPhotoCell: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: colors.backgroundMuted,
+  },
+  reviewPhotoImg: { width: '100%', height: '100%' },
   actions: {
     flexDirection: 'row',
     gap: spacing.lg,
