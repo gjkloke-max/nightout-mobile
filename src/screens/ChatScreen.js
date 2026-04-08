@@ -111,6 +111,17 @@ export default function ChatScreen() {
     }
   }, [messages])
 
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
+    const showSub = Keyboard.addListener(showEvt, () => setKeyboardVisible(true))
+    const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardVisible(false))
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [])
+
   const showLanding = !messages.some((m) => m.role === 'user')
 
   const handleSend = async (overrideText) => {
@@ -463,9 +474,8 @@ export default function ChatScreen() {
         style={[
           styles.inputRow,
           {
-            paddingBottom: keyboardVisible
-              ? spacing.sm
-              : Math.max(spacing.base, insets.bottom),
+            paddingBottom: keyboardVisible ? 10 : Math.max(spacing.sm, insets.bottom),
+            paddingTop: keyboardVisible ? 10 : spacing.sm,
           },
         ]}
       >
@@ -474,12 +484,14 @@ export default function ChatScreen() {
             style={styles.input}
             value={input}
             onChangeText={setInput}
-            placeholder="Type your request..."
+            placeholder="Ask Concierge anything…"
             placeholderTextColor="#9f9fa9"
             multiline
             maxLength={500}
             editable={!loading}
+            textAlignVertical="center"
             onSubmitEditing={() => handleSend()}
+            blurOnSubmit={false}
             returnKeyType="send"
           />
           <Pressable
@@ -489,7 +501,7 @@ export default function ChatScreen() {
           >
             <Send
               size={18}
-              color={!input.trim() || loading ? colors.textMuted : colors.textSecondary}
+              color={!input.trim() || loading ? colors.textMuted : colors.textOnDark}
               strokeWidth={2}
             />
           </Pressable>
@@ -711,41 +723,43 @@ const styles = StyleSheet.create({
   errorText: { fontSize: fontSizes.sm, color: colors.error },
   inputRow: {
     flexShrink: 0,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
+    paddingHorizontal: spacing.lg,
     backgroundColor: colors.backgroundCanvas,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.borderLight,
   },
   inputField: {
     flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 54,
-    paddingLeft: spacing.base,
+    alignItems: 'flex-end',
+    minHeight: 48,
+    paddingLeft: 14,
     paddingRight: 6,
-    paddingVertical: 6,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 5,
+    backgroundColor: colors.backgroundElevated,
     borderWidth: 1,
     borderColor: colors.borderInput,
-    borderRadius: 8,
+    borderRadius: 12,
     gap: spacing.sm,
   },
   input: {
     flex: 1,
     minHeight: 44,
-    maxHeight: 100,
-    paddingVertical: spacing.sm,
-    fontSize: fontSizes.sm,
-    fontFamily: fontFamilies.frauncesItalic,
+    maxHeight: 120,
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+    fontSize: fontSizes.base,
+    fontFamily: fontFamilies.inter,
+    lineHeight: 22,
     color: colors.textPrimary,
   },
   sendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: 'transparent',
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: colors.textPrimary,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 2,
   },
-  sendBtnDisabled: { opacity: 0.45 },
+  sendBtnDisabled: { opacity: 0.42, backgroundColor: colors.border },
 })

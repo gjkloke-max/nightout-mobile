@@ -109,6 +109,7 @@ export default function TabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
+        tabBarHideOnKeyboard: true,
         tabBarIcon: ({ focused, color }) => <TabIcon label={route.name} focused={focused} color={color} />,
         tabBarActiveTintColor: colors.browseAccent,
         tabBarInactiveTintColor: colors.textMuted,

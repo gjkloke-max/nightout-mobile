@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Keyboard,
 } from 'react-native'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -41,7 +42,19 @@ export default function DMConversationScreen() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [keyboardVisible, setKeyboardVisible] = useState(false)
   const scrollRef = useRef(null)
+
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
+    const showSub = Keyboard.addListener(showEvt, () => setKeyboardVisible(true))
+    const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardVisible(false))
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [])
 
   const scrollToBottom = () => {
     scrollRef.current?.scrollToEnd?.({ animated: true })
@@ -141,7 +154,7 @@ export default function DMConversationScreen() {
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={insets.top}
+      keyboardVerticalOffset={0}
     >
       <View style={[styles.container, { paddingTop: Math.max(spacing.lg, insets.top) }]}>
         <View style={styles.header}>
@@ -198,6 +211,8 @@ export default function DMConversationScreen() {
           ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           onContentSizeChange={scrollToBottom}
         >
           {messages.length === 0 ? (
@@ -219,17 +234,25 @@ export default function DMConversationScreen() {
           )}
         </ScrollView>
 
-        <View style={[styles.inputWrap, { paddingBottom: Math.max(spacing.md, insets.bottom) }]}>
+        <View
+          style={[
+            styles.inputWrap,
+            {
+              paddingBottom: keyboardVisible ? spacing.sm : Math.max(spacing.md, insets.bottom),
+            },
+          ]}
+        >
           <View style={styles.inputRow}>
             <TextInput
               style={styles.input}
               value={input}
               onChangeText={setInput}
-              placeholder="Send a message..."
+              placeholder="Message…"
               placeholderTextColor={colors.textTag}
               maxLength={8000}
               onSubmitEditing={onSend}
               returnKeyType="send"
+              blurOnSubmit={false}
             />
             <TouchableOpacity
               style={[styles.sendIconBtn, (!input.trim() || sending) && styles.sendIconBtnDisabled]}
@@ -237,7 +260,11 @@ export default function DMConversationScreen() {
               disabled={sending || !input.trim()}
               accessibilityLabel="Send message"
             >
-              <Send size={20} color={colors.textPrimary} strokeWidth={2} />
+              <Send
+                size={20}
+                color={!input.trim() || sending ? colors.textMuted : colors.textOnDark}
+                strokeWidth={2}
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -291,7 +318,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   scroll: { flex: 1 },
-  scrollContent: { padding: spacing.xl, paddingBottom: 24 },
+  scrollContent: {
+    padding: spacing.xl,
+    paddingBottom: spacing['2xl'],
+    flexGrow: 1,
+  },
   hint: { textAlign: 'center', color: colors.textSecondary, fontSize: fontSizes.sm },
   bubbleRow: { flexDirection: 'row', marginBottom: 16 },
   bubbleRowSent: { justifyContent: 'flex-end' },
@@ -313,24 +344,43 @@ const styles = StyleSheet.create({
   bubbleTimeRecv: { color: colors.textSecondary },
   inputWrap: {
     backgroundColor: colors.backgroundElevated,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    paddingHorizontal: spacing.xl,
-    paddingTop: 16,
+    paddingHorizontal: spacing.lg,
+    paddingTop: 10,
   },
-  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+    backgroundColor: colors.backgroundMuted,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingLeft: 14,
+    paddingRight: 6,
+    paddingVertical: 4,
+  },
   input: {
     flex: 1,
-    minHeight: 40,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderInput,
+    minHeight: 44,
+    maxHeight: 120,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
     fontFamily: fontFamilies.inter,
-    fontSize: fontSizes.sm,
+    fontSize: fontSizes.base,
+    lineHeight: 22,
     color: colors.textPrimary,
     backgroundColor: 'transparent',
   },
-  sendIconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  sendIconBtnDisabled: { opacity: 0.35 },
+  sendIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.textPrimary,
+    marginBottom: 2,
+  },
+  sendIconBtnDisabled: { opacity: 0.4, backgroundColor: colors.border },
 })
