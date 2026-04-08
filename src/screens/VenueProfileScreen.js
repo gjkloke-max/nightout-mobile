@@ -13,6 +13,9 @@ import VenueHeader from '../components/VenueProfile/VenueHeader'
 import VenueActionBar from '../components/VenueProfile/VenueActionBar'
 import VenueCrowdSentimentSection from '../components/VenueProfile/VenueCrowdSentimentSection'
 import VenueReviewList from '../components/VenueProfile/VenueReviewList'
+import VenueTemporarilyClosedBanner from '../components/VenueProfile/VenueTemporarilyClosedBanner'
+import VenueDmShareModal from '../components/VenueProfile/VenueDmShareModal'
+import { isVenueTemporarilyClosed } from '../utils/venueProfileUtils'
 import { X } from 'lucide-react-native'
 import { colors, fontSizes, fontFamilies, spacing, iconSizes } from '../theme'
 
@@ -49,8 +52,7 @@ export default function VenueProfileScreen() {
   const [togglingFavorite, setTogglingFavorite] = useState(null)
   const [addToListVenue, setAddToListVenue] = useState(null)
   const [photoViewerIndex, setPhotoViewerIndex] = useState(null)
-  const scrollRef = useRef(null)
-  const reviewsLayoutRef = useRef({ y: 0 })
+  const [showDmShareModal, setShowDmShareModal] = useState(false)
 
   useEffect(() => {
     if (!venueId) return
@@ -211,17 +213,16 @@ export default function VenueProfileScreen() {
           controlsTop={insets.top + 12}
         />
 
-        <VenueHeader
-          venue={venue}
-          reviewCount={totalReviewCount ?? venueReviews.length}
-          onReviewsClick={() => scrollRef.current?.scrollTo({ y: reviewsLayoutRef.current.y, animated: true })}
-        />
+        {isVenueTemporarilyClosed(venue) ? <VenueTemporarilyClosedBanner /> : null}
+
+        <VenueHeader venue={venue} />
 
         <VenueActionBar
           venue={venue}
           user={user}
           onAddToList={handleAddToList}
           onReview={openWriteReview}
+          onSendVenue={() => setShowDmShareModal(true)}
           onToggleFavorite={handleToggleFavorite}
           isFavorited={favoriteVenueIds.has(venue.venue_id)}
           togglingFavorite={togglingFavorite}
@@ -230,8 +231,7 @@ export default function VenueProfileScreen() {
 
         <VenueCrowdSentimentSection venue={venue} reviews={venueReviews} />
 
-        <View onLayout={(e) => { reviewsLayoutRef.current.y = e.nativeEvent.layout.y }}>
-          <VenueReviewList
+        <VenueReviewList
             reviews={venueReviews}
             loading={loadingReviews}
             userReview={userReview}
@@ -241,8 +241,8 @@ export default function VenueProfileScreen() {
             hasMoreReviews={hasMoreReviews}
             loadingMoreReviews={loadingMoreReviews}
             onLoadMoreReviews={loadMoreReviews}
+            totalReviewCount={totalReviewCount}
           />
-        </View>
       </ScrollView>
 
       {photoViewerIndex != null && photos.length > 0 ? (
@@ -260,6 +260,15 @@ export default function VenueProfileScreen() {
         venueName={addToListVenue?.name}
         onAdded={() => setAddToListVenue(null)}
       />
+
+      {user?.id ? (
+        <VenueDmShareModal
+          visible={showDmShareModal}
+          venue={venue}
+          onClose={() => setShowDmShareModal(false)}
+          navigation={navigation}
+        />
+      ) : null}
     </View>
   )
 }

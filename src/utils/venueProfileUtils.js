@@ -76,3 +76,19 @@ export function formatFullAddress(venue) {
   const cityState = [venue?.city, state?.state_code, venue?.zip].filter(Boolean).join(', ')
   return [address, cityState].filter(Boolean).join(', ')
 }
+
+export function formatPriceLevel(priceLevel) {
+  const n = Number(priceLevel)
+  if (n === 1) return '$'
+  if (n === 2) return '$$'
+  if (n === 3) return '$$$'
+  if (n === 4) return '$$$$'
+  return null
+}
+
+export function isVenueTemporarilyClosed(venue) {
+  if (!venue) return false
+  if (venue.status === 'temporarily_closed') return true
+  const bs = String(venue.business_status || '').toUpperCase()
+  return bs === 'CLOSED_TEMPORARILY'
+}

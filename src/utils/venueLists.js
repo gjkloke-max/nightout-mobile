@@ -19,7 +19,9 @@ export async function createList(listName, options = {}) {
   if (!user) return { data: null, error: { message: 'User not authenticated' } }
   const name = (listName || '').trim()
   if (!name) return { data: null, error: { message: 'List name is required' } }
-  const list_visibility = options.list_visibility === 'public' ? 'public' : 'private'
+  const raw = options.list_visibility
+  const list_visibility =
+    raw === 'public' ? 'public' : raw === 'followers' ? 'followers' : 'private'
   const { data, error } = await supabase
     .from('venue_list')
     .insert({ user_id: user.id, list_name: name, list_visibility })
@@ -74,7 +76,7 @@ export async function getPublicListsForUser(profileUserId) {
     .from('venue_list')
     .select('list_id, list_name, cover_image_url, created_at, updated_at, list_visibility')
     .eq('user_id', profileUserId)
-    .eq('list_visibility', 'public')
+    .in('list_visibility', ['public', 'followers'])
     .order('updated_at', { ascending: false })
   if (listsError) return { data: null, error: listsError }
   if (!lists?.length) return { data: [], error: null }

@@ -1,5 +1,5 @@
 import { View, Text, Pressable, StyleSheet, Linking } from 'react-native'
-import { Bookmark, ListPlus, Pencil, Navigation, Globe } from 'lucide-react-native'
+import { Bookmark, ListPlus, MessageCircle, Send, Navigation, Globe } from 'lucide-react-native'
 import { colors, fontSizes, fontFamilies, spacing, iconSizes } from '../../theme'
 import { cleanUrl, formatFullAddress } from '../../utils/venueProfileUtils'
 
@@ -8,6 +8,7 @@ export default function VenueActionBar({
   user,
   onAddToList,
   onReview,
+  onSendVenue,
   onToggleFavorite,
   isFavorited,
   togglingFavorite,
@@ -49,13 +50,19 @@ export default function VenueActionBar({
               <Text style={styles.btnListText}>List</Text>
             </Pressable>
           </View>
-          <Pressable style={styles.writeBtn} onPress={() => onReview?.()}>
-            <Pencil size={iconSizes.xs} color={colors.textPrimary} strokeWidth={2} />
-            <Text style={styles.writeText}>{hasUserReview ? 'Your review' : 'Write a Review'}</Text>
-          </Pressable>
+          <View style={styles.secondaryRow}>
+            <Pressable style={styles.btnMuted} onPress={() => onReview?.()}>
+              <MessageCircle size={iconSizes.xs} color={colors.textPrimary} strokeWidth={2} />
+              <Text style={styles.btnMutedText}>{hasUserReview ? 'Your review' : 'Review'}</Text>
+            </Pressable>
+            <Pressable style={styles.btnMuted} onPress={() => onSendVenue?.()}>
+              <Send size={iconSizes.xs} color={colors.textPrimary} strokeWidth={2} />
+              <Text style={styles.btnMutedText}>Send</Text>
+            </Pressable>
+          </View>
         </>
       ) : (
-        <Text style={styles.hint}>Sign in to save venues, add to lists, and write reviews.</Text>
+        <Text style={styles.hint}>Sign in to save venues, add to lists, review, and send to friends.</Text>
       )}
 
       {(fullAddress || website) && (
@@ -94,13 +101,14 @@ export default function VenueActionBar({
 const styles = StyleSheet.create({
   container: { paddingHorizontal: spacing.xl },
   primaryRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
+  secondaryRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
   btnSave: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    minHeight: 48,
+    minHeight: 45,
     backgroundColor: colors.backgroundDark,
   },
   btnSaveText: {
@@ -115,9 +123,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    minHeight: 48,
+    minHeight: 45,
     backgroundColor: colors.backgroundElevated,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.backgroundDark,
   },
   btnListText: {
@@ -126,16 +134,16 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     color: colors.textPrimary,
   },
-  writeBtn: {
+  btnMuted: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    minHeight: 48,
-    marginBottom: spacing.lg,
+    minHeight: 45,
     backgroundColor: colors.surface,
   },
-  writeText: {
+  btnMutedText: {
     fontSize: 12,
     fontFamily: fontFamilies.interBold,
     letterSpacing: 1.2,
@@ -186,7 +194,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.borderLight,
     backgroundColor: colors.backgroundElevated,
     alignItems: 'center',

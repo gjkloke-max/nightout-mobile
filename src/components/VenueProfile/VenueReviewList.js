@@ -17,6 +17,20 @@ function getReviewerName(r) {
   return 'Private reviewer'
 }
 
+function ReviewHeader({ totalReviewCount }) {
+  const count =
+    typeof totalReviewCount === 'number' ? (
+      <Text style={styles.countText}>({totalReviewCount})</Text>
+    ) : null
+  return (
+    <View style={styles.titleRow}>
+      <Text style={styles.sectionTitle}>Recent Reviews</Text>
+      {count}
+      <View style={styles.titleRule} />
+    </View>
+  )
+}
+
 export default function VenueReviewList({
   reviews = [],
   loading,
@@ -27,6 +41,7 @@ export default function VenueReviewList({
   hasMoreReviews = false,
   loadingMoreReviews = false,
   onLoadMoreReviews,
+  totalReviewCount,
 }) {
   const displayReviews = [...reviews]
   if (userReview && !displayReviews.some((r) => r.venue_review_id === userReview.venue_review_id)) {
@@ -36,7 +51,7 @@ export default function VenueReviewList({
   if (loading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.sectionTitle}>Recent Reviews</Text>
+        <ReviewHeader totalReviewCount={totalReviewCount} />
         <Text style={styles.loading}>Loading reviews...</Text>
       </View>
     )
@@ -45,7 +60,7 @@ export default function VenueReviewList({
   if (!displayReviews.length) {
     return (
       <View style={styles.container}>
-        <Text style={styles.sectionTitle}>Recent Reviews</Text>
+        <ReviewHeader totalReviewCount={typeof totalReviewCount === 'number' ? totalReviewCount : 0} />
         <Text style={styles.empty}>No reviews yet.</Text>
         {onReviewClick ? (
           <Pressable style={styles.btnPrimary} onPress={onReviewClick}>
@@ -58,10 +73,7 @@ export default function VenueReviewList({
 
   return (
     <View style={styles.container}>
-      <View style={styles.titleRow}>
-        <Text style={styles.sectionTitle}>Recent Reviews</Text>
-        <View style={styles.titleRule} />
-      </View>
+      <ReviewHeader totalReviewCount={totalReviewCount} />
       <View style={styles.items}>
         {displayReviews.map((r, i) => (
           <View
@@ -120,14 +132,20 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
     borderTopColor: colors.borderLight,
   },
-  titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
+  titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg, gap: 6 },
   sectionTitle: {
     fontSize: 14,
     fontFamily: fontFamilies.interBold,
-    letterSpacing: 1.4,
+    letterSpacing: 1.25,
     color: colors.textPrimary,
     textTransform: 'uppercase',
-    marginRight: spacing.sm,
+  },
+  countText: {
+    fontSize: 11,
+    fontFamily: fontFamilies.inter,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    color: colors.textTag,
   },
   titleRule: { flex: 1, height: 1, backgroundColor: colors.borderLight },
   loading: { fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.textMuted, marginTop: spacing.sm },
@@ -156,24 +174,24 @@ const styles = StyleSheet.create({
   metaPressable: { flex: 1, paddingRight: spacing.sm },
   meta: { flex: 1 },
   name: {
-    fontSize: 13,
+    fontSize: 10,
     fontFamily: fontFamilies.interBold,
-    letterSpacing: 0.5,
+    letterSpacing: 1.1,
     color: colors.textPrimary,
   },
   date: { fontSize: 12, fontFamily: fontFamilies.inter, color: colors.textTag, marginTop: 2 },
   ratingBadge: {
-    minWidth: 40,
-    height: 32,
-    paddingHorizontal: 8,
+    minWidth: 38,
+    height: 25,
+    paddingHorizontal: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.browseAccent,
-    borderWidth: 2,
+    backgroundColor: '#be185d',
+    borderWidth: 1,
     borderColor: colors.browseAccentBorder,
   },
   ratingBadgeText: {
-    fontSize: fontSizes.sm,
+    fontSize: 12,
     fontFamily: fontFamilies.frauncesSemiBold,
     color: colors.textOnDark,
   },

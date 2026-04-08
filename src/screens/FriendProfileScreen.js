@@ -27,7 +27,14 @@ import {
   cancelFollowRequest,
 } from '../services/follows'
 import { getUserTopTenVenues, getUserTopTenEligibility } from '../services/userTopTen'
+import { config } from '../lib/config'
 import { getPublicListsForUser } from '../utils/venueLists'
+import {
+  getLikeCountsByListIds,
+  getLikedListIds,
+  toggleListLike,
+} from '../services/listLikes'
+import ProfileListEngagementRow from '../components/ProfileListEngagementRow'
 import { colors, fontSizes, fontWeights, spacing, fontFamilies } from '../theme'
 import ProfilePhotoViewerModal from '../components/ProfilePhotoViewerModal'
 import ProfileReviewEngagementRow from '../components/ProfileReviewEngagementRow'
@@ -67,6 +74,22 @@ function formatRelativeSentence(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
+/** Caps relative date for list meta — matches ProfileScreen lists tab. */
+function formatRelativeCaps(dateStr) {
+  if (!dateStr) return 'RECENTLY'
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return 'RECENTLY'
+  const now = new Date()
+  const diffMs = now - d
+  const days = Math.floor(diffMs / (24 * 60 * 60 * 1000))
+  if (days < 1) return 'TODAY'
+  if (days === 1) return 'YESTERDAY'
+  if (days < 7) return `${days} DAYS AGO`
+  if (days < 30) return `${Math.floor(days / 7)} WEEKS AGO`
+  if (days < 365) return `${Math.floor(days / 30)} MO AGO`
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase()
+}
+
 export default function FriendProfileScreen() {
   const navigation = useNavigation()
   const route = useRoute()
@@ -85,6 +108,10 @@ export default function FriendProfileScreen() {
   })
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 })
   const [publicLists, setPublicLists] = useState([])
+  const [listLikeCounts, setListLikeCounts] = useState({})
+  const [listLikedIds, setListLikedIds] = useState(new Set())
+  const [listEngageLoading, setListEngageLoading] = useState(true)
+  const [listLikeBusyId, setListLikeBusyId] = useState(null)
   const [followStatus, setFollowStatus] = useState('none')
   const [targetIsPrivate, setTargetIsPrivate] = useState(false)
   const [profileLocked, setProfileLocked] = useState(false)
@@ -170,6 +197,58 @@ export default function FriendProfileScreen() {
   useEffect(() => {
     if (userId && user?.id) load()
   }, [userId, user?.id, load])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const ids = (publicLists || []).map((l) => l.list_id).filter(Boolean)
+      if (!ids.length || !user?.id) {
+        if (!cancelled) {
+          setListLikeCounts({})
+          setListLikedIds(new Set())
+          setListEngageLoading(false)
+        }
+        return
+      }
+      setListEngageLoading(true)
+      const [counts, liked] = await Promise.all([
+        getLikeCountsByListIds(ids),
+        getLikedListIds(user.id, ids),
+      ])
+      if (cancelled) return
+      setListLikeCounts(counts)
+      setListLikedIds(liked)
+      setListEngageLoading(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [publicLists, user?.id])
+
+  const handleListLike = async (listId) => {
+    if (!user?.id || listLikeBusyId != null) return
+    const liked = listLikedIds.has(listId)
+    setListLikeBusyId(listId)
+    const { success } = await toggleListLike(user.id, listId, liked)
+    if (success) {
+      setListLikedIds((prev) => {
+        const next = new Set(prev)
+        if (liked) next.delete(listId)
+        else next.add(listId)
+        return next
+      })
+      setListLikeCounts((prev) => {
+        const n = prev[listId] || 0
+        return { ...prev, [listId]: Math.max(0, liked ? n - 1 : n + 1) }
+      })
+    }
+    setListLikeBusyId(null)
+  }
+
+  const listShareUrl = (listId) => {
+    const path = `/lists/${listId}`
+    return config.webAppUrl ? `${String(config.webAppUrl).replace(/\/$/, '')}${path}` : path
+  }
 
   const displayName = profile?.first_name
     ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
@@ -315,6 +394,10 @@ export default function FriendProfileScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          scrollYTracked.current = e.nativeEvent.contentOffset.y
+        }}
       >
         {profileLocked ? (
           <>
@@ -556,18 +639,49 @@ export default function FriendProfileScreen() {
             {activeTab === 'lists' && (
               <View style={styles.section}>
                 {publicLists.length === 0 ? (
-                  <Text style={styles.muted}>No public lists yet.</Text>
+                  <Text style={styles.muted}>No lists to show yet.</Text>
                 ) : (
-                  publicLists.map((list) => (
-                    <Pressable key={list.list_id} style={styles.listRow} onPress={() => handleListPress(list)}>
-                      <Text style={styles.listName} numberOfLines={1}>
-                        {list.list_name}
-                      </Text>
-                      <Text style={styles.listMeta}>
-                        {list.item_count} {list.item_count === 1 ? 'place' : 'places'}
-                      </Text>
-                    </Pressable>
-                  ))
+                  publicLists.map((list) => {
+                    const pv = list.preview_venues?.[0]
+                    const thumb = pv?.primary_photo_url
+                    const n = list.item_count ?? 0
+                    const lid = list.list_id
+                    return (
+                      <View key={lid} style={styles.listBlock}>
+                        <Pressable style={styles.listRow} onPress={() => handleListPress(list)}>
+                          <View style={styles.listThumbWrap}>
+                            {thumb ? (
+                              <Image source={{ uri: thumb }} style={styles.listThumb} />
+                            ) : (
+                              <View style={[styles.listThumb, styles.listThumbPh]} />
+                            )}
+                          </View>
+                          <View style={styles.listRowBody}>
+                            <Text style={styles.listName} numberOfLines={1}>
+                              {list.list_name}
+                            </Text>
+                            <Text style={styles.listMeta}>
+                              {`${n} ${n === 1 ? 'PLACE' : 'PLACES'}`}
+                              {list.updated_at ? ` · ${formatRelativeCaps(list.updated_at)}` : ''}
+                            </Text>
+                          </View>
+                          <Text style={styles.listChevron} accessibilityElementsHidden importantForAccessibility="no">
+                            ›
+                          </Text>
+                        </Pressable>
+                        <ProfileListEngagementRow
+                          likeCount={listLikeCounts[lid] ?? 0}
+                          liked={listLikedIds.has(lid)}
+                          loading={listEngageLoading}
+                          likeDisabled={listLikeBusyId === lid}
+                          onLike={() => handleListLike(lid)}
+                          shareUrl={listShareUrl(lid)}
+                          shareTitle={list.list_name}
+                          currentUserId={user?.id}
+                        />
+                      </View>
+                    )
+                  })
                 )}
               </View>
             )}
@@ -832,16 +946,37 @@ const styles = StyleSheet.create({
     color: '#3F3F47',
     lineHeight: 22,
   },
-  listRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
+  listBlock: {
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
+    paddingBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
-  listName: { fontSize: fontSizes.base, fontFamily: fontFamilies.fraunces, color: colors.textPrimary, flex: 1 },
-  listMeta: { fontSize: fontSizes.sm, color: colors.textSecondary },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  listThumbWrap: { width: 48, height: 48, borderRadius: 6, overflow: 'hidden' },
+  listThumb: { width: '100%', height: '100%' },
+  listThumbPh: { backgroundColor: colors.surface },
+  listRowBody: { flex: 1, minWidth: 0 },
+  listName: {
+    fontSize: fontSizes.base,
+    fontFamily: fontFamilies.interMedium,
+    color: colors.textPrimary,
+  },
+  listMeta: {
+    fontSize: 10,
+    fontWeight: fontWeights.bold,
+    fontFamily: fontFamilies.interBold,
+    letterSpacing: 0.5,
+    color: colors.textTag,
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
+  listChevron: { fontSize: 22, color: '#d4d4d8', fontWeight: fontWeights.normal },
   muted: { fontSize: fontSizes.sm, color: colors.textMuted },
   lockedHeroTop: {
     flexDirection: 'row',

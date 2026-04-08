@@ -109,6 +109,22 @@ export async function onReviewLiked(ctx) {
   })
 }
 
+/** @param {{ recipientUserId: string, actorUserId: string, listId: string, actorName?: string }} ctx */
+export async function onListLiked(ctx) {
+  const { recipientUserId, actorUserId, listId, actorName } = ctx
+  if (!recipientUserId || !actorUserId) return { skipped: true }
+  return createOrAggregateNotification({
+    recipientUserId,
+    type: 'list_liked',
+    actorUserId,
+    entityType: 'venue_list',
+    entityId: listId,
+    skipIfSelf: true,
+    metadata: { actor_display_name: actorName, entity_label: 'your list' },
+    body: actorName ? `${actorName} liked your list` : undefined,
+  })
+}
+
 /** @param {{ recipientUserId: string, actorUserId: string, commentId: string, reviewId: string, actorName?: string }} ctx */
 export async function onCommentLiked(ctx) {
   return createOrAggregateNotification({

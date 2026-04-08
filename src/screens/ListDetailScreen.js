@@ -13,9 +13,14 @@ import {
 } from 'react-native'
 import { useRoute, useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ChevronLeft, MoreVertical, MapPin, Share2 } from 'lucide-react-native'
+import { ChevronLeft, MoreVertical, MapPin, Share2, Heart } from 'lucide-react-native'
 import { useAuth } from '../contexts/AuthContext'
 import { getListWithItems, removeVenueFromList, deleteList } from '../utils/venueLists'
+import {
+  getLikeCountsByListIds,
+  getLikedListIds,
+  toggleListLike,
+} from '../services/listLikes'
 import { deriveBrowseTagPair } from '../utils/browseVenueTags'
 import AddVenuesToListModal from '../components/AddVenuesToListModal'
 import SavePlacesToListModal from '../components/SavePlacesToListModal'
@@ -56,6 +61,10 @@ export default function ListDetailScreen() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [showAddVenues, setShowAddVenues] = useState(false)
   const [showSavePlaces, setShowSavePlaces] = useState(false)
+  const [likeCount, setLikeCount] = useState(0)
+  const [liked, setLiked] = useState(false)
+  const [likeEngageLoading, setLikeEngageLoading] = useState(true)
+  const [likeToggling, setLikeToggling] = useState(false)
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false })
@@ -75,6 +84,46 @@ export default function ListDetailScreen() {
   useEffect(() => {
     if (listId) loadList()
   }, [listId, loadList])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const id = list?.list_id
+      if (!id || !user?.id) {
+        if (!cancelled) {
+          setLikeCount(0)
+          setLiked(false)
+          setLikeEngageLoading(false)
+        }
+        return
+      }
+      setLikeEngageLoading(true)
+      const [counts, likedSet] = await Promise.all([
+        getLikeCountsByListIds([id]),
+        getLikedListIds(user.id, [id]),
+      ])
+      if (cancelled) return
+      setLikeCount(counts[id] ?? 0)
+      setLiked(likedSet.has(id))
+      setLikeEngageLoading(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [list?.list_id, user?.id])
+
+  const handleToggleLike = async () => {
+    if (!user?.id || !list?.list_id || likeToggling) return
+    if (list.user_id === user.id) return
+    const id = list.list_id
+    setLikeToggling(true)
+    const { success } = await toggleListLike(user.id, id, liked)
+    if (success) {
+      setLiked((v) => !v)
+      setLikeCount((c) => Math.max(0, liked ? c - 1 : c + 1))
+    }
+    setLikeToggling(false)
+  }
 
   const handleVenuePress = (venue) => {
     const vid = venue?.venue_id
@@ -205,6 +254,24 @@ export default function ListDetailScreen() {
             ) : (
               <Pressable style={styles.primaryBtn} onPress={() => setShowSavePlaces(true)}>
                 <Text style={styles.primaryBtnText}>Save to My Lists</Text>
+              </Pressable>
+            )}
+            {!isOwner && (
+              <Pressable
+                style={[styles.likeCircle, liked && styles.likeCircleActive]}
+                onPress={handleToggleLike}
+                disabled={likeEngageLoading || likeToggling}
+                accessibilityLabel={liked ? 'Unlike list' : 'Like list'}
+              >
+                <Heart
+                  size={22}
+                  color={liked ? colors.browseAccent : colors.textMuted}
+                  fill={liked ? colors.browseAccent : 'transparent'}
+                  strokeWidth={2}
+                />
+                {!likeEngageLoading && likeCount > 0 ? (
+                  <Text style={styles.likeCountText}>{likeCount}</Text>
+                ) : null}
               </Pressable>
             )}
             <Pressable style={styles.shareCircle} onPress={handleShare} accessibilityLabel="Share list">
@@ -420,6 +487,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundElevated,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  likeCircle: {
+    minWidth: 56,
+    minHeight: 56,
+    paddingHorizontal: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.backgroundElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  likeCircleActive: {
+    borderColor: 'rgba(157, 23, 77, 0.25)',
+  },
+  likeCountText: {
+    fontSize: 11,
+    fontFamily: fontFamilies.interBold,
+    color: colors.textSecondary,
   },
   sectionTitle: {
     marginTop: spacing.xl,

@@ -80,7 +80,7 @@ export default function VenueHeroGallery({
       </View>
       <View style={styles.counter}>
         <Text style={styles.counterText}>
-          {photos.length} {photos.length === 1 ? 'Photo' : 'Photos'}
+          {photos.length} photos
         </Text>
       </View>
       {showShare ? (

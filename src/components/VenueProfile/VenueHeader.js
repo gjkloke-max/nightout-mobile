@@ -1,20 +1,29 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet } from 'react-native'
 import { MapPin } from 'lucide-react-native'
 import { colors, fontSizes, fontFamilies, spacing, iconSizes } from '../../theme'
-import { truncateToWords } from '../../utils/venueProfileUtils'
+import { truncateToWords, formatPriceLevel } from '../../utils/venueProfileUtils'
+import { deriveBrowseTagPair } from '../../utils/browseVenueTags'
 
-export default function VenueHeader({ venue, reviewCount = 0, onReviewsClick }) {
+export default function VenueHeader({ venue }) {
   const neighborhood = (venue?.neighborhood_name || '').trim()
   const rating = venue?.rating10 != null ? Number(venue.rating10).toFixed(1) : null
   const description = truncateToWords(
     venue?.compact_summary || venue?.review_summary || venue?.editorial_summary || '',
     55
   )
+  const priceLabel = formatPriceLevel(venue?.price_level)
+  const { primary: typeTag, secondary: vibeTag } = deriveBrowseTagPair(venue)
+
+  const segments = []
+  if (neighborhood) segments.push({ key: 'hood', kind: 'hood', text: neighborhood.toUpperCase() })
+  if (priceLabel) segments.push({ key: 'price', kind: 'price', text: priceLabel })
+  if (typeTag) segments.push({ key: 'type', kind: 'tag', text: String(typeTag).toUpperCase() })
+  if (vibeTag) segments.push({ key: 'vibe', kind: 'tag', text: String(vibeTag).toUpperCase() })
 
   return (
     <View style={styles.container}>
       <View style={styles.top}>
-        <Text style={styles.name} numberOfLines={2}>
+        <Text style={styles.name} numberOfLines={3}>
           {venue?.name || 'Unnamed Venue'}
         </Text>
         {rating != null && (
@@ -23,27 +32,27 @@ export default function VenueHeader({ venue, reviewCount = 0, onReviewsClick }) 
           </View>
         )}
       </View>
-      {(neighborhood || reviewCount > 0) && (
-        <View style={styles.metaRow}>
-          {neighborhood ? (
-            <View style={styles.metaItem}>
-              <MapPin size={14} color={colors.textSecondary} strokeWidth={2} />
-              <Text style={styles.neighborhood}>{neighborhood.toUpperCase()}</Text>
+
+      {segments.length > 0 ? (
+        <View style={styles.tagRow}>
+          {segments.map((seg, i) => (
+            <View key={seg.key} style={styles.tagSegment}>
+              {i > 0 ? <View style={styles.dot} /> : null}
+              {seg.kind === 'hood' ? (
+                <View style={styles.metaItem}>
+                  <MapPin size={13} color={colors.textSecondary} strokeWidth={2} />
+                  <Text style={styles.neighborhood}>{seg.text}</Text>
+                </View>
+              ) : seg.kind === 'price' ? (
+                <Text style={styles.price}>{seg.text}</Text>
+              ) : (
+                <Text style={styles.pillTag}>{seg.text}</Text>
+              )}
             </View>
-          ) : null}
-          {neighborhood && reviewCount > 0 ? <View style={styles.dot} /> : null}
-          {reviewCount > 0 ? (
-            <Pressable onPress={onReviewsClick} hitSlop={8}>
-              <Text style={styles.reviewsLink}>
-                {reviewCount} {reviewCount === 1 ? 'REVIEW' : 'REVIEWS'}
-              </Text>
-            </Pressable>
-          ) : null}
+          ))}
         </View>
-      )}
-      {venue?.status === 'temporarily_closed' && (
-        <Text style={styles.status}>Temporarily closed</Text>
-      )}
+      ) : null}
+
       {description ? (
         <View style={styles.quote}>
           <Text style={styles.quoteMark} aria-hidden>
@@ -74,12 +83,12 @@ const styles = StyleSheet.create({
   },
   ratingBadge: {
     minWidth: 50,
-    height: 36,
-    paddingHorizontal: 14,
+    height: 33,
+    paddingHorizontal: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.browseAccent,
-    borderWidth: 2,
+    backgroundColor: '#be185d',
+    borderWidth: 1,
     borderColor: colors.browseAccentBorder,
   },
   ratingBadgeText: {
@@ -87,38 +96,35 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.frauncesSemiBold,
     color: colors.textOnDark,
   },
-  metaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.base,
-  },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginBottom: spacing.base },
+  tagSegment: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   neighborhood: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fontFamilies.interMedium,
-    letterSpacing: 1.2,
+    letterSpacing: 1.16,
     color: colors.textSecondary,
+    textTransform: 'uppercase',
   },
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.borderInput },
-  reviewsLink: {
-    fontSize: 12,
+  price: {
+    fontSize: 11,
     fontFamily: fontFamilies.interMedium,
-    letterSpacing: 1.2,
-    textDecorationLine: 'underline',
-    color: colors.textSecondary,
+    letterSpacing: 1.16,
+    textTransform: 'uppercase',
+    color: '#3f3f47',
   },
-  status: {
-    fontSize: fontSizes.sm,
-    fontFamily: fontFamilies.interSemiBold,
-    color: colors.warning,
-    marginBottom: spacing.sm,
+  pillTag: {
+    fontSize: 11,
+    fontFamily: fontFamilies.interMedium,
+    letterSpacing: 1.16,
+    textTransform: 'uppercase',
+    color: colors.textSecondary,
   },
   quote: {
     marginTop: spacing.sm,
     paddingLeft: spacing.base,
-    borderLeftWidth: 2,
+    borderLeftWidth: 1,
     borderLeftColor: colors.borderInput,
     position: 'relative',
   },
