@@ -70,6 +70,7 @@ export async function getUserLists() {
   return { data: listsWithMeta, error: null }
 }
 
+/** @see NightOut web venueLists — public + followers lists; RLS matches profile/reviews audience. */
 export async function getPublicListsForUser(profileUserId) {
   if (!profileUserId || !supabase) return { data: [], error: null }
   const { data: lists, error: listsError } = await supabase

@@ -310,10 +310,8 @@ export default function FriendProfileScreen() {
   }
 
   const handleListPress = (list) => {
-    navigation.navigate('MainTabs', {
-      screen: 'Profile',
-      params: { screen: 'ListDetail', params: { listId: list.list_id } },
-    })
+    // Root stack ListDetail (AppNavigator) — not Profile tab's ListDetail — so Back returns here, not Browse/own profile.
+    navigation.navigate('ListDetail', { listId: list.list_id })
   }
 
   const openReviewedVenuesList = () => {
