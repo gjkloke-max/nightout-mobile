@@ -364,7 +364,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   hint: { textAlign: 'center', color: colors.textSecondary, fontSize: fontSizes.sm },
-  bubbleRow: { flexDirection: 'row', marginBottom: 16 },
+  /* Full width so %-sized venue cards resolve against the thread, not shrink-wrapped text */
+  bubbleRow: { flexDirection: 'row', marginBottom: 16, width: '100%' },
   bubbleRowSent: { justifyContent: 'flex-end' },
   bubbleRowRecv: { justifyContent: 'flex-start' },
   bubble: {
@@ -383,16 +384,17 @@ const styles = StyleSheet.create({
   bubbleTimeSent: { color: SENT_TIME },
   bubbleTimeRecv: { color: colors.textSecondary },
   venueShareStack: {
-    maxWidth: '86%',
     padding: 12,
     borderRadius: 16,
     gap: 8,
   },
   venueShareStackRecv: {
     backgroundColor: colors.backgroundMuted,
+    width: '100%',
   },
   venueShareStackSent: {
     backgroundColor: SENT_BG,
+    width: '92%',
   },
   venueShareCaption: {
     fontFamily: fontFamilies.inter,
