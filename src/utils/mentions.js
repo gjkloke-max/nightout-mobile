@@ -1,16 +1,3 @@
-/** @param {string} text */
-export function extractMentionTokens(text) {
-  if (!text || typeof text !== 'string') return []
-  const out = new Set()
-  const re = /@([a-z0-9_]{3,30})\b/gi
-  let m
-  while ((m = re.exec(text)) !== null) {
-    const t = (m[1] || '').toLowerCase()
-    if (t.length >= 3 && t.length <= 30) out.add(t)
-  }
-  return [...out]
-}
-
 export function validateUsernameFormat(raw) {
   const s = (raw || '').trim().toLowerCase()
   if (!s.length) return { ok: true, normalized: '' }

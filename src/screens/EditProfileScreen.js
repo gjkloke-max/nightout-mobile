@@ -279,7 +279,7 @@ export default function EditProfileScreen({ navigation }) {
           autoCorrect={false}
         />
         {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
-        <Text style={styles.hint}>3–30 characters, letters, numbers, underscores. Used for @mentions.</Text>
+        <Text style={styles.hint}>3–30 characters, letters, numbers, underscores.</Text>
 
         <Text style={styles.label}>Home neighborhood</Text>
         <TouchableOpacity style={styles.selectBtn} onPress={() => setHoodModalOpen(true)} activeOpacity={0.7}>

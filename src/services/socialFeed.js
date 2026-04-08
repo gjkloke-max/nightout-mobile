@@ -16,19 +16,6 @@ function authorFromProfiles(profilesById, userId) {
   return profilesById[userId] ?? profilesById[String(userId)] ?? null
 }
 
-function mentionProfilesForIds(ids, byId) {
-  const out = []
-  const seen = new Set()
-  for (const raw of ids || []) {
-    const id = raw != null ? String(raw) : ''
-    if (!id || seen.has(id)) continue
-    seen.add(id)
-    const p = byId[id]
-    if (p?.username) out.push({ id: p.id, username: p.username })
-  }
-  return out
-}
-
 export async function getSocialFeed(userId, limit = 30) {
   if (!userId || !supabase) return []
   const { data: following } = await supabase
@@ -48,7 +35,6 @@ export async function getSocialFeed(userId, limit = 30) {
       review_text,
       review_date,
       created_at,
-      mentioned_user_ids,
       venue:venue_id (venue_id, name, neighborhood_name, primary_photo_url)
     `)
     .in('user_id', authorIds)
@@ -70,7 +56,7 @@ export async function getSocialFeed(userId, limit = 30) {
     supabase.from('review_likes').select('review_id, user_id').in('review_id', reviewIds),
     supabase
       .from('review_comments')
-      .select('id, review_id, user_id, comment_text, created_at, parent_comment_id, mentioned_user_ids')
+      .select('id, review_id, user_id, comment_text, created_at, parent_comment_id')
       .in('review_id', reviewIds)
       .order('created_at', { ascending: true }),
     supabase.from('review_photos').select('id, review_id, photo_url').in('review_id', reviewIds),
@@ -81,19 +67,6 @@ export async function getSocialFeed(userId, limit = 30) {
     ? await supabase.from('profiles').select('id, first_name, last_name, avatar_url, username').in('id', [...commenterIds])
     : { data: [] }
   const commenterById = profilesByIdMap(commenterProfiles.data)
-
-  const mentionIdSet = new Set()
-  for (const rv of reviews || []) {
-    for (const mid of rv.mentioned_user_ids || []) mentionIdSet.add(String(mid))
-  }
-  for (const c of commentsRes.data || []) {
-    for (const mid of c.mentioned_user_ids || []) mentionIdSet.add(String(mid))
-  }
-  let mentionById = {}
-  if (mentionIdSet.size > 0) {
-    const { data: mProf } = await supabase.from('profiles').select('id, username').in('id', [...mentionIdSet])
-    mentionById = profilesByIdMap(mProf || [])
-  }
 
   const profilesById = profilesByIdMap(profilesRes.data)
   const likesByReview = {}
@@ -107,7 +80,6 @@ export async function getSocialFeed(userId, limit = 30) {
     commentsByReview[c.review_id].push({
       ...c,
       profile: authorFromProfiles(commenterById, c.user_id),
-      mentionProfiles: mentionProfilesForIds(c.mentioned_user_ids, mentionById),
     })
   })
   const photosByReview = {}
@@ -126,7 +98,6 @@ export async function getSocialFeed(userId, limit = 30) {
       ...r,
       venue,
       author: authorFromProfiles(profilesById, uid),
-      mentionProfiles: mentionProfilesForIds(r.mentioned_user_ids, mentionById),
       likeCount: (likesByReview[r.venue_review_id] || []).length,
       likedBy: likesByReview[r.venue_review_id] || [],
       comments,
@@ -158,7 +129,6 @@ export async function getSocialReviewById(userId, venueReviewId) {
       review_text,
       review_date,
       created_at,
-      mentioned_user_ids,
       venue:venue_id (venue_id, name, neighborhood_name, primary_photo_url)
     `)
     .eq('venue_review_id', id)
@@ -174,7 +144,7 @@ export async function getSocialReviewById(userId, venueReviewId) {
     supabase.from('review_likes').select('review_id, user_id').in('review_id', reviewIds),
     supabase
       .from('review_comments')
-      .select('id, review_id, user_id, comment_text, created_at, parent_comment_id, mentioned_user_ids')
+      .select('id, review_id, user_id, comment_text, created_at, parent_comment_id')
       .in('review_id', reviewIds)
       .order('created_at', { ascending: true }),
     supabase.from('review_photos').select('id, review_id, photo_url').in('review_id', reviewIds),
@@ -185,17 +155,6 @@ export async function getSocialReviewById(userId, venueReviewId) {
     ? await supabase.from('profiles').select('id, first_name, last_name, avatar_url, username').in('id', [...commenterIds])
     : { data: [] }
   const commenterById = profilesByIdMap(commenterProfiles.data)
-
-  const mentionIdSet = new Set()
-  for (const mid of r.mentioned_user_ids || []) mentionIdSet.add(String(mid))
-  for (const c of commentsRes.data || []) {
-    for (const mid of c.mentioned_user_ids || []) mentionIdSet.add(String(mid))
-  }
-  let mentionById = {}
-  if (mentionIdSet.size > 0) {
-    const { data: mProf } = await supabase.from('profiles').select('id, username').in('id', [...mentionIdSet])
-    mentionById = profilesByIdMap(mProf || [])
-  }
 
   const profilesById = profilesByIdMap(profilesRes.data)
   const likesByReview = {}
@@ -209,7 +168,6 @@ export async function getSocialReviewById(userId, venueReviewId) {
     commentsByReview[c.review_id].push({
       ...c,
       profile: authorFromProfiles(commenterById, c.user_id),
-      mentionProfiles: mentionProfilesForIds(c.mentioned_user_ids, mentionById),
     })
   })
   const photosByReview = {}
@@ -225,7 +183,6 @@ export async function getSocialReviewById(userId, venueReviewId) {
     ...r,
     venue,
     author: authorFromProfiles(profilesById, r.user_id),
-    mentionProfiles: mentionProfilesForIds(r.mentioned_user_ids, mentionById),
     likeCount: (likesByReview[r.venue_review_id] || []).length,
     likedBy: likesByReview[r.venue_review_id] || [],
     comments,

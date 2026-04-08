@@ -1,5 +1,5 @@
 /**
- * Search users for social discovery and @mention autocomplete
+ * Search users for social discovery
  */
 
 import { supabase } from '../lib/supabase'
@@ -37,20 +37,6 @@ export async function searchUsers(currentUserId, searchTerm, limit = 20) {
     .select('id, first_name, last_name, avatar_url, username')
     .or(`username.ilike.%${esc}%,first_name.ilike.%${esc}%,last_name.ilike.%${esc}%`)
     .limit(60)
-  if (currentUserId) query = query.neq('id', currentUserId)
-  const { data } = await query
-  return rankMentionResults(trimmed, data || []).slice(0, limit)
-}
-
-export async function searchUsersForMention(currentUserId, q, limit = 12) {
-  const trimmed = (q || '').trim().toLowerCase()
-  if (trimmed.length < 1) return []
-  const esc = trimmed.replace(/%/g, '\\%').replace(/_/g, '\\_')
-  let query = supabase
-    .from('profiles')
-    .select('id, first_name, last_name, avatar_url, username')
-    .or(`username.ilike.%${esc}%,first_name.ilike.%${esc}%,last_name.ilike.%${esc}%`)
-    .limit(80)
   if (currentUserId) query = query.neq('id', currentUserId)
   const { data } = await query
   return rankMentionResults(trimmed, data || []).slice(0, limit)

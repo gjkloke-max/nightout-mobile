@@ -19,7 +19,6 @@ import { X, Search } from 'lucide-react-native'
 import { supabase } from '../lib/supabase'
 import { searchVenuesByName, fetchVenueById } from '../lib/venueService'
 import { uploadReviewPhotos } from '../lib/reviewPhotoStorage'
-import { notifyNewVenueReviewMentions } from '../services/reviewMentions'
 import { useAuth } from '../contexts/AuthContext'
 import VenueReviewComposer from '../components/VenueProfile/VenueReviewComposer'
 import { colors, fontFamilies, spacing } from '../theme'
@@ -64,7 +63,7 @@ export default function WriteReviewScreen() {
       if (user?.id) {
         const { data: reviews } = await supabase
           .from('venue_review')
-          .select('venue_review_id, rating10, review_text, mentioned_user_ids')
+          .select('venue_review_id, rating10, review_text')
           .eq('venue_id', venue.venue_id)
           .eq('user_id', user.id)
           .limit(1)
@@ -104,7 +103,7 @@ export default function WriteReviewScreen() {
     if (user?.id) {
       const { data: reviews } = await supabase
         .from('venue_review')
-        .select('venue_review_id, rating10, review_text, mentioned_user_ids')
+        .select('venue_review_id, rating10, review_text')
         .eq('venue_id', venue.venue_id)
         .eq('user_id', user.id)
         .limit(1)
@@ -118,12 +117,10 @@ export default function WriteReviewScreen() {
   }
 
   const handleSubmitReview = useCallback(
-    async ({ venueId, rating, text, photos = [], mentionedUserIds = [] }) => {
+    async ({ venueId, rating, text, photos = [] }) => {
       if (!user?.id) return
       const existing = existingReview
       let reviewId
-      const mentionIds = [...new Set((mentionedUserIds || []).filter(Boolean).map(String))]
-      const prevMentioned = (existing?.mentioned_user_ids || []).map(String)
 
       if (existing) {
         reviewId = existing.venue_review_id
@@ -133,18 +130,10 @@ export default function WriteReviewScreen() {
             rating10: Number(rating),
             review_text: text?.trim() || null,
             review_date: new Date().toISOString(),
-            mentioned_user_ids: mentionIds,
+            mentioned_user_ids: [],
           })
           .eq('venue_review_id', existing.venue_review_id)
         if (error) throw error
-        const newlyMentioned = mentionIds.filter((id) => !prevMentioned.includes(id))
-        if (newlyMentioned.length > 0) {
-          void notifyNewVenueReviewMentions({
-            actorUserId: user.id,
-            reviewId,
-            newRecipientIds: newlyMentioned,
-          })
-        }
       } else {
         const { data: inserted, error } = await supabase
           .from('venue_review')
@@ -154,19 +143,12 @@ export default function WriteReviewScreen() {
             rating10: Number(rating),
             review_text: text?.trim() || null,
             review_date: new Date().toISOString(),
-            mentioned_user_ids: mentionIds,
+            mentioned_user_ids: [],
           })
           .select('venue_review_id')
           .single()
         if (error) throw error
         reviewId = inserted?.venue_review_id
-        if (mentionIds.length > 0 && reviewId) {
-          void notifyNewVenueReviewMentions({
-            actorUserId: user.id,
-            reviewId,
-            newRecipientIds: mentionIds,
-          })
-        }
       }
 
       if (photos?.length > 0 && reviewId) {
@@ -559,5 +541,6 @@ const styles = StyleSheet.create({
   },
   composeScroll: {
     flex: 1,
+    overflow: 'visible',
   },
 })
