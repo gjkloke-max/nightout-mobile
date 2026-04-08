@@ -43,6 +43,8 @@ export async function sendConciergeMessage({
   userPreferences = null,
   userHome = null,
   excludeVenueIds = [],
+  conversationSearchState = null,
+  lastGeoContext = null,
 }) {
   const searchApiUrl = resolveSearchApiBaseUrl((config.searchApiUrl || '').replace(/\/$/, ''))
 
@@ -72,6 +74,12 @@ export async function sendConciergeMessage({
       conversationHistory: conversationHistory.map((m) => ({ role: m.role, content: m.content || '' })),
       userPreferences: userPreferences || null,
     }
+    if (conversationSearchState && typeof conversationSearchState === 'object') {
+      body.conversationSearchState = conversationSearchState
+    }
+    if (lastGeoContext && typeof lastGeoContext === 'object') {
+      body.lastGeoContext = lastGeoContext
+    }
     if (userHome && (userHome.lat != null || userHome.lng != null)) {
       body.userHome = {
         homeNeighborhoodName: userHome.homeNeighborhoodName ?? null,
@@ -96,6 +104,8 @@ export async function sendConciergeMessage({
         response: data.response ?? '',
         reviews: data.reviews ?? [],
         venues: data.venues ?? [],
+        searchState: data.searchState ?? null,
+        geoContext: data.geoContext ?? null,
       },
       error: null,
     }

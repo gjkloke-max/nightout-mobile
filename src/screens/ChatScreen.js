@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { sendConciergeMessage } from '../lib/conciergeApi'
-import VenueCard from '../components/VenueCard'
+import ConciergeLinkedText from '../components/ConciergeLinkedText'
 import { ChevronRight, Send, Menu, SquarePen } from 'lucide-react-native'
 import {
   getActiveSession,
@@ -53,6 +53,8 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const scrollRef = useRef(null)
+  const lastSearchStateRef = useRef(null)
+  const lastGeoContextRef = useRef(null)
   const [currentSessionId, setCurrentSessionId] = useState(null)
   const [chatSessions, setChatSessions] = useState([])
   const [chatPreviews, setChatPreviews] = useState({})
@@ -199,6 +201,8 @@ export default function ChatScreen() {
       userPreferences: null,
       userHome,
       excludeVenueIds,
+      conversationSearchState: lastSearchStateRef.current,
+      lastGeoContext: lastGeoContextRef.current,
     })
 
     setLoading(false)
@@ -207,6 +211,13 @@ export default function ChatScreen() {
       setError(err.message || 'Something went wrong')
       setMessages((prev) => prev.slice(0, -1))
       return
+    }
+
+    if (data.searchState && typeof data.searchState === 'object') {
+      lastSearchStateRef.current = data.searchState
+    }
+    if (data.geoContext && typeof data.geoContext === 'object') {
+      lastGeoContextRef.current = data.geoContext
     }
 
     const assistantMessage = {
@@ -226,11 +237,6 @@ export default function ChatScreen() {
     handleSend(prompt)
   }
 
-  const handleVenuePress = (venue) => {
-    const root = navigation.getParent()?.getParent?.()
-    root?.navigate?.('VenueProfile', { venueId: venue?.venue_id })
-  }
-
   const handleNewChat = async () => {
     try {
       const { data: newSession } = await createNewSession()
@@ -239,6 +245,8 @@ export default function ChatScreen() {
         setMessages([])
         setInput('')
         setError(null)
+        lastSearchStateRef.current = null
+        lastGeoContextRef.current = null
         await refreshHistoryList()
       }
     } catch (e) {
@@ -254,6 +262,8 @@ export default function ChatScreen() {
         setMessages(sessionData.messages)
         setCurrentSessionId(sessionId)
         setHistoryOpen(false)
+        lastSearchStateRef.current = null
+        lastGeoContextRef.current = null
       } else {
         setError('Failed to load chat')
       }
@@ -432,25 +442,24 @@ export default function ChatScreen() {
                 style={[styles.messageRow, msg.role === 'user' ? styles.messageUser : styles.messageAssistant]}
               >
                 <View style={[styles.bubble, msg.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant]}>
-                  <Text
-                    style={[styles.bubbleText, msg.role === 'user' ? styles.bubbleTextUser : styles.bubbleTextAssistant]}
-                  >
-                    {msg.content}
-                  </Text>
-                  {msg.role === 'assistant' && msg.venues?.length > 0 ? (
-                    <View style={styles.venueCards}>
-                      {msg.venues.map((v, vidx) => {
-                        const vid = v?.venue_id ?? v?.venueId
-                        return (
-                          <VenueCard
-                            key={`m${i}-v${vidx}-${vid != null ? String(vid) : 'x'}`}
-                            venue={v.venue ?? v}
-                            onPress={() => handleVenuePress(v)}
-                          />
-                        )
-                      })}
-                    </View>
-                  ) : null}
+                  {msg.role === 'user' ? (
+                    <Text
+                      style={[styles.bubbleText, styles.bubbleTextUser]}
+                    >
+                      {msg.content}
+                    </Text>
+                  ) : (
+                    <ConciergeLinkedText
+                      content={msg.content}
+                      venues={msg.venues}
+                      textStyle={[styles.bubbleText, styles.bubbleTextAssistant]}
+                      linkStyle={styles.conciergeVenueLink}
+                      onVenuePress={(venueId) => {
+                        const root = navigation.getParent()?.getParent?.()
+                        root?.navigate?.('VenueProfile', { venueId })
+                      }}
+                    />
+                  )}
                 </View>
               </View>
             ))}
@@ -717,7 +726,11 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: fontSizes.base, lineHeight: 22 },
   bubbleTextUser: { color: colors.textOnDark },
   bubbleTextAssistant: { color: colors.textPrimary },
-  venueCards: { marginTop: spacing.md, gap: spacing.sm },
+  conciergeVenueLink: {
+    color: colors.browseAccent,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
   loadingText: { fontSize: fontSizes.sm, color: colors.textMuted, marginTop: spacing.xs },
   errorRow: { padding: spacing.md },
   errorText: { fontSize: fontSizes.sm, color: colors.error },
