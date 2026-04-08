@@ -1,0 +1,10 @@
+---
+description: nightout-mobile pairs with the NightOut web app; keep flows and payloads in sync unless scoped to one platform.
+alwaysApply: true
+---
+
+# nightout-mobile + NightOut web
+
+- **Mobile app**: this repository (`nightout-mobile`).
+- **Web companion**: **`NightOut`** (typically `../NightOut` next to this repo).
+- For product features that exist on both apps, **mirror behavior and data contracts** (e.g. DM message formats, venue share payloads, navigation back to the same conversation) unless the user asks for mobile-only or web-only work.

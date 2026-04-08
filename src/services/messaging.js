@@ -127,7 +127,7 @@ export async function listSuggestedDmUsers(currentUserId) {
 
   const { data: profiles, error: pErr } = await supabase
     .from('profiles')
-    .select('id, first_name, last_name, avatar_url')
+    .select('id, first_name, last_name, avatar_url, username')
     .in('id', ids)
 
   if (pErr) {

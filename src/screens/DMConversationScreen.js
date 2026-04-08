@@ -26,6 +26,8 @@ import {
   formatDmHandle,
 } from '../services/messaging'
 import { formatMessageTimestamp } from '../utils/dmRelativeTime'
+import { parseVenueShareDm } from '../utils/dmVenueShareMessage'
+import DmVenueShareCard from '../components/dm/DmVenueShareCard'
 import { colors, fontFamilies, fontSizes, fontWeights, spacing } from '../theme'
 
 const SENT_BG = '#9d174d'
@@ -114,6 +116,15 @@ export default function DMConversationScreen() {
     if (!peerUserId) return
     navigation.navigate('FriendProfile', { userId: peerUserId })
   }, [navigation, peerUserId])
+
+  const openVenueFromDm = useCallback(
+    (venueId) => {
+      const id = venueId != null ? String(venueId) : ''
+      if (!id) return
+      navigation.navigate('VenueProfile', { venueId: id })
+    },
+    [navigation]
+  )
 
   const onSend = async () => {
     const text = input.trim()
@@ -220,6 +231,35 @@ export default function DMConversationScreen() {
           ) : (
             messages.map((m) => {
               const sent = m.sender_user_id === user.id
+              const share = parseVenueShareDm(m.body || '')
+              if (share) {
+                return (
+                  <View key={m.id} style={[styles.bubbleRow, sent ? styles.bubbleRowSent : styles.bubbleRowRecv]}>
+                    <View
+                      style={[
+                        styles.venueShareStack,
+                        sent ? styles.venueShareStackSent : styles.venueShareStackRecv,
+                      ]}
+                    >
+                      <DmVenueShareCard
+                        variant="thread"
+                        snapshot={share.snapshot}
+                        onPress={() => openVenueFromDm(share.snapshot.venueId)}
+                      />
+                      {share.caption ? (
+                        <Text
+                          style={[styles.venueShareCaption, sent && styles.venueShareCaptionSent]}
+                        >
+                          {share.caption}
+                        </Text>
+                      ) : null}
+                      <Text style={[styles.bubbleTime, sent ? styles.venueShareTimeSent : styles.bubbleTimeRecv]}>
+                        {formatMessageTimestamp(m.created_at)}
+                      </Text>
+                    </View>
+                  </View>
+                )
+              }
               return (
                 <View key={m.id} style={[styles.bubbleRow, sent ? styles.bubbleRowSent : styles.bubbleRowRecv]}>
                   <View style={[styles.bubble, sent ? styles.bubbleSent : styles.bubbleRecv]}>
@@ -342,6 +382,30 @@ const styles = StyleSheet.create({
   bubbleTime: { fontFamily: fontFamilies.inter, fontSize: 10, lineHeight: 15 },
   bubbleTimeSent: { color: SENT_TIME },
   bubbleTimeRecv: { color: colors.textSecondary },
+  venueShareStack: {
+    maxWidth: '86%',
+    padding: 12,
+    borderRadius: 16,
+    gap: 8,
+  },
+  venueShareStackRecv: {
+    backgroundColor: colors.backgroundMuted,
+  },
+  venueShareStackSent: {
+    backgroundColor: SENT_BG,
+  },
+  venueShareCaption: {
+    fontFamily: fontFamilies.inter,
+    fontSize: fontSizes.sm,
+    lineHeight: 23,
+    color: colors.textPrimary,
+  },
+  venueShareCaptionSent: {
+    color: colors.textOnDark,
+  },
+  venueShareTimeSent: {
+    color: SENT_TIME,
+  },
   inputWrap: {
     backgroundColor: colors.backgroundElevated,
     borderTopWidth: StyleSheet.hairlineWidth,

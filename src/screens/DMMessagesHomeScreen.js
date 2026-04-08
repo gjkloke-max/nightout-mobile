@@ -14,6 +14,7 @@ import { MessageSquarePlus, ChevronLeft } from 'lucide-react-native'
 import { useAuth } from '../contexts/AuthContext'
 import { listConversations, displayNameFromProfile } from '../services/messaging'
 import { formatDmRelativeTime } from '../utils/dmRelativeTime'
+import { formatDmMessagePreview } from '../utils/dmVenueShareMessage'
 import { colors, fontFamilies, fontSizes, fontWeights, spacing, borderRadius } from '../theme'
 
 export default function DMMessagesHomeScreen() {
@@ -52,7 +53,7 @@ export default function DMMessagesHomeScreen() {
       .slice(0, 2)
       .toUpperCase()
     const unread = row.unread_count > 0
-    const preview = row.last_message_body || ''
+    const preview = formatDmMessagePreview(row.last_message_body || '')
     const time = formatDmRelativeTime(row.last_message_at || row.updated_at)
 
     return (

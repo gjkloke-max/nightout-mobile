@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -11,9 +11,10 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { X } from 'lucide-react-native'
+import { X, Search, Send } from 'lucide-react-native'
 import { useAuth } from '../../contexts/AuthContext'
 import { useDebounce } from '../../hooks/useDebounce'
 import { searchUsers } from '../../services/userSearch'
@@ -22,13 +23,26 @@ import {
   getOrCreateDirectConversation,
   sendMessage,
   displayNameFromProfile,
+  formatDmHandle,
 } from '../../services/messaging'
-import { getVenueWebUrl } from '../../utils/venueShare'
+import DmVenueShareCard from '../dm/DmVenueShareCard'
+import { buildVenueShareSnapshot, serializeVenueShareDm } from '../../utils/dmVenueShareMessage'
 import { colors, fontFamilies, fontSizes, spacing } from '../../theme'
 
-function thumb(venue) {
-  if (Array.isArray(venue?.photo_urls) && venue.photo_urls[0]) return venue.photo_urls[0]
-  return venue?.primary_photo_url || null
+function profileRowHandle(p) {
+  const u = (p?.username || '').trim()
+  if (u) return u.startsWith('@') ? u : `@${u}`
+  return formatDmHandle(p) || ''
+}
+
+function profileInitials(p) {
+  const n = displayNameFromProfile(p)
+  return n
+    .split(/\s+/)
+    .map((s) => s[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 }
 
 export default function VenueDmShareModal({ visible, venue, onClose, navigation }) {
@@ -46,6 +60,7 @@ export default function VenueDmShareModal({ visible, venue, onClose, navigation 
 
   const debouncedQuery = useDebounce(query.trim(), 300)
   const isSearching = debouncedQuery.length >= 2
+  const venueName = venue?.name || 'this place'
 
   useEffect(() => {
     if (!visible || !user?.id) return
@@ -77,21 +92,19 @@ export default function VenueDmShareModal({ visible, venue, onClose, navigation 
     }
   }, [visible, user?.id, debouncedQuery, isSearching])
 
-  const buildBody = useCallback(() => {
-    const name = venue?.name || 'Venue'
-    const url = venue?.venue_id ? getVenueWebUrl(venue.venue_id) : ''
-    const lines = [name, url].filter(Boolean)
-    if (note.trim()) lines.push('', note.trim())
-    return lines.join('\n')
-  }, [venue, note])
+  const pickRecipient = (p) => {
+    setRecipient(p)
+    setQuery('')
+    setSearchResults([])
+    setError(null)
+  }
 
   const handleSend = async () => {
-    if (!recipient?.id || sending) return
-    const body = buildBody().trim()
-    if (!body) return
+    if (!recipient?.id || sending || !venue?.venue_id) return
     setSending(true)
     setError(null)
     try {
+      const body = serializeVenueShareDm(venue, note)
       const convId = await getOrCreateDirectConversation(recipient.id)
       await sendMessage(convId, body)
       onClose?.()
@@ -104,93 +117,136 @@ export default function VenueDmShareModal({ visible, venue, onClose, navigation 
   }
 
   const list = isSearching ? searchResults : suggested
-  const showPicker = !recipient
+  const snapshot = buildVenueShareSnapshot(venue)
+
+  const renderFriendRow = ({ item }) => (
+    <Pressable style={styles.friendRow} onPress={() => pickRecipient(item)}>
+      <View style={styles.friendAvatar}>
+        {item.avatar_url ? (
+          <Image source={{ uri: item.avatar_url }} style={styles.friendAvatarImg} />
+        ) : (
+          <Text style={styles.friendAvatarTxt}>{profileInitials(item)}</Text>
+        )}
+      </View>
+      <View style={styles.friendText}>
+        <Text style={styles.friendName} numberOfLines={1}>
+          {displayNameFromProfile(item)}
+        </Text>
+        {profileRowHandle(item) ? (
+          <Text style={styles.friendHandle} numberOfLines={1}>
+            {profileRowHandle(item)}
+          </Text>
+        ) : null}
+      </View>
+      <Send size={16} color={colors.textSecondary} strokeWidth={2} />
+    </Pressable>
+  )
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView
-        style={[styles.root, { paddingTop: insets.top }]}
+        style={[styles.root, { paddingTop: insets.top, paddingBottom: recipient ? 0 : Math.max(spacing.md, insets.bottom) }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.head}>
-          <Text style={styles.title}>Send venue</Text>
-          <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Close">
-            <X size={24} color={colors.textSecondary} strokeWidth={2} />
-          </Pressable>
-        </View>
-
-        <View style={styles.card}>
-          {thumb(venue) ? (
-            <Image source={{ uri: thumb(venue) }} style={styles.cardImg} />
-          ) : (
-            <View style={[styles.cardImg, styles.cardImgEmpty]} />
-          )}
-          <View style={styles.cardBody}>
-            <Text style={styles.cardName} numberOfLines={2}>
-              {venue?.name || 'Venue'}
-            </Text>
-            {venue?.neighborhood_name ? (
-              <Text style={styles.cardHood}>{String(venue.neighborhood_name).toUpperCase()}</Text>
-            ) : null}
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <Text style={styles.title}>Send to Friend</Text>
+            <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Close">
+              <X size={20} color={colors.textPrimary} strokeWidth={2} />
+            </Pressable>
           </View>
+          <Text style={styles.subtitle}>Share {venueName} with your friends</Text>
         </View>
 
-        {showPicker ? (
+        {!recipient ? (
           <>
-            <Text style={styles.label}>To</Text>
-            <TextInput
-              style={styles.search}
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search people…"
-              placeholderTextColor={colors.textTag}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            <View style={styles.searchBlock}>
+              <View style={styles.searchInner}>
+                <Search size={16} color={colors.textSecondary} strokeWidth={2} style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder="Search friends..."
+                  placeholderTextColor={colors.textTag}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            </View>
             {loadingSuggested || searchLoading ? (
               <ActivityIndicator style={styles.loader} color={colors.browseAccent} />
             ) : (
               <FlatList
                 data={list}
                 keyExtractor={(item) => item.id}
-                style={styles.list}
+                style={styles.friendList}
+                contentContainerStyle={styles.friendListContent}
                 keyboardShouldPersistTaps="handled"
-                ListEmptyComponent={<Text style={styles.hint}>{isSearching ? 'No users found.' : 'No suggested people.'}</Text>}
-                renderItem={({ item }) => (
-                  <Pressable style={styles.row} onPress={() => setRecipient(item)}>
-                    <Text style={styles.rowName}>{displayNameFromProfile(item)}</Text>
-                  </Pressable>
-                )}
+                ItemSeparatorComponent={() => <View style={styles.friendSep} />}
+                ListEmptyComponent={
+                  <Text style={styles.hint}>{isSearching ? 'No users found.' : 'No suggested people yet.'}</Text>
+                }
+                renderItem={renderFriendRow}
               />
             )}
           </>
         ) : (
           <>
-            <View style={styles.toRow}>
-              <Text style={styles.toLine}>
-                To: <Text style={styles.toStrong}>{displayNameFromProfile(recipient)}</Text>
-              </Text>
-              <Pressable onPress={() => setRecipient(null)} hitSlop={8}>
-                <Text style={styles.change}>Change</Text>
+            <ScrollView
+              style={styles.composeScroll}
+              contentContainerStyle={styles.composeScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.recipientCard}>
+                <View style={styles.recipientAvatar}>
+                  {recipient.avatar_url ? (
+                    <Image source={{ uri: recipient.avatar_url }} style={styles.recipientAvatarImg} />
+                  ) : (
+                    <Text style={styles.recipientAvatarTxt}>{profileInitials(recipient)}</Text>
+                  )}
+                </View>
+                <View style={styles.recipientMeta}>
+                  <Text style={styles.recipientLabel}>Sending to</Text>
+                  <Text style={styles.recipientName} numberOfLines={1}>
+                    {displayNameFromProfile(recipient)}
+                  </Text>
+                </View>
+                <Pressable onPress={() => setRecipient(null)} hitSlop={8}>
+                  <Text style={styles.change}>Change</Text>
+                </Pressable>
+              </View>
+
+              {snapshot ? <DmVenueShareCard snapshot={snapshot} variant="sheet" /> : null}
+
+              <View style={styles.messageBlock}>
+                <Text style={styles.messageLabel}>Add a message (optional)</Text>
+                <TextInput
+                  style={styles.note}
+                  value={note}
+                  onChangeText={setNote}
+                  placeholder="Say something about this place..."
+                  placeholderTextColor={colors.textTag}
+                  multiline
+                  textAlignVertical="top"
+                />
+              </View>
+              {error ? <Text style={styles.err}>{error}</Text> : null}
+            </ScrollView>
+
+            <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom) }]}>
+              <Pressable style={styles.backBtn} onPress={() => setRecipient(null)}>
+                <Text style={styles.backBtnText}>Back</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.sendBtn, sending && styles.sendBtnDisabled]}
+                onPress={handleSend}
+                disabled={sending}
+              >
+                <Send size={14} color="#fff" strokeWidth={2} />
+                <Text style={styles.sendBtnText}>{sending ? 'Sending…' : 'Send'}</Text>
               </Pressable>
             </View>
-            <Text style={styles.label}>Message (optional)</Text>
-            <TextInput
-              style={styles.note}
-              value={note}
-              onChangeText={setNote}
-              placeholder="Add a note…"
-              placeholderTextColor={colors.textTag}
-              multiline
-            />
-            {error ? <Text style={styles.err}>{error}</Text> : null}
-            <Pressable
-              style={[styles.sendBtn, sending && styles.sendBtnDisabled]}
-              onPress={handleSend}
-              disabled={sending}
-            >
-              <Text style={styles.sendBtnText}>{sending ? 'Sending…' : 'Send'}</Text>
-            </Pressable>
           </>
         )}
       </KeyboardAvoidingView>
@@ -199,90 +255,234 @@ export default function VenueDmShareModal({ visible, venue, onClose, navigation 
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.backgroundCanvas, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
-  head: {
+  root: {
+    flex: 1,
+    backgroundColor: colors.backgroundCanvas,
+  },
+  header: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: 20,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.lg,
+    minHeight: 32,
   },
-  title: { fontSize: fontSizes.lg, fontFamily: fontFamilies.frauncesSemiBold, color: colors.textPrimary },
-  card: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 12,
-    backgroundColor: colors.backgroundElevated,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    marginBottom: spacing.lg,
+  title: {
+    fontFamily: fontFamilies.frauncesRegular,
+    fontSize: fontSizes.xl,
+    lineHeight: 28,
+    color: colors.textPrimary,
   },
-  cardImg: { width: 72, height: 72, backgroundColor: colors.backgroundDark },
-  cardImgEmpty: { backgroundColor: colors.borderInput },
-  cardBody: { flex: 1, justifyContent: 'center' },
-  cardName: { fontSize: fontSizes.base, fontFamily: fontFamilies.frauncesSemiBold, color: colors.textPrimary },
-  cardHood: {
-    marginTop: 4,
-    fontSize: 10,
-    fontFamily: fontFamilies.interBold,
-    letterSpacing: 0.8,
+  subtitle: {
+    marginTop: 8,
+    fontFamily: fontFamilies.frauncesItalic,
+    fontSize: fontSizes.xs,
+    lineHeight: 16,
     color: colors.textSecondary,
   },
-  label: {
-    fontSize: 10,
-    fontFamily: fontFamilies.interBold,
-    letterSpacing: 1,
-    color: colors.textTag,
-    marginBottom: spacing.sm,
-    textTransform: 'uppercase',
+  searchBlock: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: 16,
+    paddingBottom: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
-  search: {
+  searchInner: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: 12,
+    zIndex: 1,
+  },
+  searchInput: {
+    height: 41,
+    paddingLeft: 40,
+    paddingRight: 16,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: colors.borderInput,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: fontSizes.sm,
+    backgroundColor: colors.backgroundElevated,
     fontFamily: fontFamilies.inter,
-    marginBottom: spacing.sm,
+    fontSize: fontSizes.sm,
+    color: colors.textPrimary,
   },
-  list: { maxHeight: 220 },
-  row: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight },
-  rowName: { fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.textPrimary },
-  hint: { fontSize: fontSizes.sm, color: colors.textMuted, paddingVertical: spacing.md },
-  loader: { marginVertical: spacing.lg },
-  toRow: {
+  friendList: { flex: 1 },
+  friendListContent: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: 24,
+    paddingBottom: spacing.xl,
+    flexGrow: 1,
+  },
+  friendSep: { height: 8 },
+  friendRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-    gap: spacing.md,
+    gap: 12,
+    minHeight: 73,
+    paddingVertical: 12,
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    backgroundColor: colors.backgroundElevated,
   },
-  toLine: { flex: 1, fontSize: fontSizes.sm, fontFamily: fontFamilies.inter, color: colors.textPrimary },
-  toStrong: { fontFamily: fontFamilies.interBold },
-  change: { fontSize: fontSizes.sm, color: colors.browseAccent, textDecorationLine: 'underline' },
+  friendAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    overflow: 'hidden',
+    backgroundColor: colors.backgroundMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  friendAvatarImg: { width: '100%', height: '100%' },
+  friendAvatarTxt: {
+    fontFamily: fontFamilies.interSemiBold,
+    fontSize: fontSizes.xs,
+    color: colors.textSecondary,
+  },
+  friendText: { flex: 1, minWidth: 0 },
+  friendName: {
+    fontFamily: fontFamilies.frauncesRegular,
+    fontSize: fontSizes.base,
+    lineHeight: 24,
+    color: colors.textPrimary,
+  },
+  friendHandle: {
+    fontFamily: fontFamilies.interMedium,
+    fontSize: fontSizes.xs,
+    lineHeight: 16,
+    color: colors.textSecondary,
+  },
+  loader: { marginVertical: spacing.xl },
+  hint: { fontSize: fontSizes.sm, color: colors.textMuted, paddingVertical: spacing.md },
+  composeScroll: { flex: 1 },
+  composeScrollContent: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: 24,
+    paddingBottom: spacing.lg,
+    gap: 16,
+  },
+  recipientCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    backgroundColor: colors.backgroundElevated,
+  },
+  recipientAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    overflow: 'hidden',
+    backgroundColor: colors.backgroundMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recipientAvatarImg: { width: '100%', height: '100%' },
+  recipientAvatarTxt: {
+    fontFamily: fontFamilies.interSemiBold,
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  recipientMeta: { flex: 1, minWidth: 0 },
+  recipientLabel: {
+    fontFamily: fontFamilies.interBold,
+    fontSize: fontSizes.micro,
+    lineHeight: 15,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    color: colors.textSecondary,
+  },
+  recipientName: {
+    marginTop: 2,
+    fontFamily: fontFamilies.frauncesRegular,
+    fontSize: fontSizes.sm,
+    lineHeight: 20,
+    color: colors.textPrimary,
+  },
+  change: {
+    fontFamily: fontFamilies.interBold,
+    fontSize: fontSizes.xs,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: colors.textSecondary,
+  },
+  messageBlock: { gap: 8 },
+  messageLabel: {
+    fontFamily: fontFamilies.interBold,
+    fontSize: fontSizes.micro,
+    lineHeight: 15,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    color: '#3f3f47',
+  },
   note: {
+    minHeight: 97,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: colors.borderInput,
-    borderRadius: 8,
-    padding: 12,
-    minHeight: 80,
-    textAlignVertical: 'top',
-    fontSize: fontSizes.sm,
+    backgroundColor: colors.backgroundElevated,
     fontFamily: fontFamilies.inter,
-    marginBottom: spacing.md,
+    fontSize: fontSizes.base,
+    lineHeight: 24,
+    color: colors.textPrimary,
   },
-  err: { color: colors.error, marginBottom: spacing.sm, fontSize: fontSizes.sm },
-  sendBtn: {
-    backgroundColor: colors.backgroundDark,
-    paddingVertical: 14,
+  err: { color: colors.error, fontSize: fontSizes.sm },
+  footer: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: spacing.xl,
+    paddingTop: 16,
+    backgroundColor: colors.backgroundElevated,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  backBtn: {
+    flex: 1,
+    minHeight: 45,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderInput,
+    backgroundColor: colors.backgroundElevated,
   },
-  sendBtnDisabled: { opacity: 0.6 },
-  sendBtnText: {
-    fontSize: 12,
+  backBtnText: {
     fontFamily: fontFamilies.interBold,
+    fontSize: fontSizes.xs,
     letterSpacing: 1.2,
-    color: '#fff',
     textTransform: 'uppercase',
+    color: colors.textPrimary,
+  },
+  sendBtn: {
+    flex: 1,
+    minHeight: 45,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.textPrimary,
+  },
+  sendBtnDisabled: { opacity: 0.5 },
+  sendBtnText: {
+    fontFamily: fontFamilies.interBold,
+    fontSize: fontSizes.xs,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: '#fff',
   },
 })
