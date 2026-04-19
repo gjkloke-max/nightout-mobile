@@ -108,7 +108,13 @@ export default function PreferencesOnboardingScreen({ navigation }) {
     }
   }
 
-  const onBack = () => navigation.navigate('AboutYou')
+  const onBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack()
+    } else {
+      navigation.navigate('AboutYou')
+    }
+  }
 
   if (loading && !hasLoadedOnce.current) {
     return (

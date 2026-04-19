@@ -6,10 +6,8 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Keyboard,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronRight } from 'lucide-react-native'
@@ -47,9 +45,6 @@ export default function AboutYouScreen({ navigation }) {
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
   const debounceRef = useRef(null)
-  const scrollRef = useRef(null)
-  const addressSectionY = useRef(0)
-  const [keyboardInset, setKeyboardInset] = useState(0)
 
   useEffect(() => {
     if (!profile) return
@@ -93,31 +88,6 @@ export default function AboutYouScreen({ navigation }) {
     }
   }, [address, pickedPlace])
 
-  useEffect(() => {
-    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
-    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
-    const show = Keyboard.addListener(showEvt, (e) => {
-      setKeyboardInset(e.endCoordinates?.height ?? 0)
-    })
-    const hide = Keyboard.addListener(hideEvt, () => setKeyboardInset(0))
-    return () => {
-      show.remove()
-      hide.remove()
-    }
-  }, [])
-
-  useEffect(() => {
-    if ((predictions.length > 0 || predLoading) && keyboardInset > 0) {
-      const t = setTimeout(() => {
-        scrollRef.current?.scrollTo({
-          y: Math.max(0, addressSectionY.current - 28),
-          animated: true,
-        })
-      }, 100)
-      return () => clearTimeout(t)
-    }
-  }, [predictions.length, predLoading, keyboardInset])
-
   const usernameCheck = useMemo(() => validateUsernameFormat(username), [username])
 
   const canContinue = useMemo(() => {
@@ -133,16 +103,11 @@ export default function AboutYouScreen({ navigation }) {
 
   const onBack = () => {
     dismissSuggestions()
-    navigation.navigate('GetStarted')
-  }
-
-  const onAddressInputFocus = () => {
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({
-        y: Math.max(0, addressSectionY.current - 32),
-        animated: true,
-      })
-    })
+    if (navigation.canGoBack()) {
+      navigation.goBack()
+    } else {
+      navigation.navigate('GetStarted')
+    }
   }
 
   const onAddressChange = (t) => {
@@ -233,18 +198,12 @@ export default function AboutYouScreen({ navigation }) {
     }
   }
 
-  // Extra scroll height so address suggestions stay above the keyboard while typing.
-  const scrollExtraBottom =
-    (predictions.length > 0 || predLoading ? 300 : 0) + (keyboardInset > 0 ? keyboardInset + 48 : 0)
+  // Modest extra space when the suggestion list is open (keyboard insets handled by the ScrollView).
+  const scrollExtraBottom = predictions.length > 0 || predLoading ? 140 : 0
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-    >
+    <View style={styles.flex}>
       <ScrollView
-        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={[
           styles.contentGrow,
@@ -252,6 +211,7 @@ export default function AboutYouScreen({ navigation }) {
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets
         onScrollBeginDrag={dismissSuggestions}
         removeClippedSubviews={false}
         showsVerticalScrollIndicator
@@ -302,13 +262,7 @@ export default function AboutYouScreen({ navigation }) {
         {usernameError ? <Text style={styles.errorInline}>{usernameError}</Text> : null}
 
         <Text style={[styles.label, styles.addressLabel]}>Home address</Text>
-        <View
-          style={styles.addressBlock}
-          collapsable={false}
-          onLayout={(e) => {
-            addressSectionY.current = e.nativeEvent.layout.y
-          }}
-        >
+        <View style={styles.addressBlock} collapsable={false}>
           <AddressAutocompleteField
             value={address}
             onChangeText={onAddressChange}
@@ -318,7 +272,6 @@ export default function AboutYouScreen({ navigation }) {
             onSelectPrediction={onPickPrediction}
             multiline={false}
             minHeight={52}
-            onInputFocus={onAddressInputFocus}
           />
         </View>
         <Text style={styles.privacyNote}>{PRIVACY_NOTE}</Text>
@@ -338,7 +291,7 @@ export default function AboutYouScreen({ navigation }) {
           )}
         </Pressable>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   )
 }
 

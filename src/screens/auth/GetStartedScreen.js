@@ -113,6 +113,14 @@ export default function GetStartedScreen({ navigation }) {
 
   const onBack = async () => {
     if (navigation.canGoBack()) {
+      const state = navigation.getState()
+      const idx = state.index
+      const prev = idx > 0 ? state.routes[idx - 1] : null
+      // About You → Get Started puts AboutYou under us; going "back" should leave signup toward the start screen (Landing), not ping-pong to About You.
+      if (prev?.name === 'AboutYou') {
+        await signOut()
+        return
+      }
       navigation.goBack()
       return
     }
