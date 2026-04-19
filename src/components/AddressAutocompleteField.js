@@ -26,6 +26,8 @@ export default function AddressAutocompleteField({
   multiline = false,
   minHeight,
   testID,
+  onInputFocus,
+  onInputBlur,
 }) {
   const [focused, setFocused] = useState(false)
   const open = predictions.length > 0
@@ -55,8 +57,14 @@ export default function AddressAutocompleteField({
           placeholderTextColor={placeholderTextColor || authColors.textMuted}
           multiline={multiline}
           autoCorrect={false}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onFocus={() => {
+            setFocused(true)
+            onInputFocus?.()
+          }}
+          onBlur={() => {
+            setFocused(false)
+            onInputBlur?.()
+          }}
         />
 
         {showLoader ? (

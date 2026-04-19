@@ -9,10 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Keyboard,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ChevronRight, ChevronLeft } from 'lucide-react-native'
+import { ChevronRight } from 'lucide-react-native'
 import { authColors, authFonts, authSpacing } from '../../theme/authTheme'
+import { onboardingScrollContentBase, onboardingHeaderStyles } from '../../theme/onboardingLayout'
+import OnboardingBackRow from '../../components/onboarding/OnboardingBackRow'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { checkUsernameAvailable } from '../../services/profileUsername'
@@ -44,6 +47,9 @@ export default function AboutYouScreen({ navigation }) {
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
   const debounceRef = useRef(null)
+  const scrollRef = useRef(null)
+  const addressSectionY = useRef(0)
+  const [keyboardInset, setKeyboardInset] = useState(0)
 
   useEffect(() => {
     if (!profile) return
@@ -87,6 +93,31 @@ export default function AboutYouScreen({ navigation }) {
     }
   }, [address, pickedPlace])
 
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
+    const show = Keyboard.addListener(showEvt, (e) => {
+      setKeyboardInset(e.endCoordinates?.height ?? 0)
+    })
+    const hide = Keyboard.addListener(hideEvt, () => setKeyboardInset(0))
+    return () => {
+      show.remove()
+      hide.remove()
+    }
+  }, [])
+
+  useEffect(() => {
+    if ((predictions.length > 0 || predLoading) && keyboardInset > 0) {
+      const t = setTimeout(() => {
+        scrollRef.current?.scrollTo({
+          y: Math.max(0, addressSectionY.current - 28),
+          animated: true,
+        })
+      }, 100)
+      return () => clearTimeout(t)
+    }
+  }, [predictions.length, predLoading, keyboardInset])
+
   const usernameCheck = useMemo(() => validateUsernameFormat(username), [username])
 
   const canContinue = useMemo(() => {
@@ -102,11 +133,16 @@ export default function AboutYouScreen({ navigation }) {
 
   const onBack = () => {
     dismissSuggestions()
-    if (navigation.canGoBack()) {
-      navigation.goBack()
-    } else {
-      navigation.navigate('GetStarted')
-    }
+    navigation.navigate('GetStarted')
+  }
+
+  const onAddressInputFocus = () => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, addressSectionY.current - 32),
+        animated: true,
+      })
+    })
   }
 
   const onAddressChange = (t) => {
@@ -197,28 +233,33 @@ export default function AboutYouScreen({ navigation }) {
     }
   }
 
+  // Extra scroll height so address suggestions stay above the keyboard while typing.
+  const scrollExtraBottom =
+    (predictions.length > 0 || predLoading ? 300 : 0) + (keyboardInset > 0 ? keyboardInset + 48 : 0)
+
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + authSpacing.md, paddingBottom: insets.bottom + authSpacing.xl },
+          styles.contentGrow,
+          onboardingScrollContentBase(insets, scrollExtraBottom),
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         onScrollBeginDrag={dismissSuggestions}
         removeClippedSubviews={false}
+        showsVerticalScrollIndicator
       >
-        <Pressable onPress={onBack} hitSlop={12} style={styles.backWrap} accessibilityRole="button">
-          <View style={styles.backRow}>
-            <ChevronLeft size={22} color={authColors.textPrimary} strokeWidth={2} />
-            <Text style={styles.back}>Back</Text>
-          </View>
-        </Pressable>
+        <OnboardingBackRow onPress={onBack} />
 
-        <Text style={styles.title}>About You</Text>
-        <Text style={styles.sub}>Tell us a bit about yourself</Text>
+        <Text style={onboardingHeaderStyles.title}>About You</Text>
+        <Text style={onboardingHeaderStyles.sub}>Tell us a bit about yourself</Text>
 
         {err ? <Text style={styles.error}>{err}</Text> : null}
 
@@ -261,17 +302,24 @@ export default function AboutYouScreen({ navigation }) {
         {usernameError ? <Text style={styles.errorInline}>{usernameError}</Text> : null}
 
         <Text style={[styles.label, styles.addressLabel]}>Home address</Text>
-        <View style={styles.addressBlock} collapsable={false}>
-        <AddressAutocompleteField
-          value={address}
-          onChangeText={onAddressChange}
-          placeholder={hasGooglePlacesKey() ? 'Start typing your address' : 'Street, city, state'}
-          predictions={predictions}
-          predictionsLoading={predLoading}
-          onSelectPrediction={onPickPrediction}
-          multiline={false}
-          minHeight={52}
-        />
+        <View
+          style={styles.addressBlock}
+          collapsable={false}
+          onLayout={(e) => {
+            addressSectionY.current = e.nativeEvent.layout.y
+          }}
+        >
+          <AddressAutocompleteField
+            value={address}
+            onChangeText={onAddressChange}
+            placeholder={hasGooglePlacesKey() ? 'Start typing your address' : 'Street, city, state'}
+            predictions={predictions}
+            predictionsLoading={predLoading}
+            onSelectPrediction={onPickPrediction}
+            multiline={false}
+            minHeight={52}
+            onInputFocus={onAddressInputFocus}
+          />
         </View>
         <Text style={styles.privacyNote}>{PRIVACY_NOTE}</Text>
 
@@ -297,28 +345,11 @@ export default function AboutYouScreen({ navigation }) {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: authColors.canvas },
   scroll: { flex: 1, backgroundColor: authColors.canvas, overflow: 'visible' },
-  content: { paddingHorizontal: authSpacing.lg, maxWidth: 520, width: '100%', alignSelf: 'center', overflow: 'visible' },
-  backWrap: { alignSelf: 'flex-start', marginBottom: authSpacing.lg, zIndex: 20 },
-  backRow: { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 44 },
-  back: { fontFamily: authFonts.interMedium, fontSize: 14, color: authColors.textPrimary },
+  contentGrow: { flexGrow: 1, overflow: 'visible' },
   addressBlock: {
     zIndex: 50,
     elevation: Platform.OS === 'android' ? 12 : 0,
     position: 'relative',
-  },
-  title: {
-    fontFamily: authFonts.fraunces,
-    fontSize: 40,
-    lineHeight: 46,
-    color: authColors.textPrimary,
-    marginBottom: authSpacing.sm,
-  },
-  sub: {
-    fontFamily: authFonts.inter,
-    fontSize: 16,
-    lineHeight: 22,
-    color: authColors.textSecondary,
-    marginBottom: authSpacing.xl,
   },
   nameLabelsRow: {
     flexDirection: 'row',

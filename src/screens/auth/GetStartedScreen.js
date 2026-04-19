@@ -11,6 +11,8 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { authColors, authFonts, authSpacing } from '../../theme/authTheme'
+import { onboardingScrollContentBase, onboardingHeaderStyles } from '../../theme/onboardingLayout'
+import OnboardingBackRow from '../../components/onboarding/OnboardingBackRow'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ONBOARDING_STEP } from '../../services/profileOnboarding'
@@ -26,7 +28,7 @@ function validEmail(s) {
 
 export default function GetStartedScreen({ navigation }) {
   const insets = useSafeAreaInsets()
-  const { signUp, refreshProfile, profile } = useAuth()
+  const { signUp, refreshProfile, profile, signOut } = useAuth()
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
@@ -109,6 +111,19 @@ export default function GetStartedScreen({ navigation }) {
     }
   }
 
+  const onBack = async () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack()
+      return
+    }
+    const routeNames = navigation.getState()?.routeNames ?? []
+    if (routeNames.includes('Landing')) {
+      navigation.navigate('Landing')
+      return
+    }
+    await signOut()
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -116,20 +131,13 @@ export default function GetStartedScreen({ navigation }) {
     >
       <ScrollView
         style={styles.flex}
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + authSpacing.md, paddingBottom: insets.bottom + authSpacing.xl },
-        ]}
+        contentContainerStyle={[styles.contentGrow, onboardingScrollContentBase(insets, 0)]}
         keyboardShouldPersistTaps="handled"
       >
-        {navigation.canGoBack() ? (
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={styles.back}>Back</Text>
-          </Pressable>
-        ) : null}
+        <OnboardingBackRow onPress={onBack} />
 
-        <Text style={styles.title}>Get Started</Text>
-        <Text style={styles.sub}>We'll need a few details to set up your account</Text>
+        <Text style={onboardingHeaderStyles.title}>Get Started</Text>
+        <Text style={onboardingHeaderStyles.sub}>We'll need a few details to set up your account</Text>
 
         {err ? <Text style={styles.error}>{err}</Text> : null}
 
@@ -193,10 +201,7 @@ export default function GetStartedScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: authColors.canvas },
-  content: { paddingHorizontal: authSpacing.lg, maxWidth: 520, width: '100%', alignSelf: 'center' },
-  back: { fontFamily: authFonts.interMedium, fontSize: 14, color: authColors.textPrimary, marginBottom: authSpacing.lg },
-  title: { fontFamily: authFonts.fraunces, fontSize: 40, color: authColors.textPrimary, marginBottom: authSpacing.sm },
-  sub: { fontFamily: authFonts.inter, fontSize: 16, color: authColors.textSecondary, marginBottom: authSpacing.xl },
+  contentGrow: { flexGrow: 1 },
   label: { fontFamily: authFonts.interMedium, fontSize: 14, color: authColors.textPrimary, marginBottom: authSpacing.xs },
   input: {
     borderWidth: 1,
