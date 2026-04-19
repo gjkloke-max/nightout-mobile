@@ -8,8 +8,10 @@ import {
   ActivityIndicator,
   Platform,
   ScrollView,
+  Keyboard,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { CommonActions } from '@react-navigation/native'
 import { ChevronRight } from 'lucide-react-native'
 import { authColors, authFonts, authSpacing } from '../../theme/authTheme'
 import { onboardingScrollContentBase, onboardingHeaderStyles } from '../../theme/onboardingLayout'
@@ -103,10 +105,16 @@ export default function AboutYouScreen({ navigation }) {
 
   const onBack = () => {
     dismissSuggestions()
+    Keyboard.dismiss()
     if (navigation.canGoBack()) {
       navigation.goBack()
     } else {
-      navigation.navigate('GetStarted')
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'GetStarted' }],
+        })
+      )
     }
   }
 
@@ -120,6 +128,7 @@ export default function AboutYouScreen({ navigation }) {
     setAddress(p.description)
     setPredictions([])
     setErr('')
+    Keyboard.dismiss()
   }
 
   const onContinue = async () => {
@@ -210,9 +219,8 @@ export default function AboutYouScreen({ navigation }) {
           onboardingScrollContentBase(insets, scrollExtraBottom),
         ]}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+        keyboardDismissMode="none"
         automaticallyAdjustKeyboardInsets
-        onScrollBeginDrag={dismissSuggestions}
         removeClippedSubviews={false}
         showsVerticalScrollIndicator
       >
@@ -300,8 +308,8 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: authColors.canvas, overflow: 'visible' },
   contentGrow: { flexGrow: 1, overflow: 'visible' },
   addressBlock: {
-    zIndex: 50,
-    elevation: Platform.OS === 'android' ? 12 : 0,
+    zIndex: 10,
+    elevation: Platform.OS === 'android' ? 4 : 0,
     position: 'relative',
   },
   nameLabelsRow: {

@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
+  Keyboard,
 } from 'react-native'
 import { MapPin } from 'lucide-react-native'
 import { authColors, authFonts, authSpacing } from '../theme/authTheme'
@@ -57,6 +58,9 @@ export default function AddressAutocompleteField({
           placeholderTextColor={placeholderTextColor || authColors.textMuted}
           multiline={multiline}
           autoCorrect={false}
+          returnKeyType="done"
+          blurOnSubmit
+          onSubmitEditing={() => Keyboard.dismiss()}
           onFocus={() => {
             setFocused(true)
             onInputFocus?.()
@@ -88,7 +92,10 @@ export default function AddressAutocompleteField({
                 <Pressable
                   key={p.placeId}
                   style={({ pressed }) => [styles.suggestionRow, pressed && styles.suggestionPressed]}
-                  onPress={() => onSelectPrediction(p)}
+                  onPress={() => {
+                    Keyboard.dismiss()
+                    onSelectPrediction(p)
+                  }}
                 >
                   <MapPin size={18} color={authColors.textMuted} style={styles.pinIcon} strokeWidth={2} />
                   <Text style={styles.suggestionText} numberOfLines={2}>

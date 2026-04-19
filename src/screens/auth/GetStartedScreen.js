@@ -16,11 +16,6 @@ import OnboardingBackRow from '../../components/onboarding/OnboardingBackRow'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ONBOARDING_STEP } from '../../services/profileOnboarding'
-import {
-  formatUsPhoneDisplayFromDigits,
-  normalizeUsPhoneDigits,
-  phoneDigitsForStorage,
-} from '../../utils/phoneFormat'
 
 function validEmail(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((s || '').trim())
@@ -28,9 +23,8 @@ function validEmail(s) {
 
 export default function GetStartedScreen({ navigation }) {
   const insets = useSafeAreaInsets()
-  const { signUp, refreshProfile, profile, signOut } = useAuth()
+  const { signUp, refreshProfile, profile, signOut, user } = useAuth()
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [err, setErr] = useState('')
@@ -40,24 +34,13 @@ export default function GetStartedScreen({ navigation }) {
   useEffect(() => {
     if (!profile?.id || hydratedRef.current) return
     if (profile.email) setEmail(profile.email)
-    if (profile.phone_number) setPhone(formatUsPhoneDisplayFromDigits(String(profile.phone_number)))
     hydratedRef.current = true
-  }, [profile?.id, profile?.email, profile?.phone_number])
-
-  const onPhoneChange = (text) => {
-    const d = normalizeUsPhoneDigits(text)
-    setPhone(formatUsPhoneDisplayFromDigits(d))
-  }
+  }, [profile?.id, profile?.email])
 
   const onContinue = async () => {
     setErr('')
     if (!validEmail(email)) {
       setErr('Enter a valid email address.')
-      return
-    }
-    const digits = phoneDigitsForStorage(phone)
-    if (digits.length !== 10) {
-      setErr('Enter a valid 10-digit US phone number.')
       return
     }
     if (password.length < 8) {
@@ -68,6 +51,34 @@ export default function GetStartedScreen({ navigation }) {
       setErr('Passwords do not match.')
       return
     }
+
+    if (user?.id) {
+      setLoading(true)
+      try {
+        if (!supabase) return
+        const { error: pe } = await supabase.from('profiles').upsert(
+          {
+            id: user.id,
+            email: email.trim(),
+            auth_provider: profile?.auth_provider || 'email',
+            onboarding_completed: false,
+            onboarding_step: ONBOARDING_STEP.ABOUT_YOU,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        )
+        if (pe) {
+          setErr(pe.message)
+          return
+        }
+        await refreshProfile()
+        navigation.navigate('AboutYou')
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     setLoading(true)
     try {
       const { data, error } = await signUp(email.trim(), password)
@@ -93,7 +104,6 @@ export default function GetStartedScreen({ navigation }) {
         {
           id: u.id,
           email: email.trim(),
-          phone_number: digits,
           auth_provider: 'email',
           onboarding_completed: false,
           onboarding_step: ONBOARDING_STEP.ABOUT_YOU,
@@ -113,20 +123,7 @@ export default function GetStartedScreen({ navigation }) {
 
   const onBack = async () => {
     if (navigation.canGoBack()) {
-      const state = navigation.getState()
-      const idx = state.index
-      const prev = idx > 0 ? state.routes[idx - 1] : null
-      // About You → Get Started puts AboutYou under us; going "back" should leave signup toward the start screen (Landing), not ping-pong to About You.
-      if (prev?.name === 'AboutYou') {
-        await signOut()
-        return
-      }
       navigation.goBack()
-      return
-    }
-    const routeNames = navigation.getState()?.routeNames ?? []
-    if (routeNames.includes('Landing')) {
-      navigation.navigate('Landing')
       return
     }
     await signOut()
@@ -141,6 +138,7 @@ export default function GetStartedScreen({ navigation }) {
         style={styles.flex}
         contentContainerStyle={[styles.contentGrow, onboardingScrollContentBase(insets, 0)]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <OnboardingBackRow onPress={onBack} />
 
@@ -159,16 +157,6 @@ export default function GetStartedScreen({ navigation }) {
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
-        />
-
-        <Text style={styles.label}>Cell phone</Text>
-        <TextInput
-          style={styles.input}
-          value={phone}
-          onChangeText={onPhoneChange}
-          placeholder="763-439-2450"
-          placeholderTextColor={authColors.textMuted}
-          keyboardType="phone-pad"
         />
 
         <Text style={styles.label}>Password</Text>

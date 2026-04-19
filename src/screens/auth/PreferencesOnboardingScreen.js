@@ -138,10 +138,9 @@ export default function PreferencesOnboardingScreen({ navigation }) {
         <OnboardingBackRow onPress={onBack} />
 
         <Text style={onboardingHeaderStyles.title}>Your Preferences</Text>
-        <Text style={onboardingHeaderStyles.sub}>Favorite cuisines, atmosphere, and dietary needs</Text>
-
-        <Text style={styles.intro}>
-          Express your taste — select what you love. Same choices as in Profile → Edit preferences.
+        <Text style={onboardingHeaderStyles.sub}>
+          Favorite cuisines, atmosphere, and dietary needs — the more preferences you select, the better your
+          recommendations will be.
         </Text>
 
         {err ? <Text style={styles.error}>{err}</Text> : null}
@@ -219,14 +218,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: authColors.canvas },
   contentGrow: { flexGrow: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 200 },
-  intro: {
-    fontSize: fontSizes.sm,
-    fontFamily: fontFamilies.inter,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: spacing.lg,
-    marginTop: -spacing.sm,
-  },
   section: {
     marginBottom: spacing.xl,
     backgroundColor: colors.backgroundElevated,
