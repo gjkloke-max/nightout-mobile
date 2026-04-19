@@ -11,7 +11,7 @@ import { config } from '../lib/config'
 export async function fetchAddressPredictions(input) {
   const key = config.googleMapsApiKey
   const q = (input || '').trim()
-  if (!key || q.length < 3) return []
+  if (!key || q.length < 1) return []
 
   try {
     const params = new URLSearchParams({

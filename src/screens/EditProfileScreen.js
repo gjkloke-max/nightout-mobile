@@ -111,7 +111,7 @@ export default function EditProfileScreen({ navigation }) {
       return
     }
     const q = homeAddress.trim()
-    if (q.length < 3 || pickedAddressPlace) {
+    if (q.length < 1 || pickedAddressPlace) {
       setAddressPredictions([])
       return
     }

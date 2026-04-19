@@ -39,7 +39,7 @@ export default function AddressAutocompleteField({
         style={[
           styles.chrome,
           focused && styles.chromeFocused,
-          (open || showLoader) && styles.chromeOpen,
+          (open || showLoader) && styles.chromeRoundedBottom,
         ]}
       >
         <TextInput
@@ -103,24 +103,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: authColors.border,
     backgroundColor: authColors.surface,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
       },
-      android: { elevation: 1 },
+      android: { elevation: 2 },
+    }),
+  },
+  chromeRoundedBottom: {
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    ...Platform.select({
+      ios: {
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+      },
+      android: { elevation: 6 },
     }),
   },
   chromeFocused: {
     borderColor: authColors.accent,
-    ...Platform.select({
-      ios: { shadowOpacity: 0.08 },
-      android: { elevation: 2 },
-    }),
-  },
-  chromeOpen: {
     ...Platform.select({
       ios: { shadowOpacity: 0.1 },
       android: { elevation: 3 },

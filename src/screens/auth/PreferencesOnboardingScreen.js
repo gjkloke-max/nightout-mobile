@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ChevronLeft } from 'lucide-react-native'
 import { authColors, authFonts, authSpacing } from '../../theme/authTheme'
 import { useAuth } from '../../contexts/AuthContext'
 import { getGroupedPreferences, getUserPreferenceIds, saveUserPreferences } from '../../utils/preferences'
@@ -105,8 +106,21 @@ export default function PreferencesOnboardingScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={[styles.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={authColors.accent} />
+      <View style={[styles.flex, { paddingTop: insets.top, paddingHorizontal: authSpacing.lg }]}>
+        <Pressable
+          onPress={() => navigation.navigate('AboutYou')}
+          hitSlop={12}
+          style={styles.backWrap}
+          accessibilityRole="button"
+        >
+          <View style={styles.backRow}>
+            <ChevronLeft size={22} color={authColors.textPrimary} strokeWidth={2} />
+            <Text style={styles.back}>Back</Text>
+          </View>
+        </Pressable>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={authColors.accent} />
+        </View>
       </View>
     )
   }
@@ -116,9 +130,18 @@ export default function PreferencesOnboardingScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
+        removeClippedSubviews={false}
       >
-        <Pressable onPress={() => navigation.navigate('AboutYou')} hitSlop={12}>
-          <Text style={styles.back}>Back</Text>
+        <Pressable
+          onPress={() => navigation.navigate('AboutYou')}
+          hitSlop={12}
+          style={styles.backWrap}
+          accessibilityRole="button"
+        >
+          <View style={styles.backRow}>
+            <ChevronLeft size={22} color={authColors.textPrimary} strokeWidth={2} />
+            <Text style={styles.back}>Back</Text>
+          </View>
         </Pressable>
 
         <Text style={styles.title}>Your Preferences</Text>
@@ -192,7 +215,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: authColors.canvas },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { paddingHorizontal: authSpacing.lg, paddingBottom: authSpacing.xxl, maxWidth: 520, alignSelf: 'center', width: '100%' },
-  back: { fontFamily: authFonts.interMedium, fontSize: 14, color: authColors.textPrimary, marginBottom: authSpacing.lg },
+  backWrap: { alignSelf: 'flex-start', marginBottom: authSpacing.lg, zIndex: 20 },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 44 },
+  back: { fontFamily: authFonts.interMedium, fontSize: 14, color: authColors.textPrimary },
   title: { fontFamily: authFonts.fraunces, fontSize: 40, color: authColors.textPrimary, marginBottom: authSpacing.sm },
   sub: { fontFamily: authFonts.inter, fontSize: 16, color: authColors.textSecondary, marginBottom: authSpacing.xl },
   section: { marginBottom: authSpacing.lg },

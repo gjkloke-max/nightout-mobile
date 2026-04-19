@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ChevronRight } from 'lucide-react-native'
+import { ChevronRight, ChevronLeft } from 'lucide-react-native'
 import { authColors, authFonts, authSpacing } from '../../theme/authTheme'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -68,7 +68,7 @@ export default function AboutYouScreen({ navigation }) {
       return
     }
     const q = address.trim()
-    if (q.length < 3 || pickedPlace) {
+    if (q.length < 1 || pickedPlace) {
       setPredictions([])
       return
     }
@@ -99,6 +99,15 @@ export default function AboutYouScreen({ navigation }) {
   }, [loading, firstName, lastName, usernameCheck.ok, address, pickedPlace?.placeId])
 
   const dismissSuggestions = () => setPredictions([])
+
+  const onBack = () => {
+    dismissSuggestions()
+    if (navigation.canGoBack()) {
+      navigation.goBack()
+    } else {
+      navigation.navigate('GetStarted')
+    }
+  }
 
   const onAddressChange = (t) => {
     setAddress(t)
@@ -191,19 +200,22 @@ export default function AboutYouScreen({ navigation }) {
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        style={styles.flex}
+        style={styles.scroll}
         contentContainerStyle={[
           styles.content,
           { paddingTop: insets.top + authSpacing.md, paddingBottom: insets.bottom + authSpacing.xl },
         ]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         onScrollBeginDrag={dismissSuggestions}
+        removeClippedSubviews={false}
       >
-        {navigation.canGoBack() ? (
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={styles.backWrap}>
+        <Pressable onPress={onBack} hitSlop={12} style={styles.backWrap} accessibilityRole="button">
+          <View style={styles.backRow}>
+            <ChevronLeft size={22} color={authColors.textPrimary} strokeWidth={2} />
             <Text style={styles.back}>Back</Text>
-          </Pressable>
-        ) : null}
+          </View>
+        </Pressable>
 
         <Text style={styles.title}>About You</Text>
         <Text style={styles.sub}>Tell us a bit about yourself</Text>
@@ -249,6 +261,7 @@ export default function AboutYouScreen({ navigation }) {
         {usernameError ? <Text style={styles.errorInline}>{usernameError}</Text> : null}
 
         <Text style={[styles.label, styles.addressLabel]}>Home address</Text>
+        <View style={styles.addressBlock} collapsable={false}>
         <AddressAutocompleteField
           value={address}
           onChangeText={onAddressChange}
@@ -259,6 +272,7 @@ export default function AboutYouScreen({ navigation }) {
           multiline={false}
           minHeight={52}
         />
+        </View>
         <Text style={styles.privacyNote}>{PRIVACY_NOTE}</Text>
 
         <Pressable
@@ -282,9 +296,16 @@ export default function AboutYouScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: authColors.canvas },
-  content: { paddingHorizontal: authSpacing.lg, maxWidth: 520, width: '100%', alignSelf: 'center' },
-  backWrap: { alignSelf: 'flex-start', marginBottom: authSpacing.lg },
+  scroll: { flex: 1, backgroundColor: authColors.canvas, overflow: 'visible' },
+  content: { paddingHorizontal: authSpacing.lg, maxWidth: 520, width: '100%', alignSelf: 'center', overflow: 'visible' },
+  backWrap: { alignSelf: 'flex-start', marginBottom: authSpacing.lg, zIndex: 20 },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 44 },
   back: { fontFamily: authFonts.interMedium, fontSize: 14, color: authColors.textPrimary },
+  addressBlock: {
+    zIndex: 50,
+    elevation: Platform.OS === 'android' ? 12 : 0,
+    position: 'relative',
+  },
   title: {
     fontFamily: authFonts.fraunces,
     fontSize: 40,
