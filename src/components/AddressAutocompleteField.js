@@ -1,8 +1,19 @@
-import { View, Text, TextInput, Pressable, ActivityIndicator, StyleSheet } from 'react-native'
+import { useState } from 'react'
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+  StyleSheet,
+  ScrollView,
+  Platform,
+} from 'react-native'
+import { MapPin } from 'lucide-react-native'
 import { authColors, authFonts, authSpacing } from '../theme/authTheme'
 
 /**
- * Address line + optional prediction list (parent loads predictions).
+ * Address search input + suggestions; styled as one bordered control (onboarding / settings).
  */
 export default function AddressAutocompleteField({
   value,
@@ -13,78 +24,157 @@ export default function AddressAutocompleteField({
   predictionsLoading = false,
   onSelectPrediction,
   multiline = false,
-  minHeight = 88,
+  minHeight,
   testID,
 }) {
+  const [focused, setFocused] = useState(false)
+  const open = predictions.length > 0
+  const showLoader = predictionsLoading && !open
+
+  const inputMinH = multiline ? minHeight ?? 88 : minHeight ?? 52
+
   return (
-    <View style={styles.wrap}>
-      <TextInput
-        testID={testID}
-        style={[styles.input, multiline ? { minHeight, textAlignVertical: 'top' } : null]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={placeholderTextColor || authColors.textMuted}
-        multiline={multiline}
-        autoCorrect={false}
-      />
-      {predictionsLoading ? (
-        <View style={styles.loadingRow}>
-          <ActivityIndicator size="small" color={authColors.accent} />
-          <Text style={styles.loadingHint}>Looking up addresses…</Text>
-        </View>
-      ) : null}
-      {predictions.length > 0 ? (
-        <View style={styles.dropdown}>
-          {predictions.map((p) => (
-            <Pressable
-              key={p.placeId}
-              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-              onPress={() => onSelectPrediction(p)}
+    <View style={styles.outer}>
+      <View
+        style={[
+          styles.chrome,
+          focused && styles.chromeFocused,
+          (open || showLoader) && styles.chromeOpen,
+        ]}
+      >
+        <TextInput
+          testID={testID}
+          style={[
+            styles.input,
+            multiline ? { minHeight: inputMinH, textAlignVertical: 'top', paddingTop: 14 } : { minHeight: inputMinH },
+            open && styles.inputOpenBottom,
+          ]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={placeholderTextColor || authColors.textMuted}
+          multiline={multiline}
+          autoCorrect={false}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+        />
+
+        {showLoader ? (
+          <View style={styles.loadingInset}>
+            <ActivityIndicator size="small" color={authColors.accent} />
+            <Text style={styles.loadingHint}>Searching addresses…</Text>
+          </View>
+        ) : null}
+
+        {open ? (
+          <>
+            <View style={styles.divider} />
+            <ScrollView
+              style={styles.dropdownScroll}
+              contentContainerStyle={styles.dropdownContent}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
+              showsVerticalScrollIndicator={predictions.length > 4}
             >
-              <Text style={styles.rowText} numberOfLines={2}>
-                {p.description}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
+              {predictions.map((p) => (
+                <Pressable
+                  key={p.placeId}
+                  style={({ pressed }) => [styles.suggestionRow, pressed && styles.suggestionPressed]}
+                  onPress={() => onSelectPrediction(p)}
+                >
+                  <MapPin size={18} color={authColors.textMuted} style={styles.pinIcon} strokeWidth={2} />
+                  <Text style={styles.suggestionText} numberOfLines={2}>
+                    {p.description}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
+      </View>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginBottom: authSpacing.md, zIndex: 1 },
-  input: {
+  outer: { width: '100%' },
+  chrome: {
+    width: '100%',
     borderWidth: 1,
     borderColor: authColors.border,
+    backgroundColor: authColors.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 2,
+      },
+      android: { elevation: 1 },
+    }),
+  },
+  chromeFocused: {
+    borderColor: authColors.accent,
+    ...Platform.select({
+      ios: { shadowOpacity: 0.08 },
+      android: { elevation: 2 },
+    }),
+  },
+  chromeOpen: {
+    ...Platform.select({
+      ios: { shadowOpacity: 0.1 },
+      android: { elevation: 3 },
+    }),
+  },
+  input: {
     paddingHorizontal: authSpacing.md,
     paddingVertical: 14,
     fontSize: 16,
     fontFamily: authFonts.inter,
     color: authColors.textPrimary,
-    backgroundColor: authColors.surface,
+    backgroundColor: 'transparent',
   },
-  loadingRow: {
+  inputOpenBottom: {
+    paddingBottom: 12,
+  },
+  loadingInset: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: authSpacing.sm,
-    marginTop: authSpacing.xs,
+    paddingHorizontal: authSpacing.md,
+    paddingBottom: authSpacing.sm,
   },
-  loadingHint: { fontFamily: authFonts.inter, fontSize: 13, color: authColors.textSecondary },
-  dropdown: {
-    marginTop: authSpacing.xs,
-    borderWidth: 1,
-    borderColor: authColors.border,
-    backgroundColor: authColors.surface,
-    maxHeight: 220,
+  loadingHint: {
+    fontFamily: authFonts.inter,
+    fontSize: 13,
+    color: authColors.textSecondary,
   },
-  row: {
-    paddingVertical: authSpacing.sm,
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: authColors.border,
+    marginHorizontal: authSpacing.md,
+  },
+  dropdownScroll: {
+    maxHeight: 240,
+  },
+  dropdownContent: {
+    paddingBottom: authSpacing.xs,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
     paddingHorizontal: authSpacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: authColors.border,
   },
-  rowPressed: { backgroundColor: 'rgba(157, 23, 77, 0.06)' },
-  rowText: { fontFamily: authFonts.inter, fontSize: 15, color: authColors.textPrimary },
+  suggestionPressed: { backgroundColor: 'rgba(157, 23, 77, 0.06)' },
+  pinIcon: { marginRight: 12 },
+  suggestionText: {
+    flex: 1,
+    fontFamily: authFonts.inter,
+    fontSize: 15,
+    lineHeight: 20,
+    color: authColors.textPrimary,
+  },
 })

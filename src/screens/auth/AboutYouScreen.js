@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ChevronRight } from 'lucide-react-native'
 import { authColors, authFonts, authSpacing } from '../../theme/authTheme'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -26,6 +27,8 @@ import {
 import AddressAutocompleteField from '../../components/AddressAutocompleteField'
 
 const PRED_DEBOUNCE_MS = 400
+
+const PRIVACY_NOTE = 'Private · Used only for location-based recommendations'
 
 export default function AboutYouScreen({ navigation }) {
   const insets = useSafeAreaInsets()
@@ -84,6 +87,19 @@ export default function AboutYouScreen({ navigation }) {
     }
   }, [address, pickedPlace])
 
+  const usernameCheck = useMemo(() => validateUsernameFormat(username), [username])
+
+  const canContinue = useMemo(() => {
+    if (loading) return false
+    if (!firstName.trim() || !lastName.trim()) return false
+    if (!usernameCheck.ok) return false
+    if (!address.trim()) return false
+    if (hasGooglePlacesKey() && !pickedPlace?.placeId) return false
+    return true
+  }, [loading, firstName, lastName, usernameCheck.ok, address, pickedPlace?.placeId])
+
+  const dismissSuggestions = () => setPredictions([])
+
   const onAddressChange = (t) => {
     setAddress(t)
     setErr('')
@@ -97,7 +113,7 @@ export default function AboutYouScreen({ navigation }) {
   }
 
   const onContinue = async () => {
-    if (!user?.id) return
+    if (!user?.id || !canContinue) return
     setErr('')
     setUsernameError('')
     const v = validateUsernameFormat(username)
@@ -181,9 +197,10 @@ export default function AboutYouScreen({ navigation }) {
           { paddingTop: insets.top + authSpacing.md, paddingBottom: insets.bottom + authSpacing.xl },
         ]}
         keyboardShouldPersistTaps="handled"
+        onScrollBeginDrag={dismissSuggestions}
       >
         {navigation.canGoBack() ? (
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
+          <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={styles.backWrap}>
             <Text style={styles.back}>Back</Text>
           </Pressable>
         ) : null}
@@ -191,35 +208,30 @@ export default function AboutYouScreen({ navigation }) {
         <Text style={styles.title}>About You</Text>
         <Text style={styles.sub}>Tell us a bit about yourself</Text>
 
-        {hasGooglePlacesKey() ? (
-          <Text style={styles.hintBanner}>Start typing your street address and pick a suggestion.</Text>
-        ) : (
-          <Text style={styles.hintBanner}>
-            Enter your full street address. Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY for live address suggestions.
-          </Text>
-        )}
-
         {err ? <Text style={styles.error}>{err}</Text> : null}
 
-        <Text style={styles.label}>First name</Text>
-        <TextInput
-          style={styles.input}
-          value={firstName}
-          onChangeText={setFirstName}
-          placeholder="First name"
-          placeholderTextColor={authColors.textMuted}
-          autoCapitalize="words"
-        />
-
-        <Text style={styles.label}>Last name</Text>
-        <TextInput
-          style={styles.input}
-          value={lastName}
-          onChangeText={setLastName}
-          placeholder="Last name"
-          placeholderTextColor={authColors.textMuted}
-          autoCapitalize="words"
-        />
+        <View style={styles.nameLabelsRow}>
+          <Text style={[styles.label, styles.nameCol]}>First name</Text>
+          <Text style={[styles.label, styles.nameCol]}>Last name</Text>
+        </View>
+        <View style={styles.nameInputsRow}>
+          <TextInput
+            style={[styles.input, styles.nameInput]}
+            value={firstName}
+            onChangeText={setFirstName}
+            placeholder="First name"
+            placeholderTextColor={authColors.textMuted}
+            autoCapitalize="words"
+          />
+          <TextInput
+            style={[styles.input, styles.nameInput]}
+            value={lastName}
+            onChangeText={setLastName}
+            placeholder="Last name"
+            placeholderTextColor={authColors.textMuted}
+            autoCapitalize="words"
+          />
+        </View>
 
         <Text style={styles.label}>Username</Text>
         <TextInput
@@ -234,9 +246,9 @@ export default function AboutYouScreen({ navigation }) {
           autoCapitalize="none"
           autoCorrect={false}
         />
-        {usernameError ? <Text style={styles.error}>{usernameError}</Text> : null}
+        {usernameError ? <Text style={styles.errorInline}>{usernameError}</Text> : null}
 
-        <Text style={styles.label}>Home address</Text>
+        <Text style={[styles.label, styles.addressLabel]}>Home address</Text>
         <AddressAutocompleteField
           value={address}
           onChangeText={onAddressChange}
@@ -244,18 +256,23 @@ export default function AboutYouScreen({ navigation }) {
           predictions={predictions}
           predictionsLoading={predLoading}
           onSelectPrediction={onPickPrediction}
-          multiline
+          multiline={false}
+          minHeight={52}
         />
+        <Text style={styles.privacyNote}>{PRIVACY_NOTE}</Text>
 
         <Pressable
-          style={[styles.continue, loading && styles.disabled]}
+          style={[styles.continue, (!canContinue || loading) && styles.continueDisabled]}
           onPress={onContinue}
-          disabled={loading}
+          disabled={!canContinue || loading}
         >
           {loading ? (
             <ActivityIndicator color={authColors.onAccent} />
           ) : (
-            <Text style={styles.continueText}>Continue</Text>
+            <View style={styles.continueInner}>
+              <Text style={styles.continueText}>Continue</Text>
+              <ChevronRight size={22} color={authColors.onAccent} strokeWidth={2.2} style={styles.continueChevron} />
+            </View>
           )}
         </Pressable>
       </ScrollView>
@@ -266,17 +283,41 @@ export default function AboutYouScreen({ navigation }) {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: authColors.canvas },
   content: { paddingHorizontal: authSpacing.lg, maxWidth: 520, width: '100%', alignSelf: 'center' },
-  back: { fontFamily: authFonts.interMedium, fontSize: 14, color: authColors.textPrimary, marginBottom: authSpacing.lg },
-  title: { fontFamily: authFonts.fraunces, fontSize: 40, color: authColors.textPrimary, marginBottom: authSpacing.sm },
-  sub: { fontFamily: authFonts.inter, fontSize: 16, color: authColors.textSecondary, marginBottom: authSpacing.md },
-  hintBanner: {
-    fontFamily: authFonts.inter,
-    fontSize: 13,
-    color: authColors.textSecondary,
-    marginBottom: authSpacing.md,
-    lineHeight: 18,
+  backWrap: { alignSelf: 'flex-start', marginBottom: authSpacing.lg },
+  back: { fontFamily: authFonts.interMedium, fontSize: 14, color: authColors.textPrimary },
+  title: {
+    fontFamily: authFonts.fraunces,
+    fontSize: 40,
+    lineHeight: 46,
+    color: authColors.textPrimary,
+    marginBottom: authSpacing.sm,
   },
-  label: { fontFamily: authFonts.interMedium, fontSize: 14, color: authColors.textPrimary, marginBottom: authSpacing.xs },
+  sub: {
+    fontFamily: authFonts.inter,
+    fontSize: 16,
+    lineHeight: 22,
+    color: authColors.textSecondary,
+    marginBottom: authSpacing.xl,
+  },
+  nameLabelsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: authSpacing.xs,
+  },
+  nameCol: { flex: 1, marginBottom: 0 },
+  nameInputsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: authSpacing.md,
+  },
+  nameInput: { flex: 1, marginBottom: 0 },
+  label: {
+    fontFamily: authFonts.interMedium,
+    fontSize: 14,
+    color: authColors.textPrimary,
+    marginBottom: authSpacing.xs,
+  },
+  addressLabel: { marginTop: authSpacing.xs },
   input: {
     borderWidth: 1,
     borderColor: authColors.border,
@@ -289,14 +330,39 @@ const styles = StyleSheet.create({
     backgroundColor: authColors.surface,
   },
   inputErr: { borderColor: authColors.error },
-  error: { fontFamily: authFonts.inter, fontSize: 14, color: authColors.error, marginBottom: authSpacing.sm },
+  error: { fontFamily: authFonts.inter, fontSize: 14, color: authColors.error, marginBottom: authSpacing.md },
+  errorInline: {
+    fontFamily: authFonts.inter,
+    fontSize: 14,
+    color: authColors.error,
+    marginTop: -authSpacing.sm,
+    marginBottom: authSpacing.sm,
+  },
+  privacyNote: {
+    fontFamily: authFonts.inter,
+    fontSize: 12,
+    lineHeight: 17,
+    color: authColors.textMuted,
+    marginTop: authSpacing.sm,
+    marginBottom: authSpacing.lg,
+  },
   continue: {
-    marginTop: authSpacing.md,
+    marginTop: authSpacing.sm,
     backgroundColor: authColors.accent,
-    height: 56,
+    minHeight: 56,
+    paddingVertical: 16,
+    paddingHorizontal: authSpacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
+  },
+  continueDisabled: { opacity: 0.45 },
+  continueInner: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
   continueText: { fontFamily: authFonts.interMedium, fontSize: 16, color: authColors.onAccent },
-  disabled: { opacity: 0.7 },
+  continueChevron: { position: 'absolute', right: 4 },
 })
