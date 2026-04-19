@@ -62,6 +62,7 @@ export async function setUserHomeNeighborhood(userId, neighborhoodName) {
       home_lat: lat,
       home_lng: lng,
       location_source: LOCATION_SOURCE_MANUAL_NEIGHBORHOOD,
+      updated_at: new Date().toISOString(),
     })
     .eq('id', userId)
 

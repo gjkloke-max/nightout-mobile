@@ -16,6 +16,7 @@ module.exports = {
     },
     ios: {
       supportsTablet: true,
+      bundleIdentifier: 'com.nightout.mobile',
       infoPlist: {
         NSAppTransportSecurity: {
           NSAllowsLocalNetworking: true,
@@ -36,6 +37,7 @@ module.exports = {
     plugins: [
       'expo-font',
       'expo-secure-store',
+      'expo-apple-authentication',
       [
         'expo-location',
         {
@@ -58,6 +60,7 @@ module.exports = {
       conciergeTimeoutMs: process.env.EXPO_PUBLIC_CONCIERGE_TIMEOUT_MS,
       webAppUrl: process.env.EXPO_PUBLIC_WEB_APP_URL,
       appScheme: process.env.EXPO_PUBLIC_APP_SCHEME,
+      googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
     },
   },
 };

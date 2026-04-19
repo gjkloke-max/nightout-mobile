@@ -1,5 +1,6 @@
 import { View, ActivityIndicator } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
+import * as WebBrowser from 'expo-web-browser'
 import Constants from 'expo-constants'
 import { NavigationContainer } from '@react-navigation/native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -7,6 +8,8 @@ import { useFonts } from 'expo-font'
 import { AuthProvider } from './src/contexts/AuthContext'
 import { colors } from './src/theme'
 import AppNavigator from './src/navigation/AppNavigator'
+
+WebBrowser.maybeCompleteAuthSession()
 
 function AppContent() {
   const [fontsLoaded] = useFonts({

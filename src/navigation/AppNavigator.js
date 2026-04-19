@@ -3,7 +3,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { colors, fontSizes, fontFamilies } from '../theme'
 import { useAuth } from '../contexts/AuthContext'
 import TabNavigator from './TabNavigator'
-import LoginScreen from '../screens/LoginScreen'
+import AuthStackNavigator from './AuthStackNavigator'
+import OnboardingStackNavigator from './OnboardingStackNavigator'
 import NotificationsScreen from '../screens/NotificationsScreen'
 import VenueProfileScreen from '../screens/VenueProfileScreen'
 import WriteReviewScreen from '../screens/WriteReviewScreen'
@@ -19,21 +20,7 @@ import DMNewMessageScreen from '../screens/DMNewMessageScreen'
 
 const Stack = createNativeStackNavigator()
 
-export default function AppNavigator() {
-  const { user, loading } = useAuth()
-
-  if (loading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={colors.accent} />
-      </View>
-    )
-  }
-
-  if (!user) {
-    return <LoginScreen />
-  }
-
+function MainAppStack() {
   return (
     <Stack.Navigator
       screenOptions={{
@@ -48,39 +35,13 @@ export default function AppNavigator() {
         animation: 'slide_from_right',
       }}
     >
-      <Stack.Screen
-        name="MainTabs"
-        component={TabNavigator}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="VenueProfile"
-        component={VenueProfileScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="FriendProfile"
-        component={FriendProfileScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="WriteReview"
-        component={WriteReviewScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-        options={{ title: 'Notifications' }}
-      />
-      {/* Same screens as tab stacks, registered here so opening from Notifications keeps back → Notifications */}
-      <Stack.Screen
-        name="SocialReviewDetail"
-        component={SocialReviewDetailScreen}
-        options={{ headerShown: false }}
-      />
+      <Stack.Screen name="MainTabs" component={TabNavigator} options={{ headerShown: false }} />
+      <Stack.Screen name="VenueProfile" component={VenueProfileScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="WriteReview" component={WriteReviewScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
+      <Stack.Screen name="SocialReviewDetail" component={SocialReviewDetailScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ headerShown: false }} />
-      {/* Same CreateList as Profile tab stack — used when opened from Venue Profile (return to venue). */}
       <Stack.Screen name="CreateList" component={CreateListScreen} options={{ headerShown: false }} />
       <Stack.Screen name="FollowList" component={FollowListScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ReviewedVenuesList" component={ReviewedVenuesListScreen} options={{ headerShown: false }} />
@@ -89,6 +50,29 @@ export default function AppNavigator() {
       <Stack.Screen name="DMNewMessage" component={DMNewMessageScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   )
+}
+
+export default function AppNavigator() {
+  const { user, loading, profile, profileLoading } = useAuth()
+
+  if (loading || (user && profileLoading)) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    )
+  }
+
+  if (!user) {
+    return <AuthStackNavigator />
+  }
+
+  const onboardingIncomplete = !profile || profile.onboarding_completed !== true
+  if (onboardingIncomplete) {
+    return <OnboardingStackNavigator initialStep={profile?.onboarding_step} />
+  }
+
+  return <MainAppStack />
 }
 
 const styles = StyleSheet.create({

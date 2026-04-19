@@ -24,9 +24,14 @@ const appScheme =
   extra.appScheme ||
   'nightout'
 
+const googleMapsApiKey =
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || extra.googleMapsApiKey || ''
+
 export const config = {
   supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || extra.supabaseUrl || '',
   supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || extra.supabaseAnonKey || '',
+  /** Google Maps / Places (address autocomplete + details). */
+  googleMapsApiKey,
   // Search API: for local dev use your machine IP (e.g. 192.168.1.x:3001) or staging URL
   searchApiUrl: process.env.EXPO_PUBLIC_SEARCH_API_URL || extra.searchApiUrl || '',
   conciergeTimeoutMs,

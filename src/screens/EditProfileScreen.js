@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useLayoutEffect } from 'react'
+import { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react'
 import {
   View,
   Text,
@@ -18,10 +18,22 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { setUserHomeNeighborhood } from '../services/userHomeLocation'
+import { applyDerivedHomeFromAddress } from '../services/addressNeighborhood'
 import { pickAndUploadProfileAvatar, removeAvatar } from '../services/profileAvatar'
 import { checkUsernameAvailable } from '../services/profileUsername'
 import { validateUsernameFormat } from '../utils/mentions'
 import { colors, fontSizes, fontFamilies, spacing } from '../theme'
+import AddressAutocompleteField from '../components/AddressAutocompleteField'
+import {
+  fetchAddressPredictions,
+  fetchPlaceDetails,
+  hasGooglePlacesKey,
+} from '../services/placesAutocomplete'
+import {
+  formatUsPhoneDisplayFromDigits,
+  normalizeUsPhoneDigits,
+  phoneDigitsForStorage,
+} from '../utils/phoneFormat'
 
 export default function EditProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets()
@@ -33,6 +45,12 @@ export default function EditProfileScreen({ navigation }) {
   const [username, setUsername] = useState('')
   const [usernameError, setUsernameError] = useState('')
   const [homeNeighborhood, setHomeNeighborhood] = useState('')
+  const [homeAddress, setHomeAddress] = useState('')
+  const [phoneDisplay, setPhoneDisplay] = useState('')
+  const [addressPredictions, setAddressPredictions] = useState([])
+  const [addressPredLoading, setAddressPredLoading] = useState(false)
+  const [pickedAddressPlace, setPickedAddressPlace] = useState(null)
+  const addressDebounceRef = useRef(null)
   const [neighborhoods, setNeighborhoods] = useState([])
   const [hoodModalOpen, setHoodModalOpen] = useState(false)
   const [profileSnapshot, setProfileSnapshot] = useState(null)
@@ -52,6 +70,12 @@ export default function EditProfileScreen({ navigation }) {
         setLastName(profile.last_name || '')
         setUsername(profile.username || '')
         setHomeNeighborhood(profile.home_neighborhood_name || '')
+        setHomeAddress(profile.home_address || '')
+        setPickedAddressPlace(null)
+        setAddressPredictions([])
+        setPhoneDisplay(
+          profile.phone_number ? formatUsPhoneDisplayFromDigits(String(profile.phone_number)) : ''
+        )
         setAvatarUrl(profile.avatar_url || null)
         setProfileSnapshot(profile)
       } else {
@@ -74,6 +98,37 @@ export default function EditProfileScreen({ navigation }) {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    if (pickedAddressPlace && homeAddress.trim() !== pickedAddressPlace.description) {
+      setPickedAddressPlace(null)
+    }
+  }, [homeAddress, pickedAddressPlace])
+
+  useEffect(() => {
+    if (!hasGooglePlacesKey()) {
+      setAddressPredictions([])
+      return
+    }
+    const q = homeAddress.trim()
+    if (q.length < 3 || pickedAddressPlace) {
+      setAddressPredictions([])
+      return
+    }
+    if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current)
+    addressDebounceRef.current = setTimeout(async () => {
+      setAddressPredLoading(true)
+      try {
+        const list = await fetchAddressPredictions(q)
+        setAddressPredictions(list)
+      } finally {
+        setAddressPredLoading(false)
+      }
+    }, 400)
+    return () => {
+      if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current)
+    }
+  }, [homeAddress, pickedAddressPlace])
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -156,12 +211,19 @@ export default function EditProfileScreen({ navigation }) {
         }
       }
       setUsernameError('')
+      const phoneStored = phoneDigitsForStorage(phoneDisplay)
+      if (normalizeUsPhoneDigits(phoneDisplay).length > 0 && phoneStored.length !== 10) {
+        Alert.alert('Invalid phone', 'Enter a 10-digit US phone number or leave the field empty.')
+        return
+      }
       const { error } = await supabase.from('profiles').upsert(
         {
           id: user.id,
           first_name: firstName.trim() || null,
           last_name: lastName.trim() || null,
           username: v.normalized || null,
+          home_address: homeAddress.trim() || null,
+          phone_number: phoneStored || null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'id' }
@@ -171,22 +233,60 @@ export default function EditProfileScreen({ navigation }) {
         throw error
       }
 
-      const trimmedHood = (homeNeighborhood || '').trim()
-      if (trimmedHood) {
-        const result = await setUserHomeNeighborhood(user.id, trimmedHood)
-        if (!result.success) throw new Error(result.error || 'Could not save home neighborhood')
-      } else if (profileSnapshot?.home_neighborhood_name || profileSnapshot?.home_neighborhood_id) {
-        const { error: clearErr } = await supabase
+      const prevAddr = (profileSnapshot?.home_address || '').trim()
+      const nextAddr = (homeAddress || '').trim()
+      const addrChanged = nextAddr !== prevAddr
+
+      if (addrChanged && nextAddr) {
+        let formatted = nextAddr
+        let precoded = null
+        if (pickedAddressPlace?.placeId && hasGooglePlacesKey()) {
+          const det = await fetchPlaceDetails(pickedAddressPlace.placeId)
+          if (det) {
+            formatted = det.formattedAddress || nextAddr
+            precoded = { lat: det.lat, lng: det.lng }
+            setHomeAddress(formatted)
+          }
+        }
+        const derived = await applyDerivedHomeFromAddress(user.id, formatted, precoded)
+        if (!derived.success) throw new Error(derived.error || 'Could not update address')
+      } else if (addrChanged && !nextAddr) {
+        const { error: clearA } = await supabase
           .from('profiles')
           .update({
+            home_address: null,
             home_neighborhood_name: null,
             home_neighborhood_id: null,
             home_lat: null,
             home_lng: null,
             location_source: null,
+            updated_at: new Date().toISOString(),
           })
           .eq('id', user.id)
-        if (clearErr) throw clearErr
+        if (clearA) throw clearA
+      } else {
+        const trimmedHood = (homeNeighborhood || '').trim()
+        const prevHood = (profileSnapshot?.home_neighborhood_name || '').trim()
+        const hoodChanged = trimmedHood !== prevHood
+        if (hoodChanged) {
+          if (trimmedHood) {
+            const result = await setUserHomeNeighborhood(user.id, trimmedHood)
+            if (!result.success) throw new Error(result.error || 'Could not save home neighborhood')
+          } else if (profileSnapshot?.home_neighborhood_name || profileSnapshot?.home_neighborhood_id) {
+            const { error: clearErr } = await supabase
+              .from('profiles')
+              .update({
+                home_neighborhood_name: null,
+                home_neighborhood_id: null,
+                home_lat: null,
+                home_lng: null,
+                location_source: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', user.id)
+            if (clearErr) throw clearErr
+          }
+        }
       }
 
       navigation.goBack()
@@ -280,6 +380,37 @@ export default function EditProfileScreen({ navigation }) {
         />
         {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
         <Text style={styles.hint}>3–30 characters, letters, numbers, underscores.</Text>
+
+        <Text style={styles.label}>Cell phone</Text>
+        <TextInput
+          style={styles.input}
+          value={phoneDisplay}
+          onChangeText={(text) => {
+            const d = normalizeUsPhoneDigits(text)
+            setPhoneDisplay(formatUsPhoneDisplayFromDigits(d))
+          }}
+          placeholder="763-439-2450"
+          placeholderTextColor={colors.textMuted}
+          keyboardType="phone-pad"
+        />
+
+        <Text style={styles.label}>Home address</Text>
+        <AddressAutocompleteField
+          value={homeAddress}
+          onChangeText={setHomeAddress}
+          placeholder={hasGooglePlacesKey() ? 'Start typing your address' : 'Street, city, state'}
+          placeholderTextColor={colors.textMuted}
+          predictions={addressPredictions}
+          predictionsLoading={addressPredLoading}
+          onSelectPrediction={(p) => {
+            setPickedAddressPlace({ placeId: p.placeId, description: p.description })
+            setHomeAddress(p.description)
+            setAddressPredictions([])
+          }}
+          multiline
+          minHeight={72}
+        />
+        <Text style={styles.hint}>We use this to suggest neighborhoods and nearby spots.</Text>
 
         <Text style={styles.label}>Home neighborhood</Text>
         <TouchableOpacity style={styles.selectBtn} onPress={() => setHoodModalOpen(true)} activeOpacity={0.7}>
