@@ -25,7 +25,9 @@ import { getUserHomeLocation } from '../services/userHomeLocation'
 import { loadUserPreferencesForSearch } from '../services/userPreferencesForSearch'
 import { useAuth } from '../contexts/AuthContext'
 import BrowseVenueMapView from '../components/browse/BrowseVenueMapView'
+import TrendingBadge from '../components/TrendingBadge'
 import { deriveBrowseTagPair } from '../utils/browseVenueTags'
+import { isVenueInTrendingPool } from '../utils/venueTrending'
 
 const CITY_TITLE = 'Chicago'
 

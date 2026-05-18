@@ -19,6 +19,7 @@ import { X, Search } from 'lucide-react-native'
 import { supabase } from '../lib/supabase'
 import { searchVenuesByName, fetchVenueById } from '../lib/venueService'
 import { uploadReviewPhotos } from '../lib/reviewPhotoStorage'
+import { triggerVenueSearchReindex } from '../lib/triggerVenueSearchReindex'
 import { useAuth } from '../contexts/AuthContext'
 import VenueReviewComposer from '../components/VenueProfile/VenueReviewComposer'
 import { colors, fontFamilies, spacing } from '../theme'
@@ -166,6 +167,8 @@ export default function WriteReviewScreen() {
           throw new Error('Photos could not be uploaded. Use JPEG, PNG, or WebP under 10MB.')
         }
       }
+
+      triggerVenueSearchReindex(venueId)
     },
     [user?.id, existingReview]
   )
