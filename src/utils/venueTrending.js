@@ -6,3 +6,10 @@ export function isVenueInTrendingPool(venue) {
   const n = Number(r)
   return Number.isFinite(n) && n >= 1 && n <= TRENDING_RANK_POOL_MAX
 }
+
+export function trendingVenueNames(venues) {
+  return (venues || [])
+    .filter(isVenueInTrendingPool)
+    .map((v) => String(v?.name || '').trim())
+    .filter(Boolean)
+}

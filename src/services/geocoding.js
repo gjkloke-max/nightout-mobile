@@ -1,7 +1,7 @@
 /**
  * Forward geocode street address → lat/lng (Nominatim). Non-blocking for UX; failures return null.
  */
-const USER_AGENT = 'NightOutMobile/1.0 (contact: app)'
+const USER_AGENT = 'BrioMobile/1.0 (contact: app)'
 
 /**
  * @param {string} address

@@ -1,5 +1,5 @@
 /**
- * Concierge: Pulse Node `POST …/api/concierge` only (OpenAI + ParadeDB on server).
+ * Concierge: Brio Node `POST …/api/concierge` only (OpenAI + ParadeDB on server).
  * Set EXPO_PUBLIC_SEARCH_API_URL to the same base as Browse search (e.g. http://host:3001).
  */
 
@@ -53,7 +53,7 @@ export async function sendConciergeMessage({
       data: null,
       error: {
         message:
-          'Set EXPO_PUBLIC_SEARCH_API_URL to your Pulse Node search API (same host/port as /api/search), e.g. http://192.168.1.5:3001 on a physical device.',
+          'Set EXPO_PUBLIC_SEARCH_API_URL to your Brio search API (same host/port as /api/search), e.g. http://192.168.1.5:3001 on a physical device.',
       },
     }
   }
@@ -65,7 +65,7 @@ export async function sendConciergeMessage({
   }
 
   if (__DEV__) {
-    console.log('[concierge] using Pulse Node', `${searchApiUrl}/api/concierge`)
+    console.log('[concierge] using Brio API', `${searchApiUrl}/api/concierge`)
   }
 
   try {

@@ -28,7 +28,7 @@ export function getVenueDeepLink(venueId) {
 
 export function buildVenueShareMessage(venueName) {
   const name = (venueName || 'this spot').trim()
-  return `Check out this spot I found on NightOut: ${name}`
+  return `Check out this spot I found on Brio: ${name}`
 }
 
 /**

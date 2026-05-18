@@ -354,7 +354,7 @@ export function buildPushPayload(notificationId, n) {
     notificationId,
     recipientUserId: n.recipientUserId,
     type: n.type,
-    title: n.title || 'NightOut',
+    title: n.title || 'Brio',
     body: n.body || defaultBodyForType(n),
     webLink: n.webLink,
     mobileLink: n.mobileLink,

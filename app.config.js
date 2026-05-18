@@ -2,7 +2,7 @@ require('dotenv').config();
 
 module.exports = {
   expo: {
-    name: 'nightout-mobile',
+    name: 'Brio',
     slug: 'nightout-mobile',
     scheme: 'nightout',
     version: '1.0.0',
@@ -49,7 +49,7 @@ module.exports = {
         'expo-image-picker',
         {
           photosPermission:
-            'Night Out uses your photo library so you can choose a profile picture.',
+            'Brio uses your photo library so you can choose a profile picture.',
         },
       ],
     ],

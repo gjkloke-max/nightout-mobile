@@ -1,25 +1,26 @@
-import { Text, StyleSheet } from 'react-native'
+import { View, StyleSheet } from 'react-native'
+import { Flame } from 'lucide-react-native'
 
-export default function TrendingBadge({ style }) {
+const ICON_SIZE = 14
+const TRENDING_COLOR = '#e11d48'
+
+/** Flame icon for venues in the top-200 trending pool. */
+export default function TrendingBadge({ style, size = ICON_SIZE }) {
   return (
-    <Text style={[styles.badge, style]} accessibilityLabel="Trending">
-      TRENDING
-    </Text>
+    <View
+      style={[styles.wrap, style]}
+      accessibilityRole="image"
+      accessibilityLabel="Trending on Brio"
+    >
+      <Flame size={size} color={TRENDING_COLOR} fill={TRENDING_COLOR} strokeWidth={2} />
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  badge: {
-    marginLeft: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: '#9d174d',
-    backgroundColor: '#fdf2f8',
-    color: '#9d174d',
-    fontSize: 9,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    overflow: 'hidden',
+  wrap: {
+    marginLeft: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 })

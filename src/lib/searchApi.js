@@ -50,7 +50,7 @@ export async function hybridSearch({
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'NightOut-Mobile/1.0',
+        'User-Agent': 'Brio-Mobile/1.0',
       },
       body: JSON.stringify(body),
     })
