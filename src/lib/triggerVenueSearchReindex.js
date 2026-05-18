@@ -1,5 +1,5 @@
 /**
- * Fire-and-forget venue search reindex after user review save (see NightOut server).
+ * Refresh ParadeDB venue_search_data after a user review save (see NightOut server).
  */
 
 import { Platform } from 'react-native'
@@ -16,18 +16,42 @@ function resolveSearchApiBaseUrl(url) {
 
 /**
  * @param {number|string} venueId
+ * @returns {Promise<{ ok: boolean, skipped?: boolean, reason?: string }>}
  */
-export function triggerVenueSearchReindex(venueId) {
+export async function triggerVenueSearchReindex(venueId) {
   const id = venueId != null ? parseInt(String(venueId), 10) : NaN
-  if (!Number.isFinite(id) || id <= 0) return
+  if (!Number.isFinite(id) || id <= 0) {
+    return { ok: false, reason: 'invalid venue_id' }
+  }
 
   const base = resolveSearchApiBaseUrl(config.searchApiUrl)
-  if (!base) return
+  if (!base) {
+    if (__DEV__) {
+      console.warn('[triggerVenueSearchReindex] EXPO_PUBLIC_SEARCH_API_URL not set')
+    }
+    return { ok: false, reason: 'no_search_api_url' }
+  }
 
   const url = `${base}/api/reindex-venue-search-background`
-  fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ venue_id: id }),
-  }).catch(() => {})
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ venue_id: id }),
+    })
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}))
+      const msg = errBody?.error || `HTTP ${res.status}`
+      if (__DEV__) {
+        console.warn(`[triggerVenueSearchReindex] venue_id=${id} failed:`, msg)
+      }
+      return { ok: false, reason: msg }
+    }
+    return { ok: true }
+  } catch (err) {
+    if (__DEV__) {
+      console.warn(`[triggerVenueSearchReindex] venue_id=${id} network error:`, err?.message || err)
+    }
+    return { ok: false, reason: err?.message || 'network_error' }
+  }
 }

@@ -168,7 +168,10 @@ export default function WriteReviewScreen() {
         }
       }
 
-      triggerVenueSearchReindex(venueId)
+      const reindex = await triggerVenueSearchReindex(venueId)
+      if (!reindex.ok && __DEV__) {
+        console.warn('[WriteReviewScreen] venue search reindex did not start:', reindex.reason)
+      }
     },
     [user?.id, existingReview]
   )
