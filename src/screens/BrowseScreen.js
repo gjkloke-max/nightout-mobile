@@ -166,7 +166,7 @@ export default function BrowseScreen() {
     setTrendingLoading(true)
     setTrendingError(null)
     try {
-      const data = await getTrendingVenues(15)
+      const data = await getTrendingVenues()
       setTrendingItems(data)
     } catch (e) {
       setTrendingError(e?.message || 'Failed to load trending venues')
