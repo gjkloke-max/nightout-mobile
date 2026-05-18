@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Text,
   StyleSheet,
@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { authColors, authFonts, authSpacing } from '../../theme/authTheme'
 import { onboardingScrollContentBase, onboardingHeaderStyles } from '../../theme/onboardingLayout'
-import OnboardingBackRow from '../../components/onboarding/OnboardingBackRow'
+import { useOnboardingHeader } from '../../components/onboarding/useOnboardingHeader'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ONBOARDING_STEP } from '../../services/profileOnboarding'
@@ -121,13 +121,15 @@ export default function GetStartedScreen({ navigation }) {
     }
   }
 
-  const onBack = async () => {
+  const onBack = useCallback(async () => {
     if (navigation.canGoBack()) {
       navigation.goBack()
       return
     }
     await signOut()
-  }
+  }, [navigation, signOut])
+
+  useOnboardingHeader(navigation, onBack)
 
   return (
     <KeyboardAvoidingView
@@ -140,8 +142,6 @@ export default function GetStartedScreen({ navigation }) {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        <OnboardingBackRow onPress={onBack} />
-
         <Text style={onboardingHeaderStyles.title}>Get Started</Text>
         <Text style={onboardingHeaderStyles.sub}>We'll need a few details to set up your account</Text>
 

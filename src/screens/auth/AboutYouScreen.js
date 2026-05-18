@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { CommonActions } from '@react-navigation/native'
 import { ChevronRight } from 'lucide-react-native'
 import { authColors, authFonts, authSpacing } from '../../theme/authTheme'
 import { onboardingScrollContentBase, onboardingHeaderStyles } from '../../theme/onboardingLayout'
-import OnboardingBackRow from '../../components/onboarding/OnboardingBackRow'
+import { useOnboardingHeader } from '../../components/onboarding/useOnboardingHeader'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { checkUsernameAvailable } from '../../services/profileUsername'
@@ -43,10 +43,12 @@ export default function AboutYouScreen({ navigation }) {
   const [pickedPlace, setPickedPlace] = useState(null)
   const [predictions, setPredictions] = useState([])
   const [predLoading, setPredLoading] = useState(false)
+  const [addressInputFocused, setAddressInputFocused] = useState(false)
   const [usernameError, setUsernameError] = useState('')
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
   const debounceRef = useRef(null)
+  const addressBlurClearRef = useRef(null)
 
   useEffect(() => {
     if (!profile) return
@@ -66,6 +68,10 @@ export default function AboutYouScreen({ navigation }) {
   }, [address, pickedPlace])
 
   useEffect(() => {
+    if (!addressInputFocused) {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      return
+    }
     if (!hasGooglePlacesKey()) {
       setPredictions([])
       return
@@ -88,7 +94,7 @@ export default function AboutYouScreen({ navigation }) {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [address, pickedPlace])
+  }, [address, pickedPlace, addressInputFocused])
 
   const usernameCheck = useMemo(() => validateUsernameFormat(username), [username])
 
@@ -103,7 +109,7 @@ export default function AboutYouScreen({ navigation }) {
 
   const dismissSuggestions = () => setPredictions([])
 
-  const onBack = () => {
+  const onBack = useCallback(() => {
     dismissSuggestions()
     Keyboard.dismiss()
     if (navigation.canGoBack()) {
@@ -116,7 +122,9 @@ export default function AboutYouScreen({ navigation }) {
         })
       )
     }
-  }
+  }, [navigation])
+
+  useOnboardingHeader(navigation, onBack)
 
   const onAddressChange = (t) => {
     setAddress(t)
@@ -129,6 +137,23 @@ export default function AboutYouScreen({ navigation }) {
     setPredictions([])
     setErr('')
     Keyboard.dismiss()
+  }
+
+  const onAddressFocus = () => {
+    if (addressBlurClearRef.current) {
+      clearTimeout(addressBlurClearRef.current)
+      addressBlurClearRef.current = null
+    }
+    setAddressInputFocused(true)
+  }
+
+  const onAddressBlur = () => {
+    setAddressInputFocused(false)
+    if (addressBlurClearRef.current) clearTimeout(addressBlurClearRef.current)
+    addressBlurClearRef.current = setTimeout(() => {
+      setPredictions([])
+      addressBlurClearRef.current = null
+    }, 200)
   }
 
   const onContinue = async () => {
@@ -208,7 +233,8 @@ export default function AboutYouScreen({ navigation }) {
   }
 
   // Modest extra space when the suggestion list is open (keyboard insets handled by the ScrollView).
-  const scrollExtraBottom = predictions.length > 0 || predLoading ? 140 : 0
+  const scrollExtraBottom =
+    addressInputFocused && (predictions.length > 0 || predLoading) ? 140 : 0
 
   return (
     <View style={styles.flex}>
@@ -218,14 +244,12 @@ export default function AboutYouScreen({ navigation }) {
           styles.contentGrow,
           onboardingScrollContentBase(insets, scrollExtraBottom),
         ]}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
         keyboardDismissMode="none"
         automaticallyAdjustKeyboardInsets
         removeClippedSubviews={false}
         showsVerticalScrollIndicator
       >
-        <OnboardingBackRow onPress={onBack} />
-
         <Text style={onboardingHeaderStyles.title}>About You</Text>
         <Text style={onboardingHeaderStyles.sub}>Tell us a bit about yourself</Text>
 
@@ -275,9 +299,11 @@ export default function AboutYouScreen({ navigation }) {
             value={address}
             onChangeText={onAddressChange}
             placeholder={hasGooglePlacesKey() ? 'Start typing your address' : 'Street, city, state'}
-            predictions={predictions}
-            predictionsLoading={predLoading}
+            predictions={addressInputFocused ? predictions : []}
+            predictionsLoading={addressInputFocused && predLoading}
             onSelectPrediction={onPickPrediction}
+            onInputFocus={onAddressFocus}
+            onInputBlur={onAddressBlur}
             multiline={false}
             minHeight={52}
           />

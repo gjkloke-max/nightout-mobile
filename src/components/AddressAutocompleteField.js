@@ -84,7 +84,7 @@ export default function AddressAutocompleteField({
             <ScrollView
               style={styles.dropdownScroll}
               contentContainerStyle={styles.dropdownContent}
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="always"
               nestedScrollEnabled
               showsVerticalScrollIndicator={predictions.length > 4}
             >
@@ -92,9 +92,9 @@ export default function AddressAutocompleteField({
                 <Pressable
                   key={p.placeId}
                   style={({ pressed }) => [styles.suggestionRow, pressed && styles.suggestionPressed]}
-                  onPress={() => {
-                    Keyboard.dismiss()
+                  onPressIn={() => {
                     onSelectPrediction(p)
+                    Keyboard.dismiss()
                   }}
                 >
                   <MapPin size={18} color={authColors.textMuted} style={styles.pinIcon} strokeWidth={2} />

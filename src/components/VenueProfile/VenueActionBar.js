@@ -1,7 +1,8 @@
 import { View, Text, Pressable, StyleSheet, Linking } from 'react-native'
 import { Bookmark, ListPlus, MessageCircle, Send, Navigation, Globe } from 'lucide-react-native'
 import { colors, fontSizes, fontFamilies, spacing, iconSizes } from '../../theme'
-import { cleanUrl, formatFullAddress } from '../../utils/venueProfileUtils'
+import VenueLocationMiniMap from './VenueLocationMiniMap'
+import { cleanUrl, formatFullAddress, parseVenueLatLng } from '../../utils/venueProfileUtils'
 
 export default function VenueActionBar({
   venue,
@@ -16,6 +17,7 @@ export default function VenueActionBar({
 }) {
   const fullAddress = formatFullAddress(venue)
   const website = venue?.website ? cleanUrl(venue.website) : null
+  const latLng = parseVenueLatLng(venue)
 
   const openWebsite = () => {
     if (website) Linking.openURL(website)
@@ -76,6 +78,9 @@ export default function VenueActionBar({
                   <Navigation size={18} color={colors.textSecondary} strokeWidth={2} />
                 </Pressable>
               </View>
+              {latLng ? (
+                <VenueLocationMiniMap lat={latLng.lat} lng={latLng.lng} venueId={venue?.venue_id} />
+              ) : null}
             </View>
           ) : null}
           {fullAddress && website ? <View style={styles.divider} /> : null}

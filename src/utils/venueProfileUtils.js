@@ -77,6 +77,22 @@ export function formatFullAddress(venue) {
   return [address, cityState].filter(Boolean).join(', ')
 }
 
+/** @returns {{ lat: number, lng: number } | null} */
+export function parseVenueLatLng(venue) {
+  if (!venue) return null
+  const parseCoord = (v) => {
+    if (v == null) return NaN
+    if (typeof v === 'string' && v.trim() === '') return NaN
+    const n = Number(v)
+    return Number.isFinite(n) ? n : NaN
+  }
+  const lat = parseCoord(venue.latitude)
+  const lng = parseCoord(venue.longitude)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
+  return { lat, lng }
+}
+
 export function formatPriceLevel(priceLevel) {
   const n = Number(priceLevel)
   if (n === 1) return '$'

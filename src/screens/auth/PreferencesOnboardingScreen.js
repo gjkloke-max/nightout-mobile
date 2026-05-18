@@ -15,7 +15,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { authColors, authFonts, authSpacing } from '../../theme/authTheme'
 import { colors, fontSizes, fontFamilies, spacing, borderRadius } from '../../theme'
 import { onboardingScrollContentBase, onboardingHeaderStyles } from '../../theme/onboardingLayout'
-import OnboardingBackRow from '../../components/onboarding/OnboardingBackRow'
+import { useOnboardingHeader } from '../../components/onboarding/useOnboardingHeader'
 
 /**
  * Same per-category caps and UI language as `EditPreferencesScreen` (all categories, same chips/fonts).
@@ -108,18 +108,19 @@ export default function PreferencesOnboardingScreen({ navigation }) {
     }
   }
 
-  const onBack = () => {
+  const onBack = useCallback(() => {
     if (navigation.canGoBack()) {
       navigation.goBack()
     } else {
       navigation.navigate('AboutYou')
     }
-  }
+  }, [navigation])
+
+  useOnboardingHeader(navigation, onBack)
 
   if (loading && !hasLoadedOnce.current) {
     return (
       <View style={[styles.flex, onboardingScrollContentBase(insets, 0)]}>
-        <OnboardingBackRow onPress={onBack} />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={authColors.accent} />
         </View>
@@ -135,8 +136,6 @@ export default function PreferencesOnboardingScreen({ navigation }) {
         removeClippedSubviews={false}
         showsVerticalScrollIndicator
       >
-        <OnboardingBackRow onPress={onBack} />
-
         <Text style={onboardingHeaderStyles.title}>Your Preferences</Text>
         <Text style={onboardingHeaderStyles.sub}>
           Favorite cuisines, atmosphere, and dietary needs — the more preferences you select, the better your

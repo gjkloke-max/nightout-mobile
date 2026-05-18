@@ -1,9 +1,8 @@
-import { Platform } from 'react-native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { authColors } from '../theme/authTheme'
 import AboutYouScreen from '../screens/auth/AboutYouScreen'
 import PreferencesOnboardingScreen from '../screens/auth/PreferencesOnboardingScreen'
 import GetStartedScreen from '../screens/auth/GetStartedScreen'
+import { onboardingStackScreenOptions } from '../theme/onboardingStackScreenOptions'
 
 const Stack = createNativeStackNavigator()
 
@@ -22,13 +21,7 @@ export default function OnboardingStackNavigator({ initialStep }) {
   return (
     <Stack.Navigator
       initialRouteName={initial}
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: authColors.canvas },
-        animation: 'slide_from_right',
-        gestureEnabled: true,
-        ...(Platform.OS === 'ios' ? { fullScreenGestureEnabled: true } : {}),
-      }}
+      screenOptions={onboardingStackScreenOptions}
     >
       <Stack.Screen name="GetStarted" component={GetStartedScreen} />
       <Stack.Screen name="AboutYou" component={AboutYouScreen} />

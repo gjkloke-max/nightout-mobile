@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { authColors } from '../theme/authTheme'
+import { onboardingStackScreenOptions } from '../theme/onboardingStackScreenOptions'
 import LandingScreen from '../screens/auth/LandingScreen'
 import SignInScreen from '../screens/auth/SignInScreen'
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen'
@@ -20,7 +21,7 @@ export default function AuthStackNavigator() {
       <Stack.Screen name="Landing" component={LandingScreen} />
       <Stack.Screen name="SignIn" component={SignInScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-      <Stack.Screen name="GetStarted" component={GetStartedScreen} />
+      <Stack.Screen name="GetStarted" component={GetStartedScreen} options={onboardingStackScreenOptions} />
     </Stack.Navigator>
   )
 }

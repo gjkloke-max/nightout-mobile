@@ -29,11 +29,6 @@ import {
   fetchPlaceDetails,
   hasGooglePlacesKey,
 } from '../services/placesAutocomplete'
-import {
-  formatUsPhoneDisplayFromDigits,
-  normalizeUsPhoneDigits,
-  phoneDigitsForStorage,
-} from '../utils/phoneFormat'
 
 export default function EditProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets()
@@ -46,11 +41,12 @@ export default function EditProfileScreen({ navigation }) {
   const [usernameError, setUsernameError] = useState('')
   const [homeNeighborhood, setHomeNeighborhood] = useState('')
   const [homeAddress, setHomeAddress] = useState('')
-  const [phoneDisplay, setPhoneDisplay] = useState('')
+  const [addressFieldFocused, setAddressFieldFocused] = useState(false)
   const [addressPredictions, setAddressPredictions] = useState([])
   const [addressPredLoading, setAddressPredLoading] = useState(false)
   const [pickedAddressPlace, setPickedAddressPlace] = useState(null)
   const addressDebounceRef = useRef(null)
+  const addressBlurClearRef = useRef(null)
   const [neighborhoods, setNeighborhoods] = useState([])
   const [hoodModalOpen, setHoodModalOpen] = useState(false)
   const [profileSnapshot, setProfileSnapshot] = useState(null)
@@ -73,9 +69,6 @@ export default function EditProfileScreen({ navigation }) {
         setHomeAddress(profile.home_address || '')
         setPickedAddressPlace(null)
         setAddressPredictions([])
-        setPhoneDisplay(
-          profile.phone_number ? formatUsPhoneDisplayFromDigits(String(profile.phone_number)) : ''
-        )
         setAvatarUrl(profile.avatar_url || null)
         setProfileSnapshot(profile)
       } else {
@@ -106,6 +99,10 @@ export default function EditProfileScreen({ navigation }) {
   }, [homeAddress, pickedAddressPlace])
 
   useEffect(() => {
+    if (!addressFieldFocused) {
+      if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current)
+      return
+    }
     if (!hasGooglePlacesKey()) {
       setAddressPredictions([])
       return
@@ -128,7 +125,24 @@ export default function EditProfileScreen({ navigation }) {
     return () => {
       if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current)
     }
-  }, [homeAddress, pickedAddressPlace])
+  }, [homeAddress, pickedAddressPlace, addressFieldFocused])
+
+  const onAddressFocus = useCallback(() => {
+    if (addressBlurClearRef.current) {
+      clearTimeout(addressBlurClearRef.current)
+      addressBlurClearRef.current = null
+    }
+    setAddressFieldFocused(true)
+  }, [])
+
+  const onAddressBlur = useCallback(() => {
+    setAddressFieldFocused(false)
+    if (addressBlurClearRef.current) clearTimeout(addressBlurClearRef.current)
+    addressBlurClearRef.current = setTimeout(() => {
+      setAddressPredictions([])
+      addressBlurClearRef.current = null
+    }, 200)
+  }, [])
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -211,11 +225,6 @@ export default function EditProfileScreen({ navigation }) {
         }
       }
       setUsernameError('')
-      const phoneStored = phoneDigitsForStorage(phoneDisplay)
-      if (normalizeUsPhoneDigits(phoneDisplay).length > 0 && phoneStored.length !== 10) {
-        Alert.alert('Invalid phone', 'Enter a 10-digit US phone number or leave the field empty.')
-        return
-      }
       const { error } = await supabase.from('profiles').upsert(
         {
           id: user.id,
@@ -223,7 +232,7 @@ export default function EditProfileScreen({ navigation }) {
           last_name: lastName.trim() || null,
           username: v.normalized || null,
           home_address: homeAddress.trim() || null,
-          phone_number: phoneStored || null,
+          phone_number: null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'id' }
@@ -317,7 +326,7 @@ export default function EditProfileScreen({ navigation }) {
           styles.content,
           { paddingBottom: Math.max(spacing.xl, insets.bottom) + spacing.lg },
         ]}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
       >
         <Text style={styles.label}>Profile photo</Text>
         <View style={styles.avatarBlock}>
@@ -381,32 +390,21 @@ export default function EditProfileScreen({ navigation }) {
         {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
         <Text style={styles.hint}>3–30 characters, letters, numbers, underscores.</Text>
 
-        <Text style={styles.label}>Cell phone</Text>
-        <TextInput
-          style={styles.input}
-          value={phoneDisplay}
-          onChangeText={(text) => {
-            const d = normalizeUsPhoneDigits(text)
-            setPhoneDisplay(formatUsPhoneDisplayFromDigits(d))
-          }}
-          placeholder="763-439-2450"
-          placeholderTextColor={colors.textMuted}
-          keyboardType="phone-pad"
-        />
-
         <Text style={styles.label}>Home address</Text>
         <AddressAutocompleteField
           value={homeAddress}
           onChangeText={setHomeAddress}
           placeholder={hasGooglePlacesKey() ? 'Start typing your address' : 'Street, city, state'}
           placeholderTextColor={colors.textMuted}
-          predictions={addressPredictions}
-          predictionsLoading={addressPredLoading}
+          predictions={addressFieldFocused ? addressPredictions : []}
+          predictionsLoading={addressFieldFocused && addressPredLoading}
           onSelectPrediction={(p) => {
             setPickedAddressPlace({ placeId: p.placeId, description: p.description })
             setHomeAddress(p.description)
             setAddressPredictions([])
           }}
+          onInputFocus={onAddressFocus}
+          onInputBlur={onAddressBlur}
           multiline
           minHeight={72}
         />

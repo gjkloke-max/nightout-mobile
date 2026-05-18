@@ -7,6 +7,20 @@ export function getOAuthRedirectUrl() {
   return Linking.createURL('auth/callback')
 }
 
+/**
+ * Dev-only: prints the exact URL to paste in Supabase → Authentication → URL Configuration → Redirect URLs.
+ * Look in the Metro / Expo terminal (not only the device).
+ */
+export function logDevOAuthRedirectUrl() {
+  if (typeof __DEV__ === 'undefined' || !__DEV__) return
+  const url = getOAuthRedirectUrl()
+  console.log(
+    '\n━━ Supabase: add this Redirect URL (exact copy) ━━\n' +
+      url +
+      '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+  )
+}
+
 function parseTokensFromUrl(url) {
   try {
     const parsed = new URL(url)

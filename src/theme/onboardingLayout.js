@@ -11,7 +11,8 @@ export const ONBOARDING_MAX_WIDTH = 520
 export function onboardingScrollContentBase(insets, extraBottom = 0) {
   return {
     paddingHorizontal: authSpacing.lg,
-    paddingTop: insets.top + authSpacing.md,
+    // Stack header covers status bar; keep only the gap under the bar (same visual rhythm as pre-header insets+md).
+    paddingTop: authSpacing.md,
     paddingBottom: insets.bottom + authSpacing.xl + extraBottom,
     maxWidth: ONBOARDING_MAX_WIDTH,
     width: '100%',
@@ -20,10 +21,6 @@ export function onboardingScrollContentBase(insets, extraBottom = 0) {
 }
 
 export const onboardingHeaderStyles = StyleSheet.create({
-  backWrap: { alignSelf: 'flex-start', marginBottom: authSpacing.lg, zIndex: 20 },
-  backRow: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
-  backChevron: { marginRight: 4 },
-  back: { fontFamily: authFonts.interMedium, fontSize: 14, color: authColors.textPrimary },
   title: {
     fontFamily: authFonts.fraunces,
     fontSize: 40,

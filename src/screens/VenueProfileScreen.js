@@ -201,7 +201,12 @@ export default function VenueProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+      >
         <Pressable style={[styles.closeBtn, { top: insets.top + 12 }]} onPress={() => navigation.goBack()}>
           <X size={iconSizes.header} color={colors.textPrimary} strokeWidth={2} />
         </Pressable>
