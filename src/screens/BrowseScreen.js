@@ -74,7 +74,7 @@ function mergeVenueDetails(apiRows, supabaseVenues) {
       editorial_summary: details.editorial_summary ?? null,
       latitude: pickCoord(details.latitude, r.latitude),
       longitude: pickCoord(details.longitude, r.longitude),
-      trending_rank: details.trending_rank ?? r.trending_rank ?? null,
+      trending_rank: r.trending_rank ?? details.trending_rank ?? null,
     }
   })
 }

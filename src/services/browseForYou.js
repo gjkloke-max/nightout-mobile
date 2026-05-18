@@ -45,7 +45,7 @@ function mergeVenueDetails(apiRows, supabaseVenues) {
       editorial_summary: details.editorial_summary ?? null,
       latitude: details.latitude ?? r.latitude,
       longitude: details.longitude ?? r.longitude,
-      trending_rank: details.trending_rank ?? r.trending_rank ?? null,
+      trending_rank: r.trending_rank ?? details.trending_rank ?? null,
     }
   })
 }
