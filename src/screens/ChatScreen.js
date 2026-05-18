@@ -19,6 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { sendConciergeMessage } from '../lib/conciergeApi'
+import { buildConciergeSearchStatusText } from '../lib/conciergeSearchStatus'
+import { filterVenuesMentionedInText } from '../utils/venueMentionInText'
 import ConciergeLinkedText from '../components/ConciergeLinkedText'
 import { ChevronRight, Send, Menu, SquarePen } from 'lucide-react-native'
 import {
@@ -51,6 +53,7 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadingStatusText, setLoadingStatusText] = useState(null)
   const [error, setError] = useState(null)
   const scrollRef = useRef(null)
   const lastSearchStateRef = useRef(null)
@@ -139,6 +142,12 @@ export default function ChatScreen() {
     setInput('')
     setError(null)
 
+    const userMessage = { role: 'user', content: text }
+    const nextMessages = [...messages, userMessage]
+    setMessages(nextMessages)
+    setLoadingStatusText(buildConciergeSearchStatusText(text))
+    setLoading(true)
+
     let sessionId = currentSessionId
     if (!sessionId) {
       const { data: newSession } = await createNewSession()
@@ -147,11 +156,6 @@ export default function ChatScreen() {
         setCurrentSessionId(sessionId)
       }
     }
-
-    const userMessage = { role: 'user', content: text }
-    const nextMessages = [...messages, userMessage]
-    setMessages(nextMessages)
-    setLoading(true)
 
     if (sessionId) {
       await saveMessage(sessionId, 'user', text, [])
@@ -206,6 +210,7 @@ export default function ChatScreen() {
     })
 
     setLoading(false)
+    setLoadingStatusText(null)
 
     if (err) {
       setError(err.message || 'Something went wrong')
@@ -220,10 +225,13 @@ export default function ChatScreen() {
       lastGeoContextRef.current = data.geoContext
     }
 
+    const responseText = data.response || ''
+    const linkVenues = filterVenuesMentionedInText(responseText, data.venues || [], (v) => v.name)
+
     const assistantMessage = {
       role: 'assistant',
-      content: data.response || '',
-      venues: data.venues || [],
+      content: responseText,
+      venues: linkVenues,
     }
     setMessages((prev) => [...prev, assistantMessage])
 
@@ -466,8 +474,12 @@ export default function ChatScreen() {
             {loading ? (
               <View style={[styles.messageRow, styles.messageAssistant]}>
                 <View style={styles.bubble}>
-                  <ActivityIndicator size="small" color={colors.browseAccent} />
-                  <Text style={styles.loadingText}>Finding recommendations...</Text>
+                  {loadingStatusText ? (
+                    <Text style={styles.loadingStatusText} accessibilityRole="text">
+                      {loadingStatusText}
+                    </Text>
+                  ) : null}
+                  <ActivityIndicator size="small" color={colors.browseAccent} style={styles.loadingSpinner} />
                 </View>
               </View>
             ) : null}
@@ -731,7 +743,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
-  loadingText: { fontSize: fontSizes.sm, color: colors.textMuted, marginTop: spacing.xs },
+  loadingStatusText: {
+    fontSize: fontSizes.sm,
+    color: colors.textSecondary,
+    fontFamily: fontFamilies.interMedium,
+    lineHeight: 20,
+    marginBottom: spacing.xs,
+  },
+  loadingSpinner: { alignSelf: 'flex-start' },
   errorRow: { padding: spacing.md },
   errorText: { fontSize: fontSizes.sm, color: colors.error },
   inputRow: {
