@@ -19,7 +19,11 @@ import { Search, List, Map as MapIcon } from 'lucide-react-native'
 import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes, fontFamilies } from '../theme'
 import { bm25Search } from '../lib/searchApi'
 import { fetchVenuesByIds, searchVenuesByName } from '../lib/venueService'
-import { getTrendingVenues, getBrowseForYouVenues } from '../services/trendingVenues'
+import { getTrendingVenues } from '../services/trendingVenues'
+import { getBrowseForYouVenues } from '../services/browseForYou'
+import { getUserHomeLocation } from '../services/userHomeLocation'
+import { loadUserPreferencesForSearch } from '../services/userPreferencesForSearch'
+import { useAuth } from '../contexts/AuthContext'
 import BrowseVenueMapView from '../components/browse/BrowseVenueMapView'
 import { deriveBrowseTagPair } from '../utils/browseVenueTags'
 
@@ -133,6 +137,7 @@ const SEARCH_PLACEHOLDER = "Try 'best date night' or 'cozy cafe'..."
 
 export default function BrowseScreen() {
   const navigation = useNavigation()
+  const { user } = useAuth()
   const insets = useSafeAreaInsets()
   const searchInputRef = useRef(null)
   const searchMapRef = useRef(null)
@@ -158,6 +163,10 @@ export default function BrowseScreen() {
   const [forYouLoading, setForYouLoading] = useState(false)
   const [forYouError, setForYouError] = useState(null)
   const [forYouRefreshing, setForYouRefreshing] = useState(false)
+  const [browseHomeNeighborhoodName, setBrowseHomeNeighborhoodName] = useState(null)
+  const [forYouUserPreferences, setForYouUserPreferences] = useState(null)
+  const [forYouPrefsReady, setForYouPrefsReady] = useState(false)
+  const forYouLocked = forYouPrefsReady && !forYouUserPreferences
   /** Trending / For You: list vs map (same datasets; reuses Smart Search map behavior) */
   const [browseViewMode, setBrowseViewMode] = useState('list')
   const [selectedBrowseVenue, setSelectedBrowseVenue] = useState(null)
@@ -182,12 +191,61 @@ export default function BrowseScreen() {
     loadTrending()
   }, [mainTab, loadTrending])
 
+  useEffect(() => {
+    if (!user?.id) {
+      setBrowseHomeNeighborhoodName(null)
+      setForYouUserPreferences(null)
+      setForYouPrefsReady(true)
+      return
+    }
+    let canceled = false
+    setForYouPrefsReady(false)
+    ;(async () => {
+      try {
+        const [loc, prefs] = await Promise.all([
+          getUserHomeLocation(user.id),
+          loadUserPreferencesForSearch(user.id),
+        ])
+        if (!canceled) {
+          setBrowseHomeNeighborhoodName(loc.homeNeighborhoodName ?? null)
+          setForYouUserPreferences(prefs)
+        }
+      } catch {
+        if (!canceled) {
+          setBrowseHomeNeighborhoodName(null)
+          setForYouUserPreferences(null)
+        }
+      } finally {
+        if (!canceled) setForYouPrefsReady(true)
+      }
+    })()
+    return () => {
+      canceled = true
+    }
+  }, [user?.id])
+
   const loadForYou = useCallback(async () => {
+    if (!forYouUserPreferences) {
+      setForYouItems([])
+      setForYouError(null)
+      setForYouLoading(false)
+      setForYouRefreshing(false)
+      return
+    }
     setForYouLoading(true)
     setForYouError(null)
     try {
-      const data = await getBrowseForYouVenues(15)
-      setForYouItems(data)
+      const { items, error, locked } = await getBrowseForYouVenues({
+        homeNeighborhoodName: browseHomeNeighborhoodName,
+        userPreferences: forYouUserPreferences,
+      })
+      if (locked) {
+        setForYouItems([])
+        setForYouError(null)
+      } else {
+        setForYouItems(items)
+        setForYouError(error)
+      }
     } catch (e) {
       setForYouError(e?.message || 'Failed to load recommendations')
       setForYouItems([])
@@ -195,12 +253,12 @@ export default function BrowseScreen() {
       setForYouLoading(false)
       setForYouRefreshing(false)
     }
-  }, [])
+  }, [browseHomeNeighborhoodName, forYouUserPreferences])
 
   useEffect(() => {
-    if (mainTab !== 'forYou') return
+    if (mainTab !== 'forYou' || forYouLocked) return
     loadForYou()
-  }, [mainTab, loadForYou])
+  }, [mainTab, forYouLocked, loadForYou])
 
   const onTrendingRefresh = useCallback(() => {
     setTrendingRefreshing(true)
@@ -629,14 +687,27 @@ export default function BrowseScreen() {
           <View style={styles.tabBar}>
             {TABS.map((t) => {
               const active = mainTab === t.id
+              const locked = t.id === 'forYou' && forYouLocked
               return (
                 <TouchableOpacity
                   key={t.id}
-                  style={[styles.tabBtn, active ? styles.tabBtnActive : styles.tabBtnIdle]}
+                  style={[
+                    styles.tabBtn,
+                    active ? styles.tabBtnActive : styles.tabBtnIdle,
+                    locked ? styles.tabBtnLocked : null,
+                  ]}
                   onPress={() => onTabPress(t.id)}
                   activeOpacity={0.85}
                 >
-                  <Text style={[styles.tabBtnText, active ? styles.tabBtnTextActive : styles.tabBtnTextIdle]}>{t.label}</Text>
+                  <Text
+                    style={[
+                      styles.tabBtnText,
+                      active ? styles.tabBtnTextActive : styles.tabBtnTextIdle,
+                      locked ? styles.tabBtnTextLocked : null,
+                    ]}
+                  >
+                    {t.label}
+                  </Text>
                 </TouchableOpacity>
               )
             })}
@@ -741,7 +812,27 @@ export default function BrowseScreen() {
             </>
           )}
 
-          {mainTab === 'forYou' && (
+          {mainTab === 'forYou' && forYouLocked ? (
+            <View style={styles.lockedBox}>
+              <Text style={styles.lockedTitle}>For You is locked</Text>
+              <Text style={styles.lockedText}>
+                {user?.id
+                  ? 'Select your food, vibe, and dietary preferences to unlock personalized recommendations in your home neighborhood.'
+                  : 'Sign in and select your preferences to unlock personalized recommendations.'}
+              </Text>
+              {user?.id ? (
+                <TouchableOpacity
+                  style={styles.lockedCta}
+                  onPress={() => navigation.navigate('Profile', { screen: 'EditPreferences' })}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.lockedCtaText}>Set preferences</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+
+          {mainTab === 'forYou' && !forYouLocked ? (
             <>
               {forYouError ? (
                 <View style={styles.errorBox}>
@@ -1016,6 +1107,48 @@ const styles = StyleSheet.create({
   },
   tabBtnTextIdle: {
     color: colors.textSecondary,
+  },
+  tabBtnLocked: {
+    opacity: 0.45,
+  },
+  tabBtnTextLocked: {
+    color: colors.textMuted,
+  },
+  lockedBox: {
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderWidth: 1.33,
+    borderColor: colors.borderInput,
+    backgroundColor: colors.backgroundElevated,
+    alignItems: 'center',
+  },
+  lockedTitle: {
+    fontSize: fontSizes.md,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  lockedText: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.inter,
+    color: colors.textSecondary,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  lockedCta: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.browseAccent,
+  },
+  lockedCtaText: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.interSemiBold,
+    fontWeight: fontWeights.semibold,
+    color: '#ffffff',
   },
   sectionRow: {
     flexDirection: 'row',

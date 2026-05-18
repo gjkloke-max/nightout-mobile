@@ -5,7 +5,14 @@
 
 import { config } from './config'
 
-export async function hybridSearch({ queryText, queryEmbedding = null, matchCount = 20, excludeVenueIds }) {
+export async function hybridSearch({
+  queryText,
+  queryEmbedding = null,
+  matchCount = 20,
+  excludeVenueIds,
+  userPreferences,
+  effectiveNeighborhood,
+}) {
   const baseUrl = (config.searchApiUrl || '').replace(/\/$/, '')
   if (!baseUrl) {
     return { data: [], error: new Error('Search API URL not configured') }
@@ -19,6 +26,19 @@ export async function hybridSearch({ queryText, queryEmbedding = null, matchCoun
   }
   if (Array.isArray(excludeVenueIds) && excludeVenueIds.length > 0) {
     body.exclude_venue_ids = excludeVenueIds
+  }
+  if (
+    userPreferences &&
+    typeof userPreferences === 'object' &&
+    (userPreferences.foodStyles?.length ||
+      userPreferences.ambience?.length ||
+      userPreferences.allergies?.length ||
+      userPreferences.dislikes?.length)
+  ) {
+    body.user_preferences = userPreferences
+  }
+  if (effectiveNeighborhood && typeof effectiveNeighborhood === 'string' && effectiveNeighborhood.trim()) {
+    body.effective_neighborhood = effectiveNeighborhood.trim()
   }
 
   if (__DEV__) {

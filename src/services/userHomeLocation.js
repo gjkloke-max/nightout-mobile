@@ -72,3 +72,46 @@ export async function setUserHomeNeighborhood(userId, neighborhoodName) {
   }
   return { success: true }
 }
+
+/**
+ * @param {string} userId
+ * @returns {Promise<{ homeNeighborhoodId: number|null, homeNeighborhoodName: string|null, lat: number|null, lng: number|null }>}
+ */
+export async function getUserHomeLocation(userId) {
+  if (!userId) {
+    return { homeNeighborhoodId: null, homeNeighborhoodName: null, lat: null, lng: null }
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('home_neighborhood_id, home_neighborhood_name, home_lat, home_lng')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) {
+    console.error('getUserHomeLocation error:', error)
+    return { homeNeighborhoodId: null, homeNeighborhoodName: null, lat: null, lng: null }
+  }
+
+  if (!data) {
+    return { homeNeighborhoodId: null, homeNeighborhoodName: null, lat: null, lng: null }
+  }
+
+  let lat = data.home_lat != null ? parseFloat(data.home_lat) : null
+  let lng = data.home_lng != null ? parseFloat(data.home_lng) : null
+
+  if ((lat == null || lng == null) && data.home_neighborhood_id != null) {
+    const centroid = await getNeighborhoodCentroid(data.home_neighborhood_id)
+    if (centroid) {
+      lat = centroid.lat
+      lng = centroid.lng
+    }
+  }
+
+  return {
+    homeNeighborhoodId: data.home_neighborhood_id ?? null,
+    homeNeighborhoodName: data.home_neighborhood_name ?? null,
+    lat,
+    lng,
+  }
+}
