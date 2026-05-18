@@ -74,6 +74,7 @@ function mergeVenueDetails(apiRows, supabaseVenues) {
       editorial_summary: details.editorial_summary ?? null,
       latitude: pickCoord(details.latitude, r.latitude),
       longitude: pickCoord(details.longitude, r.longitude),
+      trending_rank: details.trending_rank ?? r.trending_rank ?? null,
     }
   })
 }
@@ -307,6 +308,7 @@ export default function BrowseScreen() {
             const d = byId.get(Number(v.venue_id))
             return {
               ...v,
+              trending_rank: d?.trending_rank ?? v.trending_rank ?? null,
               latitude: pickCoord(d?.latitude, v.latitude),
               longitude: pickCoord(d?.longitude, v.longitude),
             }
@@ -420,9 +422,12 @@ export default function BrowseScreen() {
           )}
         </View>
         <View style={styles.searchCompactMid}>
-          <Text style={styles.searchCompactName} numberOfLines={2} ellipsizeMode="tail">
-            {venue.name || 'Unknown'}
-          </Text>
+          <View style={styles.searchCompactNameRow}>
+            <Text style={styles.searchCompactName} numberOfLines={2} ellipsizeMode="tail">
+              {venue.name || 'Unknown'}
+            </Text>
+            {isVenueInTrendingPool(venue) ? <TrendingBadge /> : null}
+          </View>
           {venue.neighborhood_name ? (
             <Text style={styles.searchCompactHood} numberOfLines={1} ellipsizeMode="tail">
               {String(venue.neighborhood_name)}
@@ -1255,12 +1260,20 @@ const styles = StyleSheet.create({
     minHeight: 80,
     paddingRight: spacing.sm,
   },
+  searchCompactNameRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 1,
+  },
   searchCompactName: {
     fontSize: fontSizes.lg,
     fontFamily: fontFamilies.frauncesRegular,
     fontWeight: fontWeights.normal,
     color: colors.textPrimary,
     lineHeight: 22.5,
+    flexShrink: 1,
   },
   searchCompactHood: {
     fontSize: fontSizes.sm,

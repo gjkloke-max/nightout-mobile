@@ -78,6 +78,7 @@ export async function fetchVenuesByIds(venueIds) {
       compact_summary,
       review_summary,
       editorial_summary,
+      trending_rank,
       venue_type(venue_type_name),
       state(state_code)
     `)
