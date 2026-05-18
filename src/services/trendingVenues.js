@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase'
  * @param {number} limit
  * @returns {Promise<Array<{ venue, mentionCount, mentions }>>}
  */
-export async function getTrendingVenues(limit = 50) {
+export async function getTrendingVenues(limit = 100) {
   const { data: rows, error } = await supabase
     .from('external_venue_mention')
     .select('venue_id, source_url, source_list_name')
