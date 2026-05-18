@@ -920,7 +920,7 @@ export default function BrowseScreen() {
                 </View>
               )}
             </>
-          )}
+          ) : null}
 
           {mainTab === 'popularLists' && (
             <View style={styles.placeholderBox}>
