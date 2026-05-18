@@ -16,9 +16,10 @@ function resolveSearchApiBaseUrl(url) {
 
 /**
  * @param {number|string} venueId
- * @returns {Promise<{ ok: boolean, skipped?: boolean, reason?: string }>}
+ * @param {{ reviewText?: string | null }} [opts]
+ * @returns {Promise<{ ok: boolean, skipped?: boolean, reason?: string, review_in_search_text?: boolean }>}
  */
-export async function triggerVenueSearchReindex(venueId) {
+export async function triggerVenueSearchReindex(venueId, opts = {}) {
   const id = venueId != null ? parseInt(String(venueId), 10) : NaN
   if (!Number.isFinite(id) || id <= 0) {
     return { ok: false, reason: 'invalid venue_id' }
@@ -26,32 +27,31 @@ export async function triggerVenueSearchReindex(venueId) {
 
   const base = resolveSearchApiBaseUrl(config.searchApiUrl)
   if (!base) {
-    if (__DEV__) {
-      console.warn('[triggerVenueSearchReindex] EXPO_PUBLIC_SEARCH_API_URL not set')
-    }
+    console.warn('[triggerVenueSearchReindex] EXPO_PUBLIC_SEARCH_API_URL not set')
     return { ok: false, reason: 'no_search_api_url' }
   }
 
-  const url = `${base}/api/reindex-venue-search-background`
+  const reviewText = (opts.reviewText || '').trim() || null
+  const url = `${base}/api/reindex-venue-search`
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ venue_id: id }),
+      body: JSON.stringify({
+        venue_id: id,
+        ...(reviewText ? { review_text: reviewText } : {}),
+      }),
     })
+    const json = await res.json().catch(() => ({}))
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}))
-      const msg = errBody?.error || `HTTP ${res.status}`
-      if (__DEV__) {
-        console.warn(`[triggerVenueSearchReindex] venue_id=${id} failed:`, msg)
-      }
+      const msg = json?.error || `HTTP ${res.status}`
+      console.warn(`[triggerVenueSearchReindex] venue_id=${id} failed:`, msg)
       return { ok: false, reason: msg }
     }
-    return { ok: true }
+    const first = Array.isArray(json.results) ? json.results[0] : null
+    return { ok: true, review_in_search_text: first?.review_in_search_text }
   } catch (err) {
-    if (__DEV__) {
-      console.warn(`[triggerVenueSearchReindex] venue_id=${id} network error:`, err?.message || err)
-    }
+    console.warn(`[triggerVenueSearchReindex] venue_id=${id} network error:`, err?.message || err)
     return { ok: false, reason: err?.message || 'network_error' }
   }
 }
