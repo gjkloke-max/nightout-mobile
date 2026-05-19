@@ -80,6 +80,7 @@ export async function getBrowseForYouVenues({
     queryEmbedding: null,
     matchCount: limit,
     userPreferences,
+    forYouBrowse: true,
     effectiveNeighborhood,
   })
 

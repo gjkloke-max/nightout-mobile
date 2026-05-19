@@ -11,6 +11,7 @@ export async function hybridSearch({
   matchCount = 20,
   excludeVenueIds,
   userPreferences,
+  forYouBrowse = false,
   effectiveNeighborhood,
 }) {
   const baseUrl = (config.searchApiUrl || '').replace(/\/$/, '')
@@ -27,15 +28,18 @@ export async function hybridSearch({
   if (Array.isArray(excludeVenueIds) && excludeVenueIds.length > 0) {
     body.exclude_venue_ids = excludeVenueIds
   }
-  if (
-    userPreferences &&
-    typeof userPreferences === 'object' &&
-    (userPreferences.foodStyles?.length ||
-      userPreferences.ambience?.length ||
-      userPreferences.allergies?.length ||
-      userPreferences.dislikes?.length)
-  ) {
-    body.user_preferences = userPreferences
+  if (forYouBrowse) {
+    body.for_you_browse = true
+    if (
+      userPreferences &&
+      typeof userPreferences === 'object' &&
+      (userPreferences.foodStyles?.length ||
+        userPreferences.ambience?.length ||
+        userPreferences.allergies?.length ||
+        userPreferences.dislikes?.length)
+    ) {
+      body.user_preferences = userPreferences
+    }
   }
   if (effectiveNeighborhood && typeof effectiveNeighborhood === 'string' && effectiveNeighborhood.trim()) {
     body.effective_neighborhood = effectiveNeighborhood.trim()

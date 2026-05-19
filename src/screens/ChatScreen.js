@@ -23,7 +23,6 @@ import {
   shouldPassLastGeoContext,
 } from '../lib/conciergeRequestContext'
 import { buildConciergeSearchStatusText } from '../lib/conciergeSearchStatus'
-import { loadUserPreferencesForSearch } from '../services/userPreferencesForSearch'
 import { getUserHomeLocation } from '../services/userHomeLocation'
 import { filterVenuesMentionedInText } from '../utils/venueMentionInText'
 import ConciergeLinkedText from '../components/ConciergeLinkedText'
@@ -185,7 +184,6 @@ export default function ChatScreen() {
         }
       : null
 
-    const userPreferences = user?.id ? await loadUserPreferencesForSearch(user.id) : null
     const excludeVenueIds = buildConciergeExcludeVenueIds(
       messages,
       text,
@@ -197,7 +195,6 @@ export default function ChatScreen() {
     const { data, error: err } = await sendConciergeMessage({
       message: text,
       conversationHistory,
-      userPreferences: userPreferences || null,
       userHome,
       excludeVenueIds,
       conversationSearchState: lastSearchStateRef.current,

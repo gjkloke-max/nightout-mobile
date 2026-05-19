@@ -40,7 +40,6 @@ function conciergeFetchError(err) {
 export async function sendConciergeMessage({
   message,
   conversationHistory = [],
-  userPreferences = null,
   userHome = null,
   excludeVenueIds = [],
   conversationSearchState = null,
@@ -73,7 +72,6 @@ export async function sendConciergeMessage({
     const body = {
       message: (message || '').trim(),
       conversationHistory: conversationHistory.map((m) => ({ role: m.role, content: m.content || '' })),
-      userPreferences: userPreferences || null,
     }
     if (conversationSearchState && typeof conversationSearchState === 'object') {
       body.conversationSearchState = conversationSearchState
