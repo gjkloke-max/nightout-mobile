@@ -145,24 +145,6 @@ const CANDIDATES = [
     priority: 3,
   },
   {
-    id: 'service',
-    label: 'polished service',
-    exclusiveGroup: 'service',
-    phrases: [
-      { text: 'friendly staff', weight: 1.5, minHits: 2 },
-      { text: 'attentive', weight: 1.3, minHits: 2 },
-      { text: 'great service', weight: 1.5, minHits: 2 },
-      { text: 'excellent service', weight: 2, minHits: 1 },
-    ],
-    strongPhrases: [
-      { text: 'impeccable service', weight: 2.5 },
-      { text: 'service was outstanding', weight: 2 },
-      { text: 'staff was wonderful', weight: 2 },
-    ],
-    minScore: 4,
-    priority: 3,
-  },
-  {
     id: 'pasta',
     label: 'pasta standout',
     exclusiveGroup: 'food-signature',

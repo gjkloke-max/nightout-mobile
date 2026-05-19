@@ -58,13 +58,27 @@ export default function VenueProfileScreen() {
 
   useEffect(() => {
     if (!venueId) return
+    let cancelled = false
     setLoading(true)
+    setVenue(null)
     fetchVenueById(venueId).then(async ({ data, error }) => {
+      if (cancelled) return
+      if (error || !data) {
+        setVenue(null)
+        setLoading(false)
+        return
+      }
+      setVenue(data)
       setLoading(false)
-      if (error || !data) return
       const searchText = await fetchVenueSearchText(venueId)
-      setVenue(searchText ? { ...data, search_text: searchText } : data)
+      if (cancelled || !searchText) return
+      setVenue((prev) =>
+        prev?.venue_id === data.venue_id ? { ...prev, search_text: searchText } : prev,
+      )
     })
+    return () => {
+      cancelled = true
+    }
   }, [venueId])
 
   useEffect(() => {
@@ -188,7 +202,7 @@ export default function VenueProfileScreen() {
     )
   }
 
-  if (!venue) {
+  if (!venue && !loading) {
     return (
       <View style={styles.center}>
         <Text style={styles.error}>Venue not found</Text>
