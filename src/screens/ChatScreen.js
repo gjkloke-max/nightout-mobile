@@ -17,9 +17,14 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
-import { supabase } from '../lib/supabase'
 import { sendConciergeMessage } from '../lib/conciergeApi'
+import {
+  buildConciergeExcludeVenueIds,
+  shouldPassLastGeoContext,
+} from '../lib/conciergeRequestContext'
 import { buildConciergeSearchStatusText } from '../lib/conciergeSearchStatus'
+import { loadUserPreferencesForSearch } from '../services/userPreferencesForSearch'
+import { getUserHomeLocation } from '../services/userHomeLocation'
 import { filterVenuesMentionedInText } from '../utils/venueMentionInText'
 import ConciergeLinkedText from '../components/ConciergeLinkedText'
 import { ChevronRight, Send, Menu, SquarePen } from 'lucide-react-native'
@@ -43,9 +48,6 @@ const SUGGESTED_PROMPTS = [
   'Where should I go in Lakeview?',
 ]
 
-const isMoreFollowUp = (msg) =>
-  /^(more|additional|other|another|different|more options|give me more|show me more|any others?|what else)\s*$/i.test((msg || '').trim())
-
 export default function ChatScreen() {
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
@@ -58,6 +60,7 @@ export default function ChatScreen() {
   const scrollRef = useRef(null)
   const lastSearchStateRef = useRef(null)
   const lastGeoContextRef = useRef(null)
+  const lastSearchQueryRef = useRef(null)
   const [currentSessionId, setCurrentSessionId] = useState(null)
   const [chatSessions, setChatSessions] = useState([])
   const [chatPreviews, setChatPreviews] = useState({})
@@ -172,41 +175,31 @@ export default function ChatScreen() {
       content: typeof m.content === 'string' ? m.content : '',
     }))
 
-    let userHome = null
-    if (user?.id && supabase) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('home_neighborhood_name, home_lat, home_lng')
-        .eq('id', user.id)
-        .single()
-      if (profile && (profile.home_lat != null || profile.home_lng != null)) {
-        userHome = {
-          homeNeighborhoodName: profile.home_neighborhood_name ?? null,
-          lat: profile.home_lat != null ? parseFloat(profile.home_lat) : null,
-          lng: profile.home_lng != null ? parseFloat(profile.home_lng) : null,
+    const homeLocation = user?.id ? await getUserHomeLocation(user.id) : null
+    const userHome = homeLocation
+      ? {
+          homeNeighborhoodName: homeLocation.homeNeighborhoodName ?? null,
+          lat: homeLocation.lat ?? null,
+          lng: homeLocation.lng ?? null,
         }
-      }
-    }
+      : null
 
-    const introducedVenueIds = []
-    messages.forEach((m) => {
-      if (m.role === 'assistant' && Array.isArray(m.venues)) {
-        m.venues.forEach((v) => {
-          const vid = v?.venue_id ?? v?.venueId
-          if (vid != null && !introducedVenueIds.includes(vid)) introducedVenueIds.push(vid)
-        })
-      }
-    })
-    const excludeVenueIds = isMoreFollowUp(text) && introducedVenueIds.length > 0 ? introducedVenueIds : []
+    const userPreferences = user?.id ? await loadUserPreferencesForSearch(user.id) : null
+    const excludeVenueIds = buildConciergeExcludeVenueIds(
+      messages,
+      text,
+      lastSearchQueryRef.current
+    )
+    const passLastGeo = shouldPassLastGeoContext(messages, text)
 
     const { data, error: err } = await sendConciergeMessage({
       message: text,
       conversationHistory,
-      userPreferences: null,
+      userPreferences: userPreferences || null,
       userHome,
       excludeVenueIds,
       conversationSearchState: lastSearchStateRef.current,
-      lastGeoContext: lastGeoContextRef.current,
+      lastGeoContext: passLastGeo ? lastGeoContextRef.current : null,
     })
 
     setLoading(false)
@@ -223,6 +216,9 @@ export default function ChatScreen() {
     }
     if (data.geoContext && typeof data.geoContext === 'object') {
       lastGeoContextRef.current = data.geoContext
+      lastSearchQueryRef.current = text
+    } else if (!passLastGeo) {
+      lastSearchQueryRef.current = text
     }
 
     const responseText = data.response || ''
@@ -255,6 +251,7 @@ export default function ChatScreen() {
         setError(null)
         lastSearchStateRef.current = null
         lastGeoContextRef.current = null
+        lastSearchQueryRef.current = null
         await refreshHistoryList()
       }
     } catch (e) {
@@ -272,6 +269,7 @@ export default function ChatScreen() {
         setHistoryOpen(false)
         lastSearchStateRef.current = null
         lastGeoContextRef.current = null
+        lastSearchQueryRef.current = null
       } else {
         setError('Failed to load chat')
       }
