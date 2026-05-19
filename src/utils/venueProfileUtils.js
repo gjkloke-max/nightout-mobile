@@ -19,48 +19,20 @@ export function cleanUrl(url) {
   }
 }
 
-export function deriveCrowdSentiment(combinedText) {
-  if (!combinedText || typeof combinedText !== 'string') return []
-  const lower = combinedText.toLowerCase()
-  const themes = []
-  /** Grounded in review/summary text only; labels kept fair (no harsh callouts). */
-  const patterns = [
-    { phrases: ['cozy', 'intimate'], label: 'Cozy, intimate atmosphere', cat: 'ambience-cozy' },
-    { phrases: ['romantic'], label: 'Romantic vibe', cat: 'ambience-romantic' },
-    { phrases: ['casual'], label: 'Casual atmosphere', cat: 'ambience-casual' },
-    { phrases: ['upscale'], label: 'Upscale feel', cat: 'ambience-upscale' },
-    { phrases: ['lively'], label: 'Lively energy', cat: 'ambience-lively' },
-    { phrases: ['date night'], label: 'Popular for date nights', cat: 'crowd-date' },
-    { phrases: ['groups', 'group dining'], label: 'Good for groups', cat: 'crowd-groups' },
-    { phrases: ['pasta'], label: 'Strong pasta mentions', cat: 'food-pasta' },
-    { phrases: ['steak', 'ribeye', 'filet'], label: 'Steak frequently mentioned', cat: 'food-steak' },
-    { phrases: ['cocktail', 'cocktails'], label: 'Cocktails are a highlight', cat: 'drink-cocktails' },
-    { phrases: ['wine'], label: 'Wine selection noted', cat: 'drink-wine' },
-    { phrases: ['sushi'], label: 'Sushi gets attention', cat: 'food-sushi' },
-    { phrases: ['brunch'], label: 'Brunch favorite', cat: 'food-brunch' },
-    { phrases: ['pizza'], label: 'Pizza often mentioned', cat: 'food-pizza' },
-    {
-      phrases: ['great service', 'good service', 'friendly staff', 'attentive', 'excellent service', 'helpful staff'],
-      label: 'Service is often praised',
-      cat: 'service-praised',
-    },
-    { phrases: ['crowded', 'packed'], label: 'Lively and popular', cat: 'crowd-busy' },
-    { phrases: ['weekend', 'weekends'], label: 'Popular on weekends', cat: 'crowd-weekend' },
-    { phrases: ['portion', 'portions'], label: 'Portions are a recurring talking point', cat: 'practical-portions' },
-    { phrases: ['patio', 'outdoor'], label: 'Patio or outdoor seating', cat: 'practical-outdoor' },
-    { phrases: ['happy hour'], label: 'Happy hour noted', cat: 'practical-hh' },
-    { phrases: ['live music'], label: 'Live music', cat: 'practical-music' },
-  ]
-  const seen = new Set()
-  for (const { phrases, label, cat } of patterns) {
-    if (seen.has(cat)) continue
-    if (phrases.some((p) => lower.includes(p))) {
-      seen.add(cat)
-      themes.push(label)
-    }
-  }
-  return themes.slice(0, 8)
+export function buildCrowdSentimentSourceText(venue, reviews = []) {
+  const fromSearch = (venue?.search_text || '').trim()
+  if (fromSearch) return fromSearch
+
+  const reviewTexts = (reviews || [])
+    .map((r) => r?.review_text)
+    .filter((t) => t && typeof t === 'string')
+  const summary = [venue?.compact_summary, venue?.review_summary, venue?.editorial_summary]
+    .filter((s) => s && typeof s === 'string')
+    .join(' ')
+  return [...reviewTexts, summary].filter(Boolean).join(' ')
 }
+
+export { deriveCrowdSentiment } from './crowdSentimentTags.js'
 
 export function filterGenericVenueType(typeName) {
   if (!typeName || typeof typeName !== 'string') return ''

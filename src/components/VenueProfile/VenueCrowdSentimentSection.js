@@ -1,15 +1,9 @@
 import { View, Text, StyleSheet } from 'react-native'
 import { colors, fontSizes, fontFamilies, spacing } from '../../theme'
-import { deriveCrowdSentiment } from '../../utils/venueProfileUtils'
+import { buildCrowdSentimentSourceText, deriveCrowdSentiment } from '../../utils/venueProfileUtils'
 
-export default function VenueCrowdSentimentSection({ venue, reviews = [] }) {
-  const reviewTexts = (reviews || [])
-    .map((r) => r?.review_text)
-    .filter((t) => t && typeof t === 'string')
-  const summary = [venue?.compact_summary, venue?.review_summary, venue?.editorial_summary]
-    .filter((s) => s && typeof s === 'string')
-    .join(' ')
-  const combined = [...reviewTexts, summary].filter(Boolean).join(' ')
+export default function VenueCrowdSentimentSection({ venue }) {
+  const combined = buildCrowdSentimentSourceText(venue)
   const themes = deriveCrowdSentiment(combined)
 
   if (!themes.length) return null

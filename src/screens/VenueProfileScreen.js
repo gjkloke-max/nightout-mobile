@@ -4,6 +4,7 @@ import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../lib/supabase'
 import { fetchVenueById } from '../lib/venueService'
+import { fetchVenueSearchText } from '../lib/fetchVenueSearchText'
 import { addFavorite, removeFavorite, getFavoriteVenueIds } from '../utils/favorites'
 import { useAuth } from '../contexts/AuthContext'
 import AddToListModal from '../components/AddToListModal'
@@ -58,9 +59,11 @@ export default function VenueProfileScreen() {
   useEffect(() => {
     if (!venueId) return
     setLoading(true)
-    fetchVenueById(venueId).then(({ data, error }) => {
+    fetchVenueById(venueId).then(async ({ data, error }) => {
       setLoading(false)
-      if (!error && data) setVenue(data)
+      if (error || !data) return
+      const searchText = await fetchVenueSearchText(venueId)
+      setVenue(searchText ? { ...data, search_text: searchText } : data)
     })
   }, [venueId])
 
@@ -98,6 +101,10 @@ export default function VenueProfileScreen() {
         if (cancelled) return
         setVenueReviews(merged)
         setHasMoreReviews(total > merged.length)
+        const searchText = await fetchVenueSearchText(venueId)
+        if (!cancelled && searchText) {
+          setVenue((prev) => (prev ? { ...prev, search_text: searchText } : prev))
+        }
         setLoadingReviews(false)
       })()
       return () => {
@@ -235,7 +242,7 @@ export default function VenueProfileScreen() {
           hasUserReview={!!userReview}
         />
 
-        <VenueCrowdSentimentSection venue={venue} reviews={venueReviews} />
+        <VenueCrowdSentimentSection venue={venue} />
 
         <VenueReviewList
             reviews={venueReviews}
