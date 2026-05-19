@@ -4,7 +4,7 @@ import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../lib/supabase'
 import { fetchVenueById } from '../lib/venueService'
-import { fetchVenueSearchText } from '../lib/fetchVenueSearchText'
+import { fetchVenueCrowdSentimentTags } from '../lib/fetchVenueCrowdSentiment'
 import { addFavorite, removeFavorite, getFavoriteVenueIds } from '../utils/favorites'
 import { useAuth } from '../contexts/AuthContext'
 import AddToListModal from '../components/AddToListModal'
@@ -68,13 +68,10 @@ export default function VenueProfileScreen() {
         setLoading(false)
         return
       }
-      setVenue(data)
+      const crowdSentimentTags = await fetchVenueCrowdSentimentTags(venueId)
+      if (cancelled) return
+      setVenue({ ...data, crowd_sentiment_tags: crowdSentimentTags })
       setLoading(false)
-      const searchText = await fetchVenueSearchText(venueId)
-      if (cancelled || !searchText) return
-      setVenue((prev) =>
-        prev?.venue_id === data.venue_id ? { ...prev, search_text: searchText } : prev,
-      )
     })
     return () => {
       cancelled = true
@@ -115,9 +112,9 @@ export default function VenueProfileScreen() {
         if (cancelled) return
         setVenueReviews(merged)
         setHasMoreReviews(total > merged.length)
-        const searchText = await fetchVenueSearchText(venueId)
-        if (!cancelled && searchText) {
-          setVenue((prev) => (prev ? { ...prev, search_text: searchText } : prev))
+        const crowdSentimentTags = await fetchVenueCrowdSentimentTags(venueId)
+        if (!cancelled) {
+          setVenue((prev) => (prev ? { ...prev, crowd_sentiment_tags: crowdSentimentTags } : prev))
         }
         setLoadingReviews(false)
       })()
@@ -256,7 +253,7 @@ export default function VenueProfileScreen() {
           hasUserReview={!!userReview}
         />
 
-        <VenueCrowdSentimentSection venue={venue} />
+        <VenueCrowdSentimentSection crowdSentimentTags={venue.crowd_sentiment_tags} />
 
         <VenueReviewList
             reviews={venueReviews}

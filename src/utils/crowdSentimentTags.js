@@ -4,6 +4,7 @@
  */
 
 export const CROWD_SENTIMENT_MAX_TAGS = 6
+export const CROWD_SENTIMENT_SOURCE_VERSION = 'crowd-sentiment-v1'
 
 /** Minimum total score for a candidate to be eligible. */
 const MIN_ELIGIBLE_SCORE = 3.5
@@ -341,7 +342,7 @@ export function crowdSentimentTagsConflict(a, b) {
  * @param {Array<{ candidate: CrowdSentimentCandidate, score: number }>} ranked
  * @param {number} maxTags
  */
-export function selectCoherentCrowdSentimentTags(ranked, maxTags = CROWD_SENTIMENT_MAX_TAGS) {
+export function selectCoherentCrowdSentimentTagRows(ranked, maxTags = CROWD_SENTIMENT_MAX_TAGS) {
   /** @type {typeof ranked} */
   const selected = []
   let foodSignatureCount = 0
@@ -357,17 +358,21 @@ export function selectCoherentCrowdSentimentTags(ranked, maxTags = CROWD_SENTIME
     if (c.exclusiveGroup === 'food-signature') foodSignatureCount++
   }
 
-  return selected.map((e) => e.candidate.label)
+  return selected
+}
+
+/** @param {Parameters<typeof selectCoherentCrowdSentimentTagRows>[0]} ranked */
+export function selectCoherentCrowdSentimentTags(ranked, maxTags = CROWD_SENTIMENT_MAX_TAGS) {
+  return selectCoherentCrowdSentimentTagRows(ranked, maxTags).map((e) => e.candidate.label)
 }
 
 /**
  * @param {string} combinedText - venue_search_data.search_text (or fallback corpus)
- * @returns {string[]}
  */
-export function deriveCrowdSentiment(combinedText) {
+export function scoreAndRankCrowdSentimentCandidates(combinedText) {
   if (!combinedText || typeof combinedText !== 'string') return []
 
-  const scored = CANDIDATES.map((candidate) => {
+  return CANDIDATES.map((candidate) => {
     const { score, eligible } = scoreCrowdSentimentCandidate(combinedText, candidate)
     return { candidate, score, eligible }
   })
@@ -377,6 +382,27 @@ export function deriveCrowdSentiment(combinedText) {
       if (pri !== 0) return pri
       return b.score - a.score
     })
+}
 
-  return selectCoherentCrowdSentimentTags(scored)
+/**
+ * @param {string} combinedText - venue_search_data.search_text (or fallback corpus)
+ * @returns {{ tags: string[], rows: Array<{ candidateId: string, tagLabel: string, displayOrder: number, score: number }> }}
+ */
+export function deriveCrowdSentimentRanked(combinedText) {
+  const selected = selectCoherentCrowdSentimentTagRows(scoreAndRankCrowdSentimentCandidates(combinedText))
+  const rows = selected.map((entry, displayOrder) => ({
+    candidateId: entry.candidate.id,
+    tagLabel: entry.candidate.label,
+    displayOrder,
+    score: entry.score,
+  }))
+  return { tags: rows.map((r) => r.tagLabel), rows }
+}
+
+/**
+ * @param {string} combinedText - venue_search_data.search_text (or fallback corpus)
+ * @returns {string[]}
+ */
+export function deriveCrowdSentiment(combinedText) {
+  return deriveCrowdSentimentRanked(combinedText).tags
 }

@@ -1,10 +1,10 @@
 import { View, Text, StyleSheet } from 'react-native'
 import { colors, fontSizes, fontFamilies, spacing } from '../../theme'
-import { buildCrowdSentimentSourceText, deriveCrowdSentiment } from '../../utils/venueProfileUtils'
 
-export default function VenueCrowdSentimentSection({ venue }) {
-  const combined = buildCrowdSentimentSourceText(venue)
-  const themes = deriveCrowdSentiment(combined)
+export default function VenueCrowdSentimentSection({ crowdSentimentTags = [] }) {
+  const themes = Array.isArray(crowdSentimentTags)
+    ? crowdSentimentTags.filter((t) => t && typeof t === 'string')
+    : []
 
   if (!themes.length) return null
 
