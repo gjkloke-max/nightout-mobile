@@ -44,6 +44,7 @@ export async function sendConciergeMessage({
   userHome = null,
   excludeVenueIds = [],
   conversationSearchState = null,
+  recommendationState = null,
   lastGeoContext = null,
 }) {
   const searchApiUrl = resolveSearchApiBaseUrl((config.searchApiUrl || '').replace(/\/$/, ''))
@@ -77,6 +78,9 @@ export async function sendConciergeMessage({
     if (conversationSearchState && typeof conversationSearchState === 'object') {
       body.conversationSearchState = conversationSearchState
     }
+    if (recommendationState && typeof recommendationState === 'object') {
+      body.recommendationState = recommendationState
+    }
     if (lastGeoContext && typeof lastGeoContext === 'object') {
       body.lastGeoContext = lastGeoContext
     }
@@ -105,6 +109,7 @@ export async function sendConciergeMessage({
         reviews: data.reviews ?? [],
         venues: data.venues ?? [],
         searchState: data.searchState ?? null,
+        recommendationState: data.recommendationState ?? null,
         geoContext: data.geoContext ?? null,
       },
       error: null,

@@ -59,6 +59,7 @@ export default function ChatScreen() {
   const [error, setError] = useState(null)
   const scrollRef = useRef(null)
   const lastSearchStateRef = useRef(null)
+  const lastRecommendationStateRef = useRef(null)
   const lastGeoContextRef = useRef(null)
   const lastSearchQueryRef = useRef(null)
   const [currentSessionId, setCurrentSessionId] = useState(null)
@@ -188,7 +189,8 @@ export default function ChatScreen() {
     const excludeVenueIds = buildConciergeExcludeVenueIds(
       messages,
       text,
-      lastSearchQueryRef.current
+      lastSearchQueryRef.current,
+      lastRecommendationStateRef.current
     )
     const passLastGeo = shouldPassLastGeoContext(messages, text)
 
@@ -199,6 +201,7 @@ export default function ChatScreen() {
       userHome,
       excludeVenueIds,
       conversationSearchState: lastSearchStateRef.current,
+      recommendationState: lastRecommendationStateRef.current,
       lastGeoContext: passLastGeo ? lastGeoContextRef.current : null,
     })
 
@@ -213,6 +216,9 @@ export default function ChatScreen() {
 
     if (data.searchState && typeof data.searchState === 'object') {
       lastSearchStateRef.current = data.searchState
+    }
+    if (data.recommendationState && typeof data.recommendationState === 'object') {
+      lastRecommendationStateRef.current = data.recommendationState
     }
     if (data.geoContext && typeof data.geoContext === 'object') {
       lastGeoContextRef.current = data.geoContext
@@ -250,6 +256,7 @@ export default function ChatScreen() {
         setInput('')
         setError(null)
         lastSearchStateRef.current = null
+        lastRecommendationStateRef.current = null
         lastGeoContextRef.current = null
         lastSearchQueryRef.current = null
         await refreshHistoryList()
@@ -268,6 +275,7 @@ export default function ChatScreen() {
         setCurrentSessionId(sessionId)
         setHistoryOpen(false)
         lastSearchStateRef.current = null
+        lastRecommendationStateRef.current = null
         lastGeoContextRef.current = null
         lastSearchQueryRef.current = null
       } else {

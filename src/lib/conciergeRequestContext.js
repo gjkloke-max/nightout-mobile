@@ -2,6 +2,12 @@
  * Concierge request helpers — keep in sync with NightOut web ChatConcierge.jsx.
  */
 
+import {
+  classifyConciergeFollowUp,
+  followUpConstrainsToShortlist,
+  normalizeRecommendationState,
+} from '../utils/conciergeConversationState.js'
+
 const MORE_FOLLOWUP_EXACT =
   /^(more|additional|other|another|different|more options|give me more|show me more|any others?|what else)\s*$/i
 
@@ -9,8 +15,9 @@ const MORE_FOLLOWUP_EXACT =
  * @param {Array<{ role: string, content?: string, venues?: Array }>} messages - Full thread including current user turn
  * @param {string} userMessage
  * @param {string | null | undefined} priorSearchQuery - From last geo/search context
+ * @param {object | null | undefined} recommendationState - Structured shortlist from last concierge turn
  */
-export function buildConciergeExcludeVenueIds(messages, userMessage, priorSearchQuery) {
+export function buildConciergeExcludeVenueIds(messages, userMessage, priorSearchQuery, recommendationState = null) {
   const introducedIds = []
   for (const m of messages || []) {
     if (m.role !== 'assistant' || !Array.isArray(m.venues)) continue
@@ -23,6 +30,16 @@ export function buildConciergeExcludeVenueIds(messages, userMessage, priorSearch
 
   const hasPreviousExchange =
     (messages || []).some((m) => m.role === 'user') && (messages || []).some((m) => m.role === 'assistant')
+
+  const followUp = classifyConciergeFollowUp(
+    userMessage,
+    normalizeRecommendationState(recommendationState),
+    { hasPreviousExchange },
+  )
+  if (followUpConstrainsToShortlist(followUp.mode)) {
+    return []
+  }
+
   const tellMeMoreMatch = userMessage.match(
     /(?:tell me more about|more about|details about|info about|more details on|details on|info on)\s+(.+)/i
   )
