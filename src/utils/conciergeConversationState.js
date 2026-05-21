@@ -2,11 +2,8 @@
  * Keep in sync with NightOut `src/utils/conciergeConversationState.js`.
  */
 
+import { detectNeighborhoodIntent } from './detectNeighborhoodIntent.js'
 import { venueNameAppearsInText } from './venueMentionInText.js'
-
-function detectNeighborhoodIntent(query) {
-  return { detected: null, queryWithoutNeighborhood: query || '' }
-}
 
 export const FOLLOW_UP_NEW_SEARCH = 'new_search'
 export const FOLLOW_UP_RESULT_SET_REFINEMENT = 'result_set_refinement'
@@ -132,6 +129,36 @@ export function normalizeRecommendationState(raw) {
 
 export function hasRecommendationShortlist(state) {
   return (state?.last_recommended_venue_ids?.length ?? 0) > 0
+}
+
+export function buildRecommendationStateFromTurn({
+  venueIdsOrdered,
+  venueNamesOrdered,
+  searchMessage,
+  mergedSearchState,
+  focusedVenueId,
+}) {
+  const ids = (venueIdsOrdered || []).map((id) => parseInt(String(id), 10)).filter((n) => !isNaN(n))
+  const names = (venueNamesOrdered || []).map((n) => String(n || '').trim()).filter(Boolean)
+  const { detected: location } = detectNeighborhoodIntent(searchMessage || '')
+  return {
+    version: 1,
+    last_recommended_venue_ids: ids,
+    last_recommended_venue_names: names,
+    last_result_order: ids,
+    last_search_intent: searchMessage?.trim() || null,
+    last_location:
+      location ||
+      mergedSearchState?.resolved_neighborhoods?.[0] ||
+      mergedSearchState?.raw_location_text ||
+      null,
+    last_cuisine: mergedSearchState?.cuisine?.[0] || mergedSearchState?.hard_filters_cuisine?.[0] || null,
+    last_place_type: mergedSearchState?.hard_filters_place_type?.[0] || null,
+    last_format: mergedSearchState?.hard_filters_food_service?.[0] || null,
+    last_dietary: mergedSearchState?.hard_filters_dietary?.[0] || mergedSearchState?.dietary_constraints?.[0] || null,
+    last_vibe: mergedSearchState?.vibe?.[0] || null,
+    currently_focused_venue_id: focusedVenueId ?? null,
+  }
 }
 
 export function classifyConciergeFollowUp(message, state, options = {}) {

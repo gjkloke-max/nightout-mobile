@@ -82,7 +82,7 @@ export async function sendConciergeMessage({
     if (lastGeoContext && typeof lastGeoContext === 'object') {
       body.lastGeoContext = lastGeoContext
     }
-    if (userHome && (userHome.lat != null || userHome.lng != null)) {
+    if (userHome && typeof userHome === 'object') {
       body.userHome = {
         homeNeighborhoodName: userHome.homeNeighborhoodName ?? null,
         lat: userHome.lat ?? null,

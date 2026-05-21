@@ -20,11 +20,13 @@ import { useAuth } from '../contexts/AuthContext'
 import { sendConciergeMessage } from '../lib/conciergeApi'
 import {
   buildConciergeExcludeVenueIds,
+  pickConciergeResponseVenues,
   shouldPassLastGeoContext,
+  shouldShowVenuesOnFollowUp,
 } from '../lib/conciergeRequestContext'
 import { buildConciergeSearchStatusText } from '../lib/conciergeSearchStatus'
 import { getUserHomeLocation } from '../services/userHomeLocation'
-import { filterVenuesMentionedInText } from '../utils/venueMentionInText'
+import { buildRecommendationStateFromTurn } from '../utils/conciergeConversationState'
 import ConciergeLinkedText from '../components/ConciergeLinkedText'
 import { ChevronRight, Send, Menu, SquarePen } from 'lucide-react-native'
 import {
@@ -191,6 +193,7 @@ export default function ChatScreen() {
       lastRecommendationStateRef.current
     )
     const passLastGeo = shouldPassLastGeoContext(messages, text)
+    const showVenuesOnFollowUp = shouldShowVenuesOnFollowUp(messages, text)
 
     const { data, error: err } = await sendConciergeMessage({
       message: text,
@@ -219,13 +222,20 @@ export default function ChatScreen() {
     }
     if (data.geoContext && typeof data.geoContext === 'object') {
       lastGeoContextRef.current = data.geoContext
-      lastSearchQueryRef.current = text
+      lastSearchQueryRef.current =
+        showVenuesOnFollowUp && lastSearchQueryRef.current ? lastSearchQueryRef.current : text
     } else if (!passLastGeo) {
       lastSearchQueryRef.current = text
     }
 
     const responseText = data.response || ''
-    const linkVenues = filterVenuesMentionedInText(responseText, data.venues || [], (v) => v.name)
+    const linkVenues = pickConciergeResponseVenues({
+      userMessage: text,
+      messages: nextMessages,
+      responseText,
+      apiVenues: data.venues || [],
+      excludeVenueIds,
+    })
 
     const assistantMessage = {
       role: 'assistant',
@@ -275,6 +285,16 @@ export default function ChatScreen() {
         lastRecommendationStateRef.current = null
         lastGeoContextRef.current = null
         lastSearchQueryRef.current = null
+
+        const lastAssistant = [...sessionData.messages].reverse().find((m) => m.role === 'assistant')
+        if (lastAssistant?.venues?.length) {
+          lastRecommendationStateRef.current = buildRecommendationStateFromTurn({
+            venueIdsOrdered: lastAssistant.venues.map((v) => v.venue_id ?? v.venueId).filter(Boolean),
+            venueNamesOrdered: lastAssistant.venues.map((v) => v.name).filter(Boolean),
+            searchMessage: null,
+            mergedSearchState: null,
+          })
+        }
       } else {
         setError('Failed to load chat')
       }
