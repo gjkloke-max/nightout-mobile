@@ -1,26 +1,34 @@
+const fs = require('fs')
 const path = require('path')
 const { getDefaultConfig } = require('expo/metro-config')
+const { resolvePulseWebRoot } = require('./scripts/resolvePulseWebRoot')
 
-const nightOutRoot = path.resolve(__dirname, '..', 'NightOut')
+const pulseWebRoot = resolvePulseWebRoot(__dirname)
 
 module.exports = (() => {
   const config = getDefaultConfig(__dirname)
   const { transformer, resolver } = config
 
-  config.watchFolders = [...(config.watchFolders || []), nightOutRoot]
+  config.watchFolders = [...(config.watchFolders || []), pulseWebRoot]
 
   config.transformer = {
     ...transformer,
     babelTransformerPath: require.resolve('react-native-svg-transformer/expo'),
   }
+
+  const pulseNodeModules = path.resolve(pulseWebRoot, 'node_modules')
   config.resolver = {
     ...resolver,
     assetExts: resolver.assetExts.filter((ext) => ext !== 'svg'),
     sourceExts: [...resolver.sourceExts, 'svg'],
     nodeModulesPaths: [
       path.resolve(__dirname, 'node_modules'),
-      path.resolve(nightOutRoot, 'node_modules'),
+      ...(fs.existsSync(pulseNodeModules) ? [pulseNodeModules] : []),
     ],
+    extraNodeModules: {
+      ...(resolver.extraNodeModules || {}),
+      '@pulse-web': pulseWebRoot,
+    },
   }
 
   return config

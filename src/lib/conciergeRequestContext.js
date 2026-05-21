@@ -1,6 +1,6 @@
 /**
- * Re-exports from NightOut shared/concierge-client (canonical source).
- * Metro watches ../NightOut — see metro.config.js.
+ * Re-exports from pulse web shared/concierge-client (canonical source in pulse/NightOut repo).
+ * Metro resolves @pulse-web → ../pulse (staging) or ../NightOut (local dev). See metro.config.js.
  */
 export {
   analyzeConciergeTurnIntent,
@@ -11,4 +11,4 @@ export {
   pickConciergeLinkVenues,
   priorSearchQueryFromSession,
   rehydrateConciergeSessionFromMessages,
-} from '../../../NightOut/shared/concierge-client/index.js'
+} from '@pulse-web/shared/concierge-client/index.js'

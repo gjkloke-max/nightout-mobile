@@ -12,6 +12,48 @@ Run the Expo dev server on Ubuntu and expose it via nginx so team members can co
 
 ---
 
+## Mobile + shared concierge-client (required since shared code landed)
+
+Mobile imports **`shared/concierge-client`** from the **web repo** (`pulse`), not from inside `pulse-mobile`.
+
+On the server both clones must exist as siblings:
+
+```
+/var/www/pulse          ← web + search API + shared/concierge-client
+/var/www/pulse-mobile   ← Expo app (Metro reads ../pulse via PULSE_WEB_ROOT)
+```
+
+After pulling **both** repos:
+
+```bash
+cd /var/www/pulse
+git pull
+npm install
+
+cd /var/www/pulse-mobile
+git pull
+npm install
+sudo systemctl restart expo-staging
+```
+
+`expo-staging.service` sets `PULSE_WEB_ROOT=/var/www/pulse`. If Metro fails with “Could not find pulse web repo”, verify:
+
+```bash
+test -f /var/www/pulse/shared/concierge-client/index.js && echo OK
+ls -la /var/www/pulse /var/www/pulse-mobile
+sudo journalctl -u expo-staging -n 50 --no-pager
+```
+
+Ensure `www-data` can read both trees:
+
+```bash
+sudo chown -R www-data:www-data /var/www/pulse-mobile
+# pulse may be owned by ubuntu; at minimum:
+sudo chmod -R o+rX /var/www/pulse/shared /var/www/pulse/src/utils
+```
+
+---
+
 ## Initial deployment (clone and setup)
 
 Main site: `/var/www/pulse` · API: systemd service · Mobile: `/var/www/pulse-mobile`
@@ -103,10 +145,11 @@ sudo systemctl status expo-staging
 ### 6. Updating after code changes
 
 ```bash
-cd /var/www/pulse-mobile
-git pull
-npm install
+cd /var/www/pulse && git pull && npm install
+cd /var/www/pulse-mobile && git pull && npm install
 sudo systemctl restart expo-staging
+# If you run the search API from pulse:
+sudo systemctl restart pulse-search   # or your web API unit name
 ```
 
 ---
