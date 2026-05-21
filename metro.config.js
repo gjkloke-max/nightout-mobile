@@ -1,8 +1,13 @@
+const path = require('path')
 const { getDefaultConfig } = require('expo/metro-config')
+
+const nightOutRoot = path.resolve(__dirname, '..', 'NightOut')
 
 module.exports = (() => {
   const config = getDefaultConfig(__dirname)
   const { transformer, resolver } = config
+
+  config.watchFolders = [...(config.watchFolders || []), nightOutRoot]
 
   config.transformer = {
     ...transformer,
@@ -12,6 +17,10 @@ module.exports = (() => {
     ...resolver,
     assetExts: resolver.assetExts.filter((ext) => ext !== 'svg'),
     sourceExts: [...resolver.sourceExts, 'svg'],
+    nodeModulesPaths: [
+      path.resolve(__dirname, 'node_modules'),
+      path.resolve(nightOutRoot, 'node_modules'),
+    ],
   }
 
   return config

@@ -19,14 +19,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { sendConciergeMessage } from '../lib/conciergeApi'
 import {
-  buildConciergeExcludeVenueIds,
-  pickConciergeResponseVenues,
-  shouldPassLastGeoContext,
-  shouldShowVenuesOnFollowUp,
+  applyConciergeResponseToSession,
+  buildConciergeRequest,
+  emptyConciergeClientSession,
+  lastGeoContextFromSession,
+  pickConciergeLinkVenues,
+  priorSearchQueryFromSession,
+  rehydrateConciergeSessionFromMessages,
 } from '../lib/conciergeRequestContext'
 import { buildConciergeSearchStatusText } from '../lib/conciergeSearchStatus'
 import { getUserHomeLocation } from '../services/userHomeLocation'
-import { buildRecommendationStateFromTurn } from '../utils/conciergeConversationState'
 import ConciergeLinkedText from '../components/ConciergeLinkedText'
 import { ChevronRight, Send, Menu, SquarePen } from 'lucide-react-native'
 import {
@@ -59,10 +61,7 @@ export default function ChatScreen() {
   const [loadingStatusText, setLoadingStatusText] = useState(null)
   const [error, setError] = useState(null)
   const scrollRef = useRef(null)
-  const lastSearchStateRef = useRef(null)
-  const lastRecommendationStateRef = useRef(null)
-  const lastGeoContextRef = useRef(null)
-  const lastSearchQueryRef = useRef(null)
+  const lastSessionRef = useRef(emptyConciergeClientSession())
   const [currentSessionId, setCurrentSessionId] = useState(null)
   const [chatSessions, setChatSessions] = useState([])
   const [chatPreviews, setChatPreviews] = useState({})
@@ -186,23 +185,26 @@ export default function ChatScreen() {
         }
       : null
 
-    const excludeVenueIds = buildConciergeExcludeVenueIds(
-      messages,
-      text,
-      lastSearchQueryRef.current,
-      lastRecommendationStateRef.current
-    )
-    const passLastGeo = shouldPassLastGeoContext(messages, text)
-    const showVenuesOnFollowUp = shouldShowVenuesOnFollowUp(messages, text)
-
-    const { data, error: err } = await sendConciergeMessage({
-      message: text,
+    const session = lastSessionRef.current
+    const { body, turn } = buildConciergeRequest({
+      userMessage: text,
+      messages: nextMessages,
       conversationHistory,
       userHome,
-      excludeVenueIds,
-      conversationSearchState: lastSearchStateRef.current,
-      recommendationState: lastRecommendationStateRef.current,
-      lastGeoContext: passLastGeo ? lastGeoContextRef.current : null,
+      conversationSearchState: session.searchState,
+      recommendationState: session.recommendationState,
+      lastGeoContext: lastGeoContextFromSession(session),
+      priorSearchQuery: priorSearchQueryFromSession(session),
+    })
+
+    const { data, error: err } = await sendConciergeMessage({
+      message: body.message,
+      conversationHistory: body.conversationHistory,
+      userHome: body.userHome,
+      excludeVenueIds: body.excludeVenueIds,
+      conversationSearchState: body.conversationSearchState,
+      recommendationState: body.recommendationState,
+      lastGeoContext: body.lastGeoContext,
     })
 
     setLoading(false)
@@ -214,27 +216,20 @@ export default function ChatScreen() {
       return
     }
 
-    if (data.searchState && typeof data.searchState === 'object') {
-      lastSearchStateRef.current = data.searchState
-    }
-    if (data.recommendationState && typeof data.recommendationState === 'object') {
-      lastRecommendationStateRef.current = data.recommendationState
-    }
-    if (data.geoContext && typeof data.geoContext === 'object') {
-      lastGeoContextRef.current = data.geoContext
-      lastSearchQueryRef.current =
-        showVenuesOnFollowUp && lastSearchQueryRef.current ? lastSearchQueryRef.current : text
-    } else if (!passLastGeo) {
-      lastSearchQueryRef.current = text
-    }
+    lastSessionRef.current = applyConciergeResponseToSession(session, {
+      data,
+      userMessage: text,
+      turn,
+    })
 
     const responseText = data.response || ''
-    const linkVenues = pickConciergeResponseVenues({
+    const linkVenues = pickConciergeLinkVenues({
       userMessage: text,
       messages: nextMessages,
       responseText,
       apiVenues: data.venues || [],
-      excludeVenueIds,
+      reviews: data.reviews || [],
+      geoContext: data.geoContext,
     })
 
     const assistantMessage = {
@@ -262,10 +257,7 @@ export default function ChatScreen() {
         setMessages([])
         setInput('')
         setError(null)
-        lastSearchStateRef.current = null
-        lastRecommendationStateRef.current = null
-        lastGeoContextRef.current = null
-        lastSearchQueryRef.current = null
+        lastSessionRef.current = emptyConciergeClientSession()
         await refreshHistoryList()
       }
     } catch (e) {
@@ -281,20 +273,7 @@ export default function ChatScreen() {
         setMessages(sessionData.messages)
         setCurrentSessionId(sessionId)
         setHistoryOpen(false)
-        lastSearchStateRef.current = null
-        lastRecommendationStateRef.current = null
-        lastGeoContextRef.current = null
-        lastSearchQueryRef.current = null
-
-        const lastAssistant = [...sessionData.messages].reverse().find((m) => m.role === 'assistant')
-        if (lastAssistant?.venues?.length) {
-          lastRecommendationStateRef.current = buildRecommendationStateFromTurn({
-            venueIdsOrdered: lastAssistant.venues.map((v) => v.venue_id ?? v.venueId).filter(Boolean),
-            venueNamesOrdered: lastAssistant.venues.map((v) => v.name).filter(Boolean),
-            searchMessage: null,
-            mergedSearchState: null,
-          })
-        }
+        lastSessionRef.current = rehydrateConciergeSessionFromMessages(sessionData.messages)
       } else {
         setError('Failed to load chat')
       }
