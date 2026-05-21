@@ -11,4 +11,5 @@ export {
   pickConciergeLinkVenues,
   priorSearchQueryFromSession,
   rehydrateConciergeSessionFromMessages,
+  retrievalPoolVenueIdsFromSession,
 } from '@pulse-web/shared/concierge-client/index.js'

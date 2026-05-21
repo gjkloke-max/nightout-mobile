@@ -26,6 +26,7 @@ import {
   pickConciergeLinkVenues,
   priorSearchQueryFromSession,
   rehydrateConciergeSessionFromMessages,
+  retrievalPoolVenueIdsFromSession,
 } from '../lib/conciergeRequestContext'
 import { buildConciergeSearchStatusText } from '../lib/conciergeSearchStatus'
 import { getUserHomeLocation } from '../services/userHomeLocation'
@@ -195,6 +196,7 @@ export default function ChatScreen() {
       recommendationState: session.recommendationState,
       lastGeoContext: lastGeoContextFromSession(session),
       priorSearchQuery: priorSearchQueryFromSession(session),
+      retrievalPoolVenueIds: retrievalPoolVenueIdsFromSession(session),
     })
 
     const { data, error: err } = await sendConciergeMessage({
