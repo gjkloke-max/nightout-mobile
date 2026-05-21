@@ -45,6 +45,7 @@ export async function sendConciergeMessage({
   conversationSearchState = null,
   recommendationState = null,
   lastGeoContext = null,
+  rankedVenueBacklog = null,
 }) {
   const searchApiUrl = resolveSearchApiBaseUrl((config.searchApiUrl || '').replace(/\/$/, ''))
 
@@ -92,6 +93,9 @@ export async function sendConciergeMessage({
     if (Array.isArray(excludeVenueIds) && excludeVenueIds.length > 0) {
       body.excludeVenueIds = excludeVenueIds
     }
+    if (rankedVenueBacklog && typeof rankedVenueBacklog === 'object' && Array.isArray(rankedVenueBacklog.orderedIds)) {
+      body.rankedVenueBacklog = rankedVenueBacklog
+    }
     const res = await fetchWithTimeout(`${searchApiUrl}/api/concierge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -109,6 +113,7 @@ export async function sendConciergeMessage({
         searchState: data.searchState ?? null,
         recommendationState: data.recommendationState ?? null,
         geoContext: data.geoContext ?? null,
+        rankedVenueBacklog: data.rankedVenueBacklog ?? null,
       },
       error: null,
     }

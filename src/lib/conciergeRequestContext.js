@@ -10,6 +10,6 @@ export {
   lastGeoContextFromSession,
   pickConciergeLinkVenues,
   priorSearchQueryFromSession,
+  rankedVenueBacklogFromSession,
   rehydrateConciergeSessionFromMessages,
-  retrievalPoolVenueIdsFromSession,
 } from '@pulse-web/shared/concierge-client/index.js'
