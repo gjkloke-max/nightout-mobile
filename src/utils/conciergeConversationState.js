@@ -277,3 +277,10 @@ export function followUpConstrainsToShortlist(mode) {
     mode === FOLLOW_UP_COMPARISON
   )
 }
+
+export function followUpPreservesPriorVenues(mode) {
+  return (
+    mode === FOLLOW_UP_CONSTRAINT_REFINEMENT ||
+    mode === FOLLOW_UP_LOCATION_REFINEMENT
+  )
+}

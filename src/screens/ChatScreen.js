@@ -18,12 +18,15 @@ import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { sendConciergeMessage } from '../lib/conciergeApi'
+import { isConciergeDebugEnabled } from '../lib/conciergeDebug'
 import {
   applyConciergeResponseToSession,
   buildConciergeRequest,
   emptyConciergeClientSession,
   lastGeoContextFromSession,
+  normalizeVenueId,
   pickConciergeLinkVenues,
+  postProcessConciergeResponseText,
   priorSearchQueryFromSession,
   rehydrateConciergeSessionFromMessages,
   rankedVenueBacklogFromSession,
@@ -31,6 +34,7 @@ import {
 import { buildConciergeSearchStatusText } from '../lib/conciergeSearchStatus'
 import { getUserHomeLocation } from '../services/userHomeLocation'
 import ConciergeLinkedText from '../components/ConciergeLinkedText'
+import { CONCIERGE_USERS_SAYING_HEADING_RE } from '@pulse-web/src/constants/appBrand.js'
 import { ChevronRight, Send, Menu, SquarePen } from 'lucide-react-native'
 import {
   getActiveSession,
@@ -52,6 +56,18 @@ const SUGGESTED_PROMPTS = [
   'Where should I go in Lakeview?',
 ]
 
+function collectIntroducedVenueIdsFromMessages(messages) {
+  const ids = new Set()
+  for (const m of messages || []) {
+    if (m.role !== 'assistant' || !Array.isArray(m.venues)) continue
+    for (const v of m.venues) {
+      const id = normalizeVenueId(v?.venueId ?? v?.venue_id)
+      if (id != null) ids.add(id)
+    }
+  }
+  return ids
+}
+
 export default function ChatScreen() {
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
@@ -63,6 +79,8 @@ export default function ChatScreen() {
   const [error, setError] = useState(null)
   const scrollRef = useRef(null)
   const lastSessionRef = useRef(emptyConciergeClientSession())
+  const introducedVenueIdsRef = useRef(new Set())
+  const conciergeDebugEnabled = isConciergeDebugEnabled()
   const [currentSessionId, setCurrentSessionId] = useState(null)
   const [chatSessions, setChatSessions] = useState([])
   const [chatPreviews, setChatPreviews] = useState({})
@@ -92,6 +110,8 @@ export default function ChatScreen() {
           if (!error && sessionData?.messages) {
             setMessages(sessionData.messages)
             setCurrentSessionId(activeSession.chat_session_id)
+            lastSessionRef.current = rehydrateConciergeSessionFromMessages(sessionData.messages)
+            introducedVenueIdsRef.current = collectIntroducedVenueIdsFromMessages(sessionData.messages)
           } else {
             const { data: newSession } = await createNewSession()
             if (newSession) setCurrentSessionId(newSession.chat_session_id)
@@ -178,13 +198,11 @@ export default function ChatScreen() {
     }))
 
     const homeLocation = user?.id ? await getUserHomeLocation(user.id) : null
-    const userHome = homeLocation
-      ? {
-          homeNeighborhoodName: homeLocation.homeNeighborhoodName ?? null,
-          lat: homeLocation.lat ?? null,
-          lng: homeLocation.lng ?? null,
-        }
-      : null
+    const userHome = {
+      homeNeighborhoodName: homeLocation?.homeNeighborhoodName ?? null,
+      lat: homeLocation?.lat ?? null,
+      lng: homeLocation?.lng ?? null,
+    }
 
     const session = lastSessionRef.current
     const { body, turn } = buildConciergeRequest({
@@ -193,22 +211,16 @@ export default function ChatScreen() {
       conversationHistory,
       userHome,
       conversationSearchState: session.searchState,
+      canonicalConversationState: session.canonicalConversationState,
       recommendationState: session.recommendationState,
       lastGeoContext: lastGeoContextFromSession(session),
       priorSearchQuery: priorSearchQueryFromSession(session),
+      extraIntroducedVenueIds: [...introducedVenueIdsRef.current],
       rankedVenueBacklog: rankedVenueBacklogFromSession(session),
+      conciergeDebug: conciergeDebugEnabled,
     })
 
-    const { data, error: err } = await sendConciergeMessage({
-      message: body.message,
-      conversationHistory: body.conversationHistory,
-      userHome: body.userHome,
-      excludeVenueIds: body.excludeVenueIds,
-      conversationSearchState: body.conversationSearchState,
-      recommendationState: body.recommendationState,
-      lastGeoContext: body.lastGeoContext,
-      rankedVenueBacklog: body.rankedVenueBacklog,
-    })
+    const { data, error: err } = await sendConciergeMessage(body)
 
     setLoading(false)
     setLoadingStatusText(null)
@@ -225,7 +237,15 @@ export default function ChatScreen() {
       turn,
     })
 
-    const responseText = data.response || ''
+    if (conciergeDebugEnabled && data.conciergeDebug) {
+      console.log('[concierge] debug payload', data.conciergeDebug)
+    }
+
+    const responseText = postProcessConciergeResponseText(
+      data.response || '',
+      data.venues || [],
+      CONCIERGE_USERS_SAYING_HEADING_RE,
+    )
     const linkVenues = pickConciergeLinkVenues({
       userMessage: text,
       messages: nextMessages,
@@ -235,10 +255,20 @@ export default function ChatScreen() {
       geoContext: data.geoContext,
     })
 
+    for (const v of linkVenues) {
+      const id = normalizeVenueId(v?.venueId ?? v?.venue_id)
+      if (id != null) introducedVenueIdsRef.current.add(id)
+    }
+
     const assistantMessage = {
       role: 'assistant',
       content: responseText,
       venues: linkVenues,
+      searchState: data.searchState ?? null,
+      recommendationState: data.recommendationState ?? null,
+      canonicalConversationState: data.canonicalConversationState ?? null,
+      rankedVenueBacklog: data.rankedVenueBacklog ?? null,
+      ...(conciergeDebugEnabled && data.conciergeDebug ? { conciergeDebug: data.conciergeDebug } : {}),
     }
     setMessages((prev) => [...prev, assistantMessage])
 
@@ -261,6 +291,7 @@ export default function ChatScreen() {
         setInput('')
         setError(null)
         lastSessionRef.current = emptyConciergeClientSession()
+        introducedVenueIdsRef.current = new Set()
         await refreshHistoryList()
       }
     } catch (e) {
@@ -277,6 +308,7 @@ export default function ChatScreen() {
         setCurrentSessionId(sessionId)
         setHistoryOpen(false)
         lastSessionRef.current = rehydrateConciergeSessionFromMessages(sessionData.messages)
+        introducedVenueIdsRef.current = collectIntroducedVenueIdsFromMessages(sessionData.messages)
       } else {
         setError('Failed to load chat')
       }

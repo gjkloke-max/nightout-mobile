@@ -37,16 +37,11 @@ function conciergeFetchError(err) {
   return { message: err?.message || 'Network error' }
 }
 
-export async function sendConciergeMessage({
-  message,
-  conversationHistory = [],
-  userHome = null,
-  excludeVenueIds = [],
-  conversationSearchState = null,
-  recommendationState = null,
-  lastGeoContext = null,
-  rankedVenueBacklog = null,
-}) {
+/**
+ * POST /api/concierge — accepts the same body as web `buildConciergeRequest().body`.
+ * @param {Record<string, unknown>} requestBody
+ */
+export async function sendConciergeMessage(requestBody) {
   const searchApiUrl = resolveSearchApiBaseUrl((config.searchApiUrl || '').replace(/\/$/, ''))
 
   if (!searchApiUrl) {
@@ -69,33 +64,28 @@ export async function sendConciergeMessage({
     console.log('[concierge] using Brio API', `${searchApiUrl}/api/concierge`)
   }
 
+  const raw = requestBody && typeof requestBody === 'object' ? requestBody : {}
+  const message = typeof raw.message === 'string' ? raw.message.trim() : ''
+  if (!message) {
+    return { data: null, error: { message: 'message is required' } }
+  }
+
   try {
     const body = {
-      message: (message || '').trim(),
-      conversationHistory: conversationHistory.map((m) => ({ role: m.role, content: m.content || '' })),
+      ...raw,
+      message,
+      conversationHistory: Array.isArray(raw.conversationHistory)
+        ? raw.conversationHistory.map((m) => ({ role: m.role, content: m.content || '' }))
+        : [],
     }
-    if (conversationSearchState && typeof conversationSearchState === 'object') {
-      body.conversationSearchState = conversationSearchState
-    }
-    if (recommendationState && typeof recommendationState === 'object') {
-      body.recommendationState = recommendationState
-    }
-    if (lastGeoContext && typeof lastGeoContext === 'object') {
-      body.lastGeoContext = lastGeoContext
-    }
-    if (userHome && typeof userHome === 'object') {
+    if (body.userHome && typeof body.userHome === 'object') {
       body.userHome = {
-        homeNeighborhoodName: userHome.homeNeighborhoodName ?? null,
-        lat: userHome.lat ?? null,
-        lng: userHome.lng ?? null,
+        homeNeighborhoodName: body.userHome.homeNeighborhoodName ?? null,
+        lat: body.userHome.lat ?? null,
+        lng: body.userHome.lng ?? null,
       }
     }
-    if (Array.isArray(excludeVenueIds) && excludeVenueIds.length > 0) {
-      body.excludeVenueIds = excludeVenueIds
-    }
-    if (rankedVenueBacklog && typeof rankedVenueBacklog === 'object' && Array.isArray(rankedVenueBacklog.orderedIds)) {
-      body.rankedVenueBacklog = rankedVenueBacklog
-    }
+
     const res = await fetchWithTimeout(`${searchApiUrl}/api/concierge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -112,8 +102,10 @@ export async function sendConciergeMessage({
         venues: data.venues ?? [],
         searchState: data.searchState ?? null,
         recommendationState: data.recommendationState ?? null,
+        canonicalConversationState: data.canonicalConversationState ?? null,
         geoContext: data.geoContext ?? null,
         rankedVenueBacklog: data.rankedVenueBacklog ?? null,
+        conciergeDebug: data.conciergeDebug ?? null,
       },
       error: null,
     }
