@@ -111,6 +111,8 @@ export async function getNewVenues(limit = NEW_VENUE_DISPLAY_LIMIT_DEFAULT) {
     .from('venue')
     .select(`${VENUE_SELECT}, created_at, rating_count, google_rating10_count`)
     .gte('created_at', cutoffIso)
+    .eq('show_in_whats_new', true)
+    .eq('import_review_status', 'approved')
     .eq('exclude_from_discovery', false)
     .order('created_at', { ascending: false })
     .order('rating10', { ascending: false, nullsFirst: false })
