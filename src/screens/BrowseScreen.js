@@ -19,7 +19,7 @@ import { Search, List, Map as MapIcon } from 'lucide-react-native'
 import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes, fontFamilies } from '../theme'
 import { bm25Search } from '../lib/searchApi'
 import { fetchVenuesByIds, searchVenuesByName } from '../lib/venueService'
-import { getTrendingVenues } from '../services/trendingVenues'
+import { getTrendingVenues, getNewVenues } from '../services/trendingVenues'
 import { getBrowseForYouVenues } from '../services/browseForYou'
 import { getUserHomeLocation } from '../services/userHomeLocation'
 import { loadUserPreferencesForSearch } from '../services/userPreferencesForSearch'
@@ -158,6 +158,11 @@ export default function BrowseScreen() {
   const [trendingLoading, setTrendingLoading] = useState(false)
   const [trendingError, setTrendingError] = useState(null)
   const [trendingRefreshing, setTrendingRefreshing] = useState(false)
+  const [activeTrendingList, setActiveTrendingList] = useState('hot')
+  const [newVenueItems, setNewVenueItems] = useState([])
+  const [newVenueLoading, setNewVenueLoading] = useState(false)
+  const [newVenueError, setNewVenueError] = useState(null)
+  const [newVenueRefreshing, setNewVenueRefreshing] = useState(false)
   const [searchResultsTab, setSearchResultsTab] = useState('list')
   /** { latitude, longitude } from GPS — custom marker; native showsUserLocation is unreliable on Expo/Android */
   const [userMapCoords, setUserMapCoords] = useState(null)
@@ -189,10 +194,26 @@ export default function BrowseScreen() {
     }
   }, [])
 
+  const loadNewVenues = useCallback(async () => {
+    setNewVenueLoading(true)
+    setNewVenueError(null)
+    try {
+      const data = await getNewVenues()
+      setNewVenueItems(data)
+    } catch (e) {
+      setNewVenueError(e?.message || 'Failed to load new venues')
+      setNewVenueItems([])
+    } finally {
+      setNewVenueLoading(false)
+      setNewVenueRefreshing(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (mainTab !== 'trending') return
     loadTrending()
-  }, [mainTab, loadTrending])
+    loadNewVenues()
+  }, [mainTab, loadTrending, loadNewVenues])
 
   useEffect(() => {
     if (!user?.id) {
@@ -264,9 +285,14 @@ export default function BrowseScreen() {
   }, [mainTab, forYouLocked, loadForYou])
 
   const onTrendingRefresh = useCallback(() => {
-    setTrendingRefreshing(true)
-    loadTrending()
-  }, [loadTrending])
+    if (activeTrendingList === 'hot') {
+      setTrendingRefreshing(true)
+      loadTrending()
+      return
+    }
+    setNewVenueRefreshing(true)
+    loadNewVenues()
+  }, [activeTrendingList, loadTrending, loadNewVenues])
 
   const onForYouRefresh = useCallback(() => {
     setForYouRefreshing(true)
@@ -362,6 +388,7 @@ export default function BrowseScreen() {
     setSearchQuery('')
     setBrowseViewMode('list')
     setSelectedBrowseVenue(null)
+    setActiveTrendingList('hot')
   }
 
   const renderVenueCard = (venue) => {
@@ -463,10 +490,19 @@ export default function BrowseScreen() {
   const mapViewKey = useMemo(() => venues.map((v) => String(v.venue_id)).join(','), [venues])
 
   const browseVenues = useMemo(() => {
-    if (mainTab === 'trending') return trendingItems.map((i) => i.venue)
+    if (mainTab === 'trending') {
+      const items = activeTrendingList === 'hot' ? trendingItems : newVenueItems
+      return items.map((i) => i.venue)
+    }
     if (mainTab === 'forYou') return forYouItems.map((i) => i.venue)
     return []
-  }, [mainTab, trendingItems, forYouItems])
+  }, [mainTab, activeTrendingList, trendingItems, newVenueItems, forYouItems])
+
+  const activeTrendingItems = activeTrendingList === 'hot' ? trendingItems : newVenueItems
+  const activeTrendingLoading = activeTrendingList === 'hot' ? trendingLoading : newVenueLoading
+  const activeTrendingError = activeTrendingList === 'hot' ? trendingError : newVenueError
+  const activeTrendingRefreshing = activeTrendingList === 'hot' ? trendingRefreshing : newVenueRefreshing
+  const trendingSectionTitle = activeTrendingList === 'hot' ? 'Hot Right Now' : 'New Right Now'
 
   const browseVenuesWithCoords = useMemo(
     () => browseVenues.filter((v) => pickCoord(v.latitude) != null && pickCoord(v.longitude) != null),
@@ -728,95 +764,144 @@ export default function BrowseScreen() {
           ) : null}
 
           {mainTab === 'trending' && (
-            <>
-              {trendingError ? (
+            <View style={styles.browseTabBody}>
+              <View style={styles.trendingToggle}>
+                <TouchableOpacity
+                  style={[
+                    styles.trendingToggleBtn,
+                    activeTrendingList === 'hot' ? styles.trendingToggleBtnActive : styles.trendingToggleBtnIdle,
+                  ]}
+                  onPress={() => {
+                    setActiveTrendingList('hot')
+                    setSelectedBrowseVenue(null)
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text
+                    style={[
+                      styles.trendingToggleText,
+                      activeTrendingList === 'hot' ? styles.trendingToggleTextActive : styles.trendingToggleTextIdle,
+                    ]}
+                  >
+                    What&apos;s Hot
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.trendingToggleBtn,
+                    activeTrendingList === 'new' ? styles.trendingToggleBtnActive : styles.trendingToggleBtnIdle,
+                  ]}
+                  onPress={() => {
+                    setActiveTrendingList('new')
+                    setSelectedBrowseVenue(null)
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text
+                    style={[
+                      styles.trendingToggleText,
+                      activeTrendingList === 'new' ? styles.trendingToggleTextActive : styles.trendingToggleTextIdle,
+                    ]}
+                  >
+                    What&apos;s New
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {activeTrendingError ? (
                 <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>{trendingError}</Text>
+                  <Text style={styles.errorText}>{activeTrendingError}</Text>
                 </View>
               ) : null}
-              {trendingLoading && trendingItems.length === 0 ? (
-                <View style={styles.loadingBox}>
-                  <ActivityIndicator size="large" color={colors.browseAccent} />
-                  <Text style={styles.loadingText}>Loading...</Text>
-                </View>
-              ) : !trendingLoading && trendingItems.length === 0 ? (
-                <View style={styles.emptyBox}>
-                  <Text style={styles.emptyText}>
-                    No trending data yet. Run the scraper to populate mentions.
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.browseTabBody}>
-                  {browseViewMode === 'list' ? (
-                    <>
-                      <View style={styles.sectionRow}>
-                        <Text style={styles.sectionTitle}>Hot Right Now</Text>
-                        <View style={styles.sectionLine} />
-                      </View>
-                      <FlatList
-                        style={styles.flexList}
-                        data={trendingItems}
-                        keyExtractor={(item) => String(item.venue.venue_id)}
-                        renderItem={renderTrendingItem}
-                        ListFooterComponent={<View style={styles.listFooterPad} />}
-                        contentContainerStyle={[styles.trendingListContent, styles.browseListFabPad]}
-                        showsVerticalScrollIndicator={false}
-                        refreshControl={
-                          <RefreshControl
-                            refreshing={trendingRefreshing}
-                            onRefresh={onTrendingRefresh}
-                            tintColor={colors.browseAccent}
-                          />
-                        }
-                      />
-                    </>
-                  ) : (
-                    <View style={styles.browseMapStack}>
-                      <BrowseVenueMapView
-                        venues={browseVenues}
-                        mapRef={browseMapRef}
-                        onMarkerPress={onBrowseMarkerPress}
-                        onMapBackgroundPress={() => setSelectedBrowseVenue(null)}
-                        selectedVenueId={selectedBrowseVenue?.venue_id}
-                        userMapCoords={userMapCoords}
-                        initialRegion={browseMapRegion}
-                        mapViewKey={browseMapKey}
-                      />
-                      {selectedBrowseVenue ? (
-                        <View style={[styles.browseMapPreview, { bottom: browsePreviewBottom }]} pointerEvents="box-none">
-                          {renderVenueCard(selectedBrowseVenue)}
+
+              {browseViewMode === 'list' ? (
+                <>
+                  <View style={styles.sectionRow}>
+                    <Text style={styles.sectionTitle}>{trendingSectionTitle}</Text>
+                    <View style={styles.sectionLine} />
+                  </View>
+                  <FlatList
+                    style={styles.flexList}
+                    data={activeTrendingItems}
+                    keyExtractor={(item) => String(item.venue.venue_id)}
+                    renderItem={renderTrendingItem}
+                    ListEmptyComponent={
+                      activeTrendingLoading ? (
+                        <View style={styles.loadingBox}>
+                          <ActivityIndicator size="large" color={colors.browseAccent} />
+                          <Text style={styles.loadingText}>Loading...</Text>
                         </View>
-                      ) : null}
+                      ) : (
+                        <View style={styles.emptyBox}>
+                          <Text style={styles.emptyText}>
+                            {activeTrendingList === 'hot'
+                              ? 'No trending data yet. Run the scraper to populate mentions.'
+                              : 'No new spots added recently.'}
+                          </Text>
+                        </View>
+                      )
+                    }
+                    ListFooterComponent={<View style={styles.listFooterPad} />}
+                    contentContainerStyle={[
+                      styles.trendingListContent,
+                      styles.browseListFabPad,
+                      activeTrendingItems.length === 0 ? styles.trendingListEmpty : null,
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                      <RefreshControl
+                        refreshing={activeTrendingRefreshing}
+                        onRefresh={onTrendingRefresh}
+                        tintColor={colors.browseAccent}
+                      />
+                    }
+                  />
+                </>
+              ) : (
+                <View style={styles.browseMapStack}>
+                  <BrowseVenueMapView
+                    venues={browseVenues}
+                    mapRef={browseMapRef}
+                    onMarkerPress={onBrowseMarkerPress}
+                    onMapBackgroundPress={() => setSelectedBrowseVenue(null)}
+                    selectedVenueId={selectedBrowseVenue?.venue_id}
+                    userMapCoords={userMapCoords}
+                    initialRegion={browseMapRegion}
+                    mapViewKey={browseMapKey}
+                  />
+                  {selectedBrowseVenue ? (
+                    <View style={[styles.browseMapPreview, { bottom: browsePreviewBottom }]} pointerEvents="box-none">
+                      {renderVenueCard(selectedBrowseVenue)}
                     </View>
-                  )}
-                  <Pressable
-                    style={[styles.browseFab, { bottom: fabBottom }]}
-                    onPress={() => {
-                      if (browseViewMode === 'map') {
-                        setSelectedBrowseVenue(null)
-                        setBrowseViewMode('list')
-                      } else {
-                        setBrowseViewMode('map')
-                      }
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={browseViewMode === 'list' ? 'Show map' : 'Back to list'}
-                  >
-                    {browseViewMode === 'list' ? (
-                      <>
-                        <MapIcon size={16} color="#ffffff" strokeWidth={2} />
-                        <Text style={styles.browseFabLabel}>Map</Text>
-                      </>
-                    ) : (
-                      <>
-                        <List size={16} color="#ffffff" strokeWidth={2} />
-                        <Text style={styles.browseFabLabel}>List</Text>
-                      </>
-                    )}
-                  </Pressable>
+                  ) : null}
                 </View>
               )}
-            </>
+              <Pressable
+                style={[styles.browseFab, { bottom: fabBottom }]}
+                onPress={() => {
+                  if (browseViewMode === 'map') {
+                    setSelectedBrowseVenue(null)
+                    setBrowseViewMode('list')
+                  } else {
+                    setBrowseViewMode('map')
+                  }
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={browseViewMode === 'list' ? 'Show map' : 'Back to list'}
+              >
+                {browseViewMode === 'list' ? (
+                  <>
+                    <MapIcon size={16} color="#ffffff" strokeWidth={2} />
+                    <Text style={styles.browseFabLabel}>Map</Text>
+                  </>
+                ) : (
+                  <>
+                    <List size={16} color="#ffffff" strokeWidth={2} />
+                    <Text style={styles.browseFabLabel}>List</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
           )}
 
           {mainTab === 'forYou' && forYouLocked ? (
@@ -1121,6 +1206,41 @@ const styles = StyleSheet.create({
   tabBtnTextLocked: {
     color: colors.textMuted,
   },
+  trendingToggle: {
+    flexDirection: 'row',
+    gap: TAB_GAP,
+    paddingHorizontal: spacing.xl,
+    marginBottom: spacing.md,
+  },
+  trendingToggleBtn: {
+    flex: 1,
+    height: 36,
+    borderRadius: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.33,
+  },
+  trendingToggleBtnActive: {
+    backgroundColor: colors.backgroundDark,
+    borderColor: colors.backgroundDark,
+  },
+  trendingToggleBtnIdle: {
+    backgroundColor: colors.backgroundElevated,
+    borderColor: colors.borderInput,
+  },
+  trendingToggleText: {
+    fontSize: 9,
+    fontFamily: fontFamilies.interBold,
+    fontWeight: fontWeights.bold,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  trendingToggleTextActive: {
+    color: colors.textOnTabActive,
+  },
+  trendingToggleTextIdle: {
+    color: colors.textSecondary,
+  },
   lockedBox: {
     marginHorizontal: spacing.xl,
     marginTop: spacing.lg,
@@ -1300,6 +1420,7 @@ const styles = StyleSheet.create({
   },
   flexList: { flex: 1 },
   trendingListContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing['3xl'] },
+  trendingListEmpty: { flexGrow: 1 },
   cardRowOuter: { marginBottom: 0 },
   cardRow: {
     flexDirection: 'row',
