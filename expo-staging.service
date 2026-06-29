@@ -16,7 +16,7 @@ Environment="EXPO_NO_TELEMETRY=1"
 Environment="CI=1"
 Environment="NODE_ENV=development"
 # Avoid npx/npm cache issues for www-data; use project-local Expo CLI.
-ExecStart=/var/www/appbrio-mobile/node_modules/.bin/expo start --port 8081 --non-interactive
+ExecStart=/var/www/appbrio-mobile/node_modules/.bin/expo start --port 8081
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
