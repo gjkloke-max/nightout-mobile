@@ -14,7 +14,7 @@ function trimBase(url) {
 
 /** Public web URL for a venue detail page (used in share messages). */
 export function getVenueWebUrl(venueId) {
-  const base = trimBase(config.webAppUrl) || 'https://nightout.app'
+  const base = trimBase(config.webAppUrl) || 'https://appbrio.com'
   const id = encodeURIComponent(String(venueId ?? ''))
   return `${base}/venue/${id}`
 }

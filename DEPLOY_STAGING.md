@@ -1,12 +1,12 @@
-# Deploy Expo Dev Server to Staging (pulse.techies.com)
+# Deploy Expo Dev Server to Staging (appbrio.com)
 
 Run the Expo dev server on Ubuntu and expose it via nginx so team members can connect with Expo Go.
 
 ## Prerequisites
 
 - Node.js 18+ on the server
-- nginx with SSL (pulse.techies.com)
-- DNS: Add `expo.techies.com` → same server IP as pulse.techies.com
+- nginx with SSL (appbrio.com)
+- DNS: Add `expo.techies.com` → same server IP as appbrio.com
 
 > **Why subdomain?** The `exp://` URL format is `exp://host:port` — it doesn't support paths, so we need a dedicated subdomain.
 
@@ -89,7 +89,7 @@ Set:
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-EXPO_PUBLIC_SEARCH_API_URL=https://pulse.techies.com
+EXPO_PUBLIC_SEARCH_API_URL=https://appbrio.com
 ```
 
 (Use the same Supabase values as the main site at `/var/www/pulse`.)
@@ -160,7 +160,7 @@ Proxy HTTPS traffic to Metro so everything goes through port 443.
 
 ### 1. DNS
 
-Add an A record: `expo.techies.com` → your server IP (same as pulse.techies.com).
+Add an A record: `expo.techies.com` → your server IP (same as appbrio.com).
 
 ### 2. SSL certificate
 
@@ -275,7 +275,7 @@ Create `.env` in nightout-mobile with staging values:
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-EXPO_PUBLIC_SEARCH_API_URL=https://pulse.techies.com
+EXPO_PUBLIC_SEARCH_API_URL=https://appbrio.com
 ```
 
 ---
