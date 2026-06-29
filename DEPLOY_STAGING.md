@@ -76,11 +76,10 @@ npm install
 
 No build step — Metro bundles on demand when clients connect.
 
-### 3. Configure environment
+### 3. Configure environment (one-time)
 
 ```bash
-cp .env.example .env
-# Edit .env with staging values:
+cp .env.example .env   # only on first setup — skip if .env already exists
 nano .env
 ```
 
@@ -90,11 +89,14 @@ Set:
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 EXPO_PUBLIC_SEARCH_API_URL=https://appbrio.com
+EXPO_PUBLIC_WEB_APP_URL=https://appbrio.com
 ```
 
 (Use the same Supabase values as the main site at `/var/www/appbrio`.)
 
-### 4. Add nginx config (Option A) or open firewall (Option B)
+> **Important:** `.env` is gitignored. `git pull` never overwrites it. Do **not** run `cp .env.example .env` again after you have configured production values.
+
+---
 
 See sections below.
 
@@ -148,10 +150,18 @@ sudo systemctl status expo-staging
 ```bash
 cd /var/www/appbrio && git pull && npm install
 cd /var/www/appbrio-mobile && git pull && npm install
+sudo chown -R www-data:www-data /var/www/appbrio-mobile
 sudo systemctl restart expo-staging
-# If you run the search API from appbrio:
-sudo systemctl restart appbrio-search-api   # or your web API unit name
+sudo systemctl restart appbrio-search-api
 ```
+
+No mobile **build** step — Metro bundles on demand. After changing **`.env` only**:
+
+```bash
+sudo systemctl restart expo-staging
+```
+
+Then reload the app in Expo Go (shake device → Reload). You do **not** need `npm run build` for Expo staging.
 
 ---
 
@@ -266,13 +276,15 @@ Connection URL: `exp://expo.appbrio.com:8081`
 
 ## Environment (.env)
 
-Create `.env` in nightout-mobile with staging values:
+Create `.env` in nightout-mobile with staging values (see **Initial deployment** above).
 
-```
-EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-EXPO_PUBLIC_SEARCH_API_URL=https://appbrio.com
-```
+| Change | Action |
+|--------|--------|
+| Code only (`git pull`) | `npm install` + `sudo systemctl restart expo-staging` + Reload in Expo Go |
+| `.env` only (e.g. `EXPO_PUBLIC_SEARCH_API_URL`) | `sudo systemctl restart expo-staging` + Reload in Expo Go — **no rebuild** |
+| Never on deploy | `cp .env.example .env` (would wipe your URLs) |
+
+`git pull` does **not** overwrite `.env` (gitignored).
 
 ---
 

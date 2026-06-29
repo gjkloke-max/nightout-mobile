@@ -173,6 +173,7 @@ export default function ChatScreen() {
     setLoadingStatusText(buildConciergeSearchStatusText(text))
     setLoading(true)
 
+    try {
     let sessionId = currentSessionId
     if (!sessionId) {
       const { data: newSession } = await createNewSession()
@@ -222,12 +223,8 @@ export default function ChatScreen() {
 
     const { data, error: err } = await sendConciergeMessage(body)
 
-    setLoading(false)
-    setLoadingStatusText(null)
-
     if (err) {
       setError(err.message || 'Something went wrong')
-      setMessages((prev) => prev.slice(0, -1))
       return
     }
 
@@ -275,6 +272,13 @@ export default function ChatScreen() {
     if (sessionId) {
       await saveMessage(sessionId, 'assistant', assistantMessage.content, assistantMessage.venues || [])
       await refreshHistoryList()
+    }
+    } catch (e) {
+      console.error('[concierge] handleSend', e)
+      setError(e?.message || 'Something went wrong')
+    } finally {
+      setLoading(false)
+      setLoadingStatusText(null)
     }
   }
 
@@ -478,6 +482,11 @@ export default function ChatScreen() {
                 </Pressable>
               ))}
             </View>
+            {error ? (
+              <View style={styles.errorRow}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
           </View>
         ) : (
           <>
