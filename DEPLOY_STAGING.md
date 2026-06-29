@@ -126,7 +126,7 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-> For Option B (direct 8081), remove the `REACT_NATIVE_PACKAGER_PORT=443` line.
+> For Option B (direct 8081), remove the `REACT_NATIVE_PACKAGER_PORT=80` line.
 
 Ensure `www-data` can read the app:
 
@@ -224,20 +224,18 @@ You should get a response (possibly 404 or similar from Metro until Expo is runn
 
 ### 6. Start Expo (or use systemd from Initial deployment)
 
-Metro runs on 8081; Expo advertises 443 so the QR code uses `exp://expo.appbrio.com:443`:
+Metro runs on 8081; Expo advertises port 80 so the QR code uses `exp://expo.appbrio.com:80`:
 
 ```bash
 cd /var/www/appbrio-mobile
 
 REACT_NATIVE_PACKAGER_HOSTNAME=expo.appbrio.com \
-REACT_NATIVE_PACKAGER_PORT=443 \
+REACT_NATIVE_PACKAGER_PORT=80 \
 EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0 \
 npx expo start
 ```
 
-For the systemd service, add `Environment="REACT_NATIVE_PACKAGER_PORT=80"` to the `[Service]` block.
-
-> If `REACT_NATIVE_PACKAGER_PORT=443` doesn't change the QR URL, use Option B (direct port 8081).
+For the systemd service, set `Environment="REACT_NATIVE_PACKAGER_PORT=80"`.
 
 ---
 
