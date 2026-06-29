@@ -3,12 +3,13 @@ const path = require('path')
 
 /**
  * Locate the Brio web repo (NightOut / pulse) for shared/concierge-client imports.
- * Local dev: ../NightOut. Staging: ../pulse or PULSE_WEB_ROOT=/var/www/pulse.
- * @param {string} mobileRepoRoot - __dirname of pulse-mobile project root
+ * Local dev: ../NightOut. Staging: ../appbrio or PULSE_WEB_ROOT=/var/www/appbrio.
+ * @param {string} mobileRepoRoot - __dirname of appbrio-mobile project root
  */
 function resolvePulseWebRoot(mobileRepoRoot) {
   const candidates = [
     process.env.PULSE_WEB_ROOT,
+    path.resolve(mobileRepoRoot, '..', 'appbrio'),
     path.resolve(mobileRepoRoot, '..', 'pulse'),
     path.resolve(mobileRepoRoot, '..', 'NightOut'),
   ].filter(Boolean)
@@ -20,7 +21,7 @@ function resolvePulseWebRoot(mobileRepoRoot) {
 
   throw new Error(
     'Could not find pulse web repo (shared/concierge-client). ' +
-      'Clone pulse beside pulse-mobile (/var/www/pulse) or set PULSE_WEB_ROOT.',
+      'Clone web repo beside appbrio-mobile (/var/www/appbrio) or set PULSE_WEB_ROOT.',
   )
 }
 

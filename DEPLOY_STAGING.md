@@ -14,49 +14,49 @@ Run the Expo dev server on Ubuntu and expose it via nginx so team members can co
 
 ## Mobile + shared concierge-client (required since shared code landed)
 
-Mobile imports **`shared/concierge-client`** from the **web repo** (`pulse`), not from inside `pulse-mobile`.
+Mobile imports **`shared/concierge-client`** from the **web repo** (`appbrio`), not from inside `appbrio-mobile`.
 
 On the server both clones must exist as siblings:
 
 ```
-/var/www/pulse          ← web + search API + shared/concierge-client
-/var/www/pulse-mobile   ← Expo app (Metro reads ../pulse via PULSE_WEB_ROOT)
+/var/www/appbrio          ← web + search API + shared/concierge-client
+/var/www/appbrio-mobile   ← Expo app (Metro reads ../appbrio via PULSE_WEB_ROOT)
 ```
 
 After pulling **both** repos:
 
 ```bash
-cd /var/www/pulse
+cd /var/www/appbrio
 git pull
 npm install
 
-cd /var/www/pulse-mobile
+cd /var/www/appbrio-mobile
 git pull
 npm install
 sudo systemctl restart expo-staging
 ```
 
-`expo-staging.service` sets `PULSE_WEB_ROOT=/var/www/pulse`. If Metro fails with “Could not find pulse web repo”, verify:
+`expo-staging.service` sets `PULSE_WEB_ROOT=/var/www/appbrio`. If Metro fails with “Could not find web repo”, verify:
 
 ```bash
-test -f /var/www/pulse/shared/concierge-client/index.js && echo OK
-ls -la /var/www/pulse /var/www/pulse-mobile
+test -f /var/www/appbrio/shared/concierge-client/index.js && echo OK
+ls -la /var/www/appbrio /var/www/appbrio-mobile
 sudo journalctl -u expo-staging -n 50 --no-pager
 ```
 
 Ensure `www-data` can read both trees:
 
 ```bash
-sudo chown -R www-data:www-data /var/www/pulse-mobile
-# pulse may be owned by ubuntu; at minimum:
-sudo chmod -R o+rX /var/www/pulse/shared /var/www/pulse/src/utils
+sudo chown -R www-data:www-data /var/www/appbrio-mobile
+# appbrio may be owned by ubuntu; at minimum:
+sudo chmod -R o+rX /var/www/appbrio/shared /var/www/appbrio/src/utils
 ```
 
 ---
 
 ## Initial deployment (clone and setup)
 
-Main site: `/var/www/pulse` · API: systemd service · Mobile: `/var/www/pulse-mobile`
+Main site: `/var/www/appbrio` · API: systemd service · Mobile: `/var/www/appbrio-mobile`
 
 ### 1. Clone the repo
 
@@ -64,8 +64,8 @@ Main site: `/var/www/pulse` · API: systemd service · Mobile: `/var/www/pulse-m
 sudo mkdir -p /var/www
 sudo chown $USER:$USER /var/www
 cd /var/www
-git clone git@github.com:gjkloke-max/nightout-mobile.git pulse-mobile
-cd pulse-mobile
+git clone git@github.com:gjkloke-max/nightout-mobile.git appbrio-mobile
+cd appbrio-mobile
 ```
 
 ### 2. Install dependencies
@@ -92,7 +92,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 EXPO_PUBLIC_SEARCH_API_URL=https://appbrio.com
 ```
 
-(Use the same Supabase values as the main site at `/var/www/pulse`.)
+(Use the same Supabase values as the main site at `/var/www/appbrio`.)
 
 ### 4. Add nginx config (Option A) or open firewall (Option B)
 
@@ -112,7 +112,7 @@ After=network.target
 [Service]
 Type=simple
 User=www-data
-WorkingDirectory=/var/www/pulse-mobile
+WorkingDirectory=/var/www/appbrio-mobile
 Environment="REACT_NATIVE_PACKAGER_HOSTNAME=expo.techies.com"
 Environment="REACT_NATIVE_PACKAGER_PORT=443"
 Environment="EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0"
@@ -130,7 +130,7 @@ WantedBy=multi-user.target
 Ensure `www-data` can read the app:
 
 ```bash
-sudo chown -R www-data:www-data /var/www/pulse-mobile
+sudo chown -R www-data:www-data /var/www/appbrio-mobile
 ```
 
 Enable and start:
@@ -145,11 +145,11 @@ sudo systemctl status expo-staging
 ### 6. Updating after code changes
 
 ```bash
-cd /var/www/pulse && git pull && npm install
-cd /var/www/pulse-mobile && git pull && npm install
+cd /var/www/appbrio && git pull && npm install
+cd /var/www/appbrio-mobile && git pull && npm install
 sudo systemctl restart expo-staging
-# If you run the search API from pulse:
-sudo systemctl restart pulse-search   # or your web API unit name
+# If you run the search API from appbrio:
+sudo systemctl restart appbrio-search-api   # or your web API unit name
 ```
 
 ---
@@ -176,13 +176,13 @@ Copy the config from the repo (or create it manually):
 
 ```bash
 # From your local machine, after cloning nightout-mobile to the server:
-sudo cp /var/www/pulse-mobile/nginx-expo-pulse.conf /etc/nginx/sites-available/expo-pulse
+sudo cp /var/www/appbrio-mobile/nginx-expo-appbrio.conf /etc/nginx/sites-available/expo-appbrio
 ```
 
 Or create it directly on the server:
 
 ```bash
-sudo nano /etc/nginx/sites-available/expo-pulse
+sudo nano /etc/nginx/sites-available/expo-appbrio
 ```
 
 Paste (SSL paths assume `certbot -d expo.techies.com`):
@@ -212,7 +212,7 @@ server {
 ### 4. Enable and reload nginx
 
 ```bash
-sudo ln -sf /etc/nginx/sites-available/expo-pulse /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/expo-appbrio /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -229,7 +229,7 @@ You should get a response (possibly 404 or similar from Metro until Expo is runn
 Metro runs on 8081; Expo advertises 443 so the QR code uses `exp://expo.techies.com:443`:
 
 ```bash
-cd /var/www/pulse-mobile
+cd /var/www/appbrio-mobile
 
 REACT_NATIVE_PACKAGER_HOSTNAME=expo.techies.com \
 REACT_NATIVE_PACKAGER_PORT=443 \
@@ -257,7 +257,7 @@ sudo ufw reload
 ### 2. Start Expo
 
 ```bash
-cd /var/www/pulse-mobile
+cd /var/www/appbrio-mobile
 
 REACT_NATIVE_PACKAGER_HOSTNAME=expo.techies.com \
 EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0 \
@@ -282,7 +282,7 @@ EXPO_PUBLIC_SEARCH_API_URL=https://appbrio.com
 
 ## Run as a service (systemd)
 
-See the systemd block in **Initial deployment** above. Path: `/var/www/pulse-mobile`.
+See the systemd block in **Initial deployment** above. Path: `/var/www/appbrio-mobile`.
 
 ---
 
