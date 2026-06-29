@@ -115,7 +115,7 @@ User=www-data
 WorkingDirectory=/var/www/appbrio-mobile
 Environment="PULSE_WEB_ROOT=/var/www/appbrio"
 Environment="REACT_NATIVE_PACKAGER_HOSTNAME=expo.appbrio.com"
-Environment="REACT_NATIVE_PACKAGER_PORT=443"
+Environment="REACT_NATIVE_PACKAGER_PORT=80"
 Environment="EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0"
 Environment="NODE_ENV=development"
 ExecStart=/usr/bin/npx expo start
@@ -157,7 +157,7 @@ sudo systemctl restart appbrio-search-api   # or your web API unit name
 
 ## Option A: nginx Proxy (recommended — no extra firewall port)
 
-Proxy HTTPS traffic to Metro so everything goes through port 443.
+Proxy **HTTP** on port 80 to Metro (8081). Expo Go speaks plain HTTP for `exp://` — nginx must not use SSL on the advertised port.
 
 ### 1. DNS
 
@@ -165,11 +165,7 @@ Add an A record: `expo.appbrio.com` → your server IP (same as appbrio.com).
 
 ### 2. SSL certificate
 
-Get a cert for `expo.appbrio.com`:
-
-```bash
-sudo certbot certonly --nginx -d expo.appbrio.com
-```
+Not required for Expo Go when using HTTP port 80. (Do not proxy Expo through nginx `:443` ssl — Expo Go sends plain HTTP and nginx returns 400.)
 
 ### 3. Add nginx server block
 
@@ -186,15 +182,13 @@ Or create it directly on the server:
 sudo nano /etc/nginx/sites-available/expo-appbrio
 ```
 
-Paste (SSL paths assume `certbot -d expo.appbrio.com`):
+Paste:
 
 ```nginx
 server {
-    listen 443 ssl;
+    listen 80;
+    listen [::]:80;
     server_name expo.appbrio.com;
-
-    ssl_certificate /etc/letsencrypt/live/expo.appbrio.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/expo.appbrio.com/privkey.pem;
 
     location / {
         proxy_pass http://127.0.0.1:8081;
@@ -205,6 +199,9 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
     }
 }
 ```
@@ -220,7 +217,7 @@ sudo nginx -t && sudo systemctl reload nginx
 ### 5. Verify
 
 ```bash
-curl -I https://expo.appbrio.com
+curl -I http://expo.appbrio.com
 ```
 
 You should get a response (possibly 404 or similar from Metro until Expo is running — the important part is that nginx is proxying).
@@ -238,7 +235,7 @@ EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0 \
 npx expo start
 ```
 
-For the systemd service, add `Environment="REACT_NATIVE_PACKAGER_PORT=443"` to the `[Service]` block.
+For the systemd service, add `Environment="REACT_NATIVE_PACKAGER_PORT=80"` to the `[Service]` block.
 
 > If `REACT_NATIVE_PACKAGER_PORT=443` doesn't change the QR URL, use Option B (direct port 8081).
 
@@ -309,7 +306,7 @@ Look for:
 - `Could not find pulse web repo` → fix `PULSE_WEB_ROOT=/var/www/appbrio` and paths
 - `Missing pulse web file` → pull web repo; `chmod -R o+rX /var/www/appbrio/shared`
 - `EACCES` / permission denied → fix ownership (step 4 below)
-- Metro never prints `Metro waiting on exp://expo.appbrio.com:443` → Expo failed before ready
+- Metro never prints `Metro waiting on exp://expo.appbrio.com:80` → Expo failed before ready
 
 ### 2. Is Metro listening?
 
@@ -329,7 +326,7 @@ sudo -u www-data -H bash -lc '
   export HOME=/var/www/appbrio-mobile
   export PULSE_WEB_ROOT=/var/www/appbrio
   export REACT_NATIVE_PACKAGER_HOSTNAME=expo.appbrio.com
-  export REACT_NATIVE_PACKAGER_PORT=443
+  export REACT_NATIVE_PACKAGER_PORT=80
   export EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0
   ./node_modules/.bin/expo start --port 8081 --non-interactive
 '
@@ -360,5 +357,5 @@ sudo systemctl restart expo-staging
 ### 6. Phone / Expo Go
 
 - Project uses **Expo SDK 54** — update Expo Go from the App Store / Play Store.
-- Connection URL: `exp://expo.appbrio.com:443` (not `pulse.techies.com`).
+- Connection URL: `exp://expo.appbrio.com:80` (not `:443` — Expo Go uses plain HTTP)
 - If bundle loads but auth fails, add the redirect URL printed in Metro logs to Supabase.
