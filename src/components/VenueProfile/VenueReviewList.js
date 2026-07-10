@@ -11,6 +11,12 @@ function formatReviewDate(d) {
   return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
+function formatReviewDisplayDate(review) {
+  if (review?.review_date) return formatReviewDate(review.review_date)
+  const rel = (review?.relative_time_description || '').trim()
+  return rel
+}
+
 function getReviewerName(r) {
   const parts = [r.profile?.first_name, r.profile?.last_name].filter(Boolean)
   if (parts.length) return parts.join(' ')
@@ -93,7 +99,7 @@ export default function VenueReviewList({
               >
                 <View style={styles.meta}>
                   <Text style={styles.name}>{getReviewerName(r).toUpperCase()}</Text>
-                  <Text style={styles.date}>{r.relative_time_description || formatReviewDate(r.review_date)}</Text>
+                  <Text style={styles.date}>{formatReviewDisplayDate(r)}</Text>
                 </View>
               </Pressable>
               {r.rating10 != null && (
