@@ -30,6 +30,7 @@ import { Plus, Search, MessageCircle } from 'lucide-react-native'
 import { getGlobalUnreadDmCount } from '../services/messaging'
 import { colors, fontSizes, fontWeights, spacing, borderRadius, fontFamilies, hitSlop, textStyles } from '../theme'
 import { WRITE_REVIEW_ORIGIN } from '../navigation/writeReviewOrigin'
+import { subscribeReviewMutated } from '../constants/reviewMutated'
 
 /** Figma Social — search placeholder (ellipsis) */
 const SEARCH_PLACEHOLDER = 'Search friends or reviews…'
@@ -84,6 +85,13 @@ export default function SocialScreen() {
       loadFeed()
     }, [user?.id, loadFeed])
   )
+
+  useEffect(() => {
+    if (!user?.id) return undefined
+    return subscribeReviewMutated(() => {
+      loadFeed()
+    })
+  }, [user?.id, loadFeed])
 
   useEffect(() => {
     if (!user?.id) return

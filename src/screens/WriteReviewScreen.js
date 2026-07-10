@@ -20,6 +20,7 @@ import { supabase } from '../lib/supabase'
 import { searchVenuesByName, fetchVenueById } from '../lib/venueService'
 import { uploadReviewPhotos } from '../lib/reviewPhotoStorage'
 import { triggerVenueSearchReindex } from '../lib/triggerVenueSearchReindex'
+import { emitReviewMutated } from '../constants/reviewMutated'
 import { useAuth } from '../contexts/AuthContext'
 import VenueReviewComposer from '../components/VenueProfile/VenueReviewComposer'
 import { colors, fontFamilies, spacing } from '../theme'
@@ -172,6 +173,8 @@ export default function WriteReviewScreen() {
       if (!reindex.ok) {
         console.warn('[WriteReviewScreen] venue search reindex failed:', reindex.reason)
       }
+
+      emitReviewMutated(venueId)
     },
     [user?.id, existingReview]
   )

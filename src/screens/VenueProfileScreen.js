@@ -7,6 +7,7 @@ import { fetchVenueById } from '../lib/venueService'
 import { fetchVenueCrowdSentimentTags } from '../lib/fetchVenueCrowdSentiment'
 import { addFavorite, removeFavorite, getFavoriteVenueIds } from '../utils/favorites'
 import { useAuth } from '../contexts/AuthContext'
+import { subscribeReviewMutated } from '../constants/reviewMutated'
 import AddToListModal from '../components/AddToListModal'
 import VenueHeroGallery from '../components/VenueProfile/VenueHeroGallery'
 import VenuePhotoViewer from '../components/VenueProfile/VenuePhotoViewer'
@@ -22,6 +23,15 @@ import { LIST_BUILDER_ORIGIN_VENUE_PROFILE_ADD_TO_LIST } from '../constants/list
 import { colors, fontSizes, fontFamilies, spacing, iconSizes } from '../theme'
 
 const REVIEWS_PAGE_SIZE = 15
+
+const REVIEW_SELECT =
+  'venue_review_id, rating10, review_text, review_date, relative_time_description, user_id, created_at'
+
+function reviewOrder(query) {
+  return query
+    .order('review_date', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+}
 
 async function mergeReviewsWithProfiles(rows) {
   const list = rows || []
@@ -45,6 +55,7 @@ export default function VenueProfileScreen() {
   const [venue, setVenue] = useState(null)
   const [loading, setLoading] = useState(true)
   const [venueReviews, setVenueReviews] = useState([])
+  const [userReview, setUserReview] = useState(null)
   const [totalReviewCount, setTotalReviewCount] = useState(null)
   const [loadingReviews, setLoadingReviews] = useState(false)
   const [loadingMoreReviews, setLoadingMoreReviews] = useState(false)
@@ -84,56 +95,95 @@ export default function VenueProfileScreen() {
     }
   }, [user?.id])
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!venueId || !supabase) return
-      let cancelled = false
-      setLoadingReviews(true)
-      reviewsNextOffsetRef.current = 0
-      ;(async () => {
-        const { count } = await supabase
+  const reloadReviews = useCallback(async () => {
+    if (!venueId || !supabase) return
+    setLoadingReviews(true)
+    reviewsNextOffsetRef.current = 0
+
+    const userReviewQuery =
+      user?.id != null
+        ? supabase
+            .from('venue_review')
+            .select(REVIEW_SELECT)
+            .eq('venue_id', venueId)
+            .eq('user_id', user.id)
+            .limit(1)
+        : Promise.resolve({ data: [], error: null })
+
+    const [{ count }, { data: rows, error: rowsError }, { data: ownRows, error: ownError }] =
+      await Promise.all([
+        supabase
           .from('venue_review')
           .select('*', { count: 'exact', head: true })
-          .eq('venue_id', venueId)
-        if (cancelled) return
-        const total = typeof count === 'number' ? count : 0
-        setTotalReviewCount(total)
+          .eq('venue_id', venueId),
+        reviewOrder(
+          supabase.from('venue_review').select(REVIEW_SELECT).eq('venue_id', venueId)
+        ).range(0, REVIEWS_PAGE_SIZE - 1),
+        userReviewQuery,
+      ])
 
-        const { data: rows } = await supabase
-          .from('venue_review')
-          .select('venue_review_id, rating10, review_text, review_date, relative_time_description, user_id')
-          .eq('venue_id', venueId)
-          .order('review_date', { ascending: false })
-          .range(0, REVIEWS_PAGE_SIZE - 1)
-        if (cancelled) return
-        const list = rows || []
-        reviewsNextOffsetRef.current = list.length
-        const merged = await mergeReviewsWithProfiles(list)
-        if (cancelled) return
-        setVenueReviews(merged)
-        setHasMoreReviews(total > merged.length)
-        const crowdSentimentTags = await fetchVenueCrowdSentimentTags(venueId)
-        if (!cancelled) {
-          setVenue((prev) => (prev ? { ...prev, crowd_sentiment_tags: crowdSentimentTags } : prev))
-        }
-        setLoadingReviews(false)
-      })()
-      return () => {
-        cancelled = true
-      }
-    }, [venueId])
+    if (rowsError) console.error('[VenueProfile] review fetch failed:', rowsError.message)
+    if (ownError) console.error('[VenueProfile] user review fetch failed:', ownError.message)
+
+    const total = typeof count === 'number' ? count : 0
+    setTotalReviewCount(total)
+
+    const list = rows || []
+    reviewsNextOffsetRef.current = list.length
+    const merged = await mergeReviewsWithProfiles(list)
+    setVenueReviews(merged)
+    setHasMoreReviews(total > merged.length)
+
+    const ownList = ownRows || []
+    if (ownList.length) {
+      const [ownMerged] = await mergeReviewsWithProfiles(ownList)
+      setUserReview(ownMerged || null)
+    } else {
+      setUserReview(null)
+    }
+
+    const [{ data: venueRatings }, crowdSentimentTags] = await Promise.all([
+      supabase.from('venue').select('rating10, rating_count').eq('venue_id', venueId).maybeSingle(),
+      fetchVenueCrowdSentimentTags(venueId),
+    ])
+
+    setVenue((prev) => {
+      if (!prev) return prev
+      const base = venueRatings ? { ...prev, ...venueRatings } : prev
+      return crowdSentimentTags ? { ...base, crowd_sentiment_tags: crowdSentimentTags } : base
+    })
+    setLoadingReviews(false)
+  }, [venueId, user?.id])
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!venueId) return
+      reloadReviews()
+    }, [venueId, reloadReviews])
   )
+
+  useEffect(() => {
+    if (!venueId) return undefined
+    return subscribeReviewMutated((payload) => {
+      const mutatedId =
+        payload?.venueId != null ? parseInt(String(payload.venueId), 10) : null
+      if (mutatedId != null && mutatedId !== parseInt(String(venueId), 10)) return
+      reloadReviews()
+    })
+  }, [venueId, reloadReviews])
 
   const loadMoreReviews = useCallback(async () => {
     if (!venueId || !supabase || loadingMoreReviews || !hasMoreReviews) return
     setLoadingMoreReviews(true)
     const from = reviewsNextOffsetRef.current
-    const { data: rows } = await supabase
-      .from('venue_review')
-      .select('venue_review_id, rating10, review_text, review_date, relative_time_description, user_id')
-      .eq('venue_id', venueId)
-      .order('review_date', { ascending: false })
-      .range(from, from + REVIEWS_PAGE_SIZE - 1)
+    const { data: rows, error } = await reviewOrder(
+      supabase.from('venue_review').select(REVIEW_SELECT).eq('venue_id', venueId)
+    ).range(from, from + REVIEWS_PAGE_SIZE - 1)
+    if (error) {
+      console.error('[VenueProfile] load more reviews failed:', error.message)
+      setLoadingMoreReviews(false)
+      return
+    }
     const list = rows || []
     const merged = await mergeReviewsWithProfiles(list)
     setVenueReviews((prev) => {
@@ -170,7 +220,6 @@ export default function VenueProfileScreen() {
     setAddToListVenue(v || { id: venue?.venue_id, name: venue?.name })
   }
 
-  const userReview = venueReviews.find((r) => r.user_id === user?.id) || null
 
   const openWriteReview = () => {
     if (!venue?.venue_id) return

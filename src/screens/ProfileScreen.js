@@ -27,6 +27,7 @@ import ProfilePhotoViewerModal from '../components/ProfilePhotoViewerModal'
 import ProfileReviewEngagementRow from '../components/ProfileReviewEngagementRow'
 import { pickAndUploadProfileAvatar, removeAvatar } from '../services/profileAvatar'
 import { useProfileReviewEngagement } from '../hooks/useProfileReviewEngagement'
+import { subscribeReviewMutated } from '../constants/reviewMutated'
 
 const TABS = ['reviews', 'lists', 'saved']
 
@@ -129,7 +130,8 @@ export default function ProfileScreen() {
         `
           )
           .eq('user_id', user.id)
-          .order('review_date', { ascending: false })
+          .order('review_date', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false })
           .limit(50),
         getUserTopTenVenues(user.id),
         getUserTopTenEligibility(user.id),
@@ -154,6 +156,13 @@ export default function ProfileScreen() {
       if (user?.id) loadProfile()
     }, [user?.id, loadProfile])
   )
+
+  useEffect(() => {
+    if (!user?.id) return undefined
+    return subscribeReviewMutated(() => {
+      loadProfile()
+    })
+  }, [user?.id, loadProfile])
 
   const displayName = profile?.first_name
     ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
