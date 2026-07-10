@@ -306,7 +306,9 @@ export default function FriendProfileScreen() {
   }
 
   const handleVenuePress = (venue) => {
-    navigation.getParent()?.navigate?.('VenueProfile', { venueId: venue?.venue_id })
+    const venueId = venue?.venue_id
+    if (!venueId) return
+    navigation.navigate('VenueProfile', { venueId })
   }
 
   const handleListPress = (list) => {
