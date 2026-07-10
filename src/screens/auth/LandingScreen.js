@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Linking, Platform } from 'react-native'
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Linking, Platform, Image } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useState } from 'react'
 import { Ionicons } from '@expo/vector-icons'
@@ -39,7 +39,7 @@ export default function LandingScreen({ navigation }) {
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom + authSpacing.md }]}>
       <View style={styles.hero}>
-        <Text style={styles.logo}>Brio</Text>
+        <Image source={require('../../../assets/brio-logo.png')} style={styles.logoImage} accessibilityLabel="Brio" />
         <Text style={styles.tagline}>the future of city discovery</Text>
       </View>
 
@@ -121,11 +121,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: authSpacing.xxl,
   },
-  logo: {
-    fontFamily: authFonts.fraunces,
-    fontSize: 48,
-    color: authColors.textPrimary,
+  logoImage: {
+    width: 120,
+    height: 120,
     marginBottom: authSpacing.sm,
+    resizeMode: 'contain',
   },
   tagline: {
     fontFamily: authFonts.inter,
