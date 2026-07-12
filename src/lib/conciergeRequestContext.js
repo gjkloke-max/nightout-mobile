@@ -14,4 +14,5 @@ export {
   priorSearchQueryFromSession,
   rankedVenueBacklogFromSession,
   rehydrateConciergeSessionFromMessages,
+  createSseFullTextFeeder,
 } from '@pulse-web/shared/concierge-client/index.js'

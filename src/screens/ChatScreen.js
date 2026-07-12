@@ -17,7 +17,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
-import { sendConciergeMessage } from '../lib/conciergeApi'
+import { streamConciergeMessage } from '../lib/conciergeApi'
 import { isConciergeDebugEnabled } from '../lib/conciergeDebug'
 import {
   applyConciergeResponseToSession,
@@ -76,6 +76,7 @@ export default function ChatScreen() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingStatusText, setLoadingStatusText] = useState(null)
+  const [streamingResponseText, setStreamingResponseText] = useState(null)
   const [error, setError] = useState(null)
   const scrollRef = useRef(null)
   const lastSessionRef = useRef(emptyConciergeClientSession())
@@ -221,7 +222,11 @@ export default function ChatScreen() {
       conciergeDebug: conciergeDebugEnabled,
     })
 
-    const { data, error: err } = await sendConciergeMessage(body)
+    setStreamingResponseText('')
+    const { data, error: err } = await streamConciergeMessage(body, (deltaText) => {
+      setStreamingResponseText((prev) => (prev || '') + deltaText)
+    })
+    setStreamingResponseText(null)
 
     if (err) {
       setError(err.message || 'Something went wrong')
@@ -279,6 +284,7 @@ export default function ChatScreen() {
     } finally {
       setLoading(false)
       setLoadingStatusText(null)
+      setStreamingResponseText(null)
     }
   }
 
@@ -520,12 +526,20 @@ export default function ChatScreen() {
             {loading ? (
               <View style={[styles.messageRow, styles.messageAssistant]}>
                 <View style={styles.bubble}>
-                  {loadingStatusText ? (
-                    <Text style={styles.loadingStatusText} accessibilityRole="text">
-                      {loadingStatusText}
+                  {streamingResponseText ? (
+                    <Text style={styles.streamingResponseText} accessibilityLiveRegion="polite">
+                      {streamingResponseText}
                     </Text>
-                  ) : null}
-                  <ActivityIndicator size="small" color={colors.browseAccent} style={styles.loadingSpinner} />
+                  ) : (
+                    <>
+                      {loadingStatusText ? (
+                        <Text style={styles.loadingStatusText} accessibilityRole="text">
+                          {loadingStatusText}
+                        </Text>
+                      ) : null}
+                      <ActivityIndicator size="small" color={colors.browseAccent} style={styles.loadingSpinner} />
+                    </>
+                  )}
                 </View>
               </View>
             ) : null}
@@ -797,6 +811,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   loadingSpinner: { alignSelf: 'flex-start' },
+  streamingResponseText: {
+    fontSize: fontSizes.sm,
+    color: colors.textPrimary,
+    fontFamily: fontFamilies.interMedium,
+    lineHeight: 20,
+  },
   errorRow: { padding: spacing.md },
   errorText: { fontSize: fontSizes.sm, color: colors.error },
   inputRow: {
