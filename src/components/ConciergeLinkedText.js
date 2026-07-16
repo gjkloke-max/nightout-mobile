@@ -2,10 +2,9 @@ import { Text } from 'react-native'
 import { splitTextWithVenueLinks } from '../utils/conciergeLinkUtils'
 import TrendingBadge from './TrendingBadge'
 import { isVenueInTrendingPool } from '../utils/venueTrending'
-import { trimIncompleteMarkdownTail } from '@pulse-web/shared/concierge-client/index.js'
 
 export default function ConciergeLinkedText({ content, venues, textStyle, linkStyle, onVenuePress }) {
-  const segments = splitTextWithVenueLinks(trimIncompleteMarkdownTail(content), venues || [])
+  const segments = splitTextWithVenueLinks(content, venues || [])
   const trendingIds = new Set(
     (venues || [])
       .filter(isVenueInTrendingPool)

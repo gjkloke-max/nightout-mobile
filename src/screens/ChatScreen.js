@@ -17,7 +17,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
-import { streamConciergeMessage } from '../lib/conciergeApi'
+import { sendConciergeMessage } from '../lib/conciergeApi'
 import { isConciergeDebugEnabled } from '../lib/conciergeDebug'
 import {
   applyConciergeResponseToSession,
@@ -169,26 +169,9 @@ export default function ChatScreen() {
 
     const userMessage = { role: 'user', content: text }
     const nextMessages = [...messages, userMessage]
-    const assistantMessageIndex = nextMessages.length
-    setMessages([...nextMessages, { role: 'assistant', content: '', venues: [], _pending: true }])
+    setMessages(nextMessages)
     setLoadingStatusText(buildConciergeSearchStatusText(text))
     setLoading(true)
-
-    const updatePendingAssistantMessage = (updater) => {
-      setMessages((prev) => {
-        if (assistantMessageIndex >= prev.length) return prev
-        const next = [...prev]
-        next[assistantMessageIndex] = updater(next[assistantMessageIndex])
-        return next
-      })
-    }
-
-    const removePendingAssistantMessage = () => {
-      setMessages((prev) => {
-        if (assistantMessageIndex >= prev.length || !prev[assistantMessageIndex]?._pending) return prev
-        return prev.filter((_, i) => i !== assistantMessageIndex)
-      })
-    }
 
     try {
     let sessionId = currentSessionId
@@ -238,18 +221,9 @@ export default function ChatScreen() {
       conciergeDebug: conciergeDebugEnabled,
     })
 
-    const { data, error: err } = await streamConciergeMessage(
-      body,
-      (deltaText) => {
-        updatePendingAssistantMessage((m) => ({ ...m, content: (m.content || '') + deltaText }))
-      },
-      (venues) => {
-        updatePendingAssistantMessage((m) => ({ ...m, venues }))
-      },
-    )
+    const { data, error: err } = await sendConciergeMessage(body)
 
     if (err) {
-      removePendingAssistantMessage()
       setError(err.message || 'Something went wrong')
       return
     }
@@ -293,15 +267,7 @@ export default function ChatScreen() {
       rankedVenueBacklog: data.rankedVenueBacklog ?? null,
       ...(conciergeDebugEnabled && data.conciergeDebug ? { conciergeDebug: data.conciergeDebug } : {}),
     }
-    // Update the pending placeholder in place (same array index) so React reconciles this as a
-    // prop update on the existing bubble instead of unmounting the streaming preview and
-    // mounting a new message — that unmount/remount was the visible flash.
-    setMessages((prev) => {
-      if (assistantMessageIndex >= prev.length) return [...prev, assistantMessage]
-      const next = [...prev]
-      next[assistantMessageIndex] = assistantMessage
-      return next
-    })
+    setMessages((prev) => [...prev, assistantMessage])
 
     if (sessionId) {
       await saveMessage(sessionId, 'assistant', assistantMessage.content, assistantMessage.venues || [])
@@ -309,7 +275,6 @@ export default function ChatScreen() {
     }
     } catch (e) {
       console.error('[concierge] handleSend', e)
-      removePendingAssistantMessage()
       setError(e?.message || 'Something went wrong')
     } finally {
       setLoading(false)
@@ -525,47 +490,45 @@ export default function ChatScreen() {
           </View>
         ) : (
           <>
-            {messages.map((msg, i) => {
-              const isPendingEmpty = msg.role === 'assistant' && msg._pending && !msg.content
-              return (
-                <View
-                  key={i}
-                  style={[styles.messageRow, msg.role === 'user' ? styles.messageUser : styles.messageAssistant]}
-                >
-                  <View style={[styles.bubble, msg.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant]}>
-                    {msg.role === 'user' ? (
-                      <Text
-                        style={[styles.bubbleText, styles.bubbleTextUser]}
-                      >
-                        {msg.content}
-                      </Text>
-                    ) : isPendingEmpty ? (
-                      <>
-                        {loadingStatusText ? (
-                          <Text style={styles.loadingStatusText} accessibilityRole="text">
-                            {loadingStatusText}
-                          </Text>
-                        ) : null}
-                        <ActivityIndicator size="small" color={colors.browseAccent} style={styles.loadingSpinner} />
-                      </>
-                    ) : (
-                      <View accessibilityLiveRegion={msg._pending ? 'polite' : undefined}>
-                        <ConciergeLinkedText
-                          content={msg.content}
-                          venues={msg.venues}
-                          textStyle={[styles.bubbleText, styles.bubbleTextAssistant]}
-                          linkStyle={styles.conciergeVenueLink}
-                          onVenuePress={(venueId) => {
-                            const root = navigation.getParent()?.getParent?.()
-                            root?.navigate?.('VenueProfile', { venueId })
-                          }}
-                        />
-                      </View>
-                    )}
-                  </View>
+            {messages.map((msg, i) => (
+              <View
+                key={i}
+                style={[styles.messageRow, msg.role === 'user' ? styles.messageUser : styles.messageAssistant]}
+              >
+                <View style={[styles.bubble, msg.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant]}>
+                  {msg.role === 'user' ? (
+                    <Text
+                      style={[styles.bubbleText, styles.bubbleTextUser]}
+                    >
+                      {msg.content}
+                    </Text>
+                  ) : (
+                    <ConciergeLinkedText
+                      content={msg.content}
+                      venues={msg.venues}
+                      textStyle={[styles.bubbleText, styles.bubbleTextAssistant]}
+                      linkStyle={styles.conciergeVenueLink}
+                      onVenuePress={(venueId) => {
+                        const root = navigation.getParent()?.getParent?.()
+                        root?.navigate?.('VenueProfile', { venueId })
+                      }}
+                    />
+                  )}
                 </View>
-              )
-            })}
+              </View>
+            ))}
+            {loading ? (
+              <View style={[styles.messageRow, styles.messageAssistant]}>
+                <View style={styles.bubble}>
+                  {loadingStatusText ? (
+                    <Text style={styles.loadingStatusText} accessibilityRole="text">
+                      {loadingStatusText}
+                    </Text>
+                  ) : null}
+                  <ActivityIndicator size="small" color={colors.browseAccent} style={styles.loadingSpinner} />
+                </View>
+              </View>
+            ) : null}
             {error ? (
               <View style={styles.errorRow}>
                 <Text style={styles.errorText}>{error}</Text>
@@ -834,12 +797,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   loadingSpinner: { alignSelf: 'flex-start' },
-  streamingResponseText: {
-    fontSize: fontSizes.sm,
-    color: colors.textPrimary,
-    fontFamily: fontFamilies.interMedium,
-    lineHeight: 20,
-  },
   errorRow: { padding: spacing.md },
   errorText: { fontSize: fontSizes.sm, color: colors.error },
   inputRow: {

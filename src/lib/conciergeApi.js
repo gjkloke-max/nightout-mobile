@@ -5,7 +5,6 @@
 
 import { Platform } from 'react-native'
 import { config } from './config'
-import { createSseFullTextFeeder } from './conciergeRequestContext'
 
 /** Android emulator maps host “localhost” to the dev machine via 10.0.2.2 */
 function resolveSearchApiBaseUrl(url) {
@@ -38,42 +37,6 @@ function conciergeFetchError(err) {
   return { message: err?.message || 'Network error' }
 }
 
-/** Shared request-body normalization for sendConciergeMessage / streamConciergeMessage. */
-function buildNormalizedConciergeBody(requestBody, extra = {}) {
-  const raw = requestBody && typeof requestBody === 'object' ? requestBody : {}
-  const body = {
-    ...raw,
-    message: typeof raw.message === 'string' ? raw.message.trim() : '',
-    conversationHistory: Array.isArray(raw.conversationHistory)
-      ? raw.conversationHistory.map((m) => ({ role: m.role, content: m.content || '' }))
-      : [],
-    ...extra,
-  }
-  if (body.userHome && typeof body.userHome === 'object') {
-    body.userHome = {
-      homeNeighborhoodName: body.userHome.homeNeighborhoodName ?? null,
-      lat: body.userHome.lat ?? null,
-      lng: body.userHome.lng ?? null,
-    }
-  }
-  return body
-}
-
-/** Normalizes a `done` event payload (or non-streaming JSON body) into the shape both API functions return. */
-function normalizeConciergeData(data) {
-  return {
-    response: data.response ?? '',
-    reviews: data.reviews ?? [],
-    venues: data.venues ?? [],
-    searchState: data.searchState ?? null,
-    recommendationState: data.recommendationState ?? null,
-    canonicalConversationState: data.canonicalConversationState ?? null,
-    geoContext: data.geoContext ?? null,
-    rankedVenueBacklog: data.rankedVenueBacklog ?? null,
-    conciergeDebug: data.conciergeDebug ?? null,
-  }
-}
-
 /**
  * POST /api/concierge — accepts the same body as web `buildConciergeRequest().body`.
  * @param {Record<string, unknown>} requestBody
@@ -101,13 +64,28 @@ export async function sendConciergeMessage(requestBody) {
     console.log('[concierge] using Brio API', `${searchApiUrl}/api/concierge`)
   }
 
-  const message = typeof requestBody?.message === 'string' ? requestBody.message.trim() : ''
+  const raw = requestBody && typeof requestBody === 'object' ? requestBody : {}
+  const message = typeof raw.message === 'string' ? raw.message.trim() : ''
   if (!message) {
     return { data: null, error: { message: 'message is required' } }
   }
 
   try {
-    const body = buildNormalizedConciergeBody(requestBody, { message })
+    const body = {
+      ...raw,
+      message,
+      conversationHistory: Array.isArray(raw.conversationHistory)
+        ? raw.conversationHistory.map((m) => ({ role: m.role, content: m.content || '' }))
+        : [],
+    }
+    if (body.userHome && typeof body.userHome === 'object') {
+      body.userHome = {
+        homeNeighborhoodName: body.userHome.homeNeighborhoodName ?? null,
+        lat: body.userHome.lat ?? null,
+        lng: body.userHome.lng ?? null,
+      }
+    }
+
     const res = await fetchWithTimeout(`${searchApiUrl}/api/concierge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -117,109 +95,21 @@ export async function sendConciergeMessage(requestBody) {
     if (!res.ok) {
       return { data: null, error: { message: data.error || 'Concierge request failed' } }
     }
-    return { data: normalizeConciergeData(data), error: null }
+    return {
+      data: {
+        response: data.response ?? '',
+        reviews: data.reviews ?? [],
+        venues: data.venues ?? [],
+        searchState: data.searchState ?? null,
+        recommendationState: data.recommendationState ?? null,
+        canonicalConversationState: data.canonicalConversationState ?? null,
+        geoContext: data.geoContext ?? null,
+        rankedVenueBacklog: data.rankedVenueBacklog ?? null,
+        conciergeDebug: data.conciergeDebug ?? null,
+      },
+      error: null,
+    }
   } catch (err) {
     return { data: null, error: conciergeFetchError(err) }
   }
-}
-
-/**
- * Streaming variant of sendConciergeMessage. React Native's fetch doesn't reliably support
- * incremental ReadableStream reading across iOS/Android/Expo versions, so this uses
- * XMLHttpRequest + onprogress instead — a well-established pattern for consuming
- * Server-Sent Events in React Native. `onToken` is called with each text delta as it streams
- * in; `onMeta` is called once, before the first token, with the venues the response will
- * reference (so the UI can render venue links live instead of only after the stream ends).
- * The returned promise resolves with the same `{ data, error }` shape as
- * sendConciergeMessage once the server's `done` event arrives.
- * @param {Record<string, unknown>} requestBody
- * @param {(deltaText: string) => void} [onToken]
- * @param {(venues: object[]) => void} [onMeta]
- * @returns {Promise<{ data: object|null, error: { message: string }|null }>}
- */
-export function streamConciergeMessage(requestBody, onToken, onMeta) {
-  const searchApiUrl = resolveSearchApiBaseUrl((config.searchApiUrl || '').replace(/\/$/, ''))
-
-  if (!searchApiUrl) {
-    return Promise.resolve({
-      data: null,
-      error: {
-        message:
-          'Set EXPO_PUBLIC_SEARCH_API_URL to your Brio search API (same host/port as /api/search), e.g. http://192.168.1.5:3001 on a physical device.',
-      },
-    })
-  }
-
-  const message = typeof requestBody?.message === 'string' ? requestBody.message.trim() : ''
-  if (!message) {
-    return Promise.resolve({ data: null, error: { message: 'message is required' } })
-  }
-
-  if (__DEV__) {
-    console.log('[concierge] streaming from Brio API', `${searchApiUrl}/api/concierge`)
-  }
-
-  const body = buildNormalizedConciergeBody(requestBody, { message, stream: true })
-
-  return new Promise((resolve) => {
-    const xhr = new XMLHttpRequest()
-    const feeder = createSseFullTextFeeder()
-    let settled = false
-    let doneData = null
-
-    const settle = (result) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      resolve(result)
-    }
-
-    const timer = setTimeout(() => {
-      xhr.abort()
-      settle({ data: null, error: conciergeFetchError({ name: 'AbortError' }) })
-    }, config.conciergeTimeoutMs)
-
-    xhr.onprogress = () => {
-      if (settled) return
-      const events = feeder.feed(xhr.responseText)
-      for (const evt of events) {
-        if (evt.event === 'meta') {
-          onMeta?.(evt.data?.venues || [])
-        } else if (evt.event === 'token') {
-          onToken?.(evt.data?.text || '')
-        } else if (evt.event === 'done') {
-          doneData = evt.data
-        } else if (evt.event === 'error') {
-          settle({ data: null, error: { message: evt.data?.error || 'Concierge request failed' } })
-        }
-      }
-    }
-
-    xhr.onload = () => {
-      if (settled) return
-      if (xhr.status < 200 || xhr.status >= 300) {
-        let errorMessage = 'Concierge request failed'
-        try {
-          errorMessage = JSON.parse(xhr.responseText)?.error || errorMessage
-        } catch {
-          // response wasn't JSON — keep default message
-        }
-        settle({ data: null, error: { message: errorMessage } })
-        return
-      }
-      if (!doneData) {
-        settle({ data: null, error: { message: 'Concierge stream ended without a response' } })
-        return
-      }
-      settle({ data: normalizeConciergeData(doneData), error: null })
-    }
-
-    xhr.onerror = () => {
-      settle({ data: null, error: conciergeFetchError(new Error('Network error')) })
-    }
-
-    xhr.open('POST', `${searchApiUrl}/api/concierge`)
-    xhr.setRequestHeader('Content-Type', 'application/json')
-    xhr.send(JSON.stringify(body))
-  })
 }
