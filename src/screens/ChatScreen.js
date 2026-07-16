@@ -77,6 +77,7 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(false)
   const [loadingStatusText, setLoadingStatusText] = useState(null)
   const [streamingResponseText, setStreamingResponseText] = useState(null)
+  const [streamingVenues, setStreamingVenues] = useState([])
   const [error, setError] = useState(null)
   const scrollRef = useRef(null)
   const lastSessionRef = useRef(emptyConciergeClientSession())
@@ -223,10 +224,18 @@ export default function ChatScreen() {
     })
 
     setStreamingResponseText('')
-    const { data, error: err } = await streamConciergeMessage(body, (deltaText) => {
-      setStreamingResponseText((prev) => (prev || '') + deltaText)
-    })
+    setStreamingVenues([])
+    const { data, error: err } = await streamConciergeMessage(
+      body,
+      (deltaText) => {
+        setStreamingResponseText((prev) => (prev || '') + deltaText)
+      },
+      (venues) => {
+        setStreamingVenues(venues)
+      },
+    )
     setStreamingResponseText(null)
+    setStreamingVenues([])
 
     if (err) {
       setError(err.message || 'Something went wrong')
@@ -285,6 +294,7 @@ export default function ChatScreen() {
       setLoading(false)
       setLoadingStatusText(null)
       setStreamingResponseText(null)
+      setStreamingVenues([])
     }
   }
 
@@ -527,9 +537,18 @@ export default function ChatScreen() {
               <View style={[styles.messageRow, styles.messageAssistant]}>
                 <View style={styles.bubble}>
                   {streamingResponseText ? (
-                    <Text style={styles.streamingResponseText} accessibilityLiveRegion="polite">
-                      {streamingResponseText}
-                    </Text>
+                    <View accessibilityLiveRegion="polite">
+                      <ConciergeLinkedText
+                        content={streamingResponseText}
+                        venues={streamingVenues}
+                        textStyle={[styles.bubbleText, styles.bubbleTextAssistant]}
+                        linkStyle={styles.conciergeVenueLink}
+                        onVenuePress={(venueId) => {
+                          const root = navigation.getParent()?.getParent?.()
+                          root?.navigate?.('VenueProfile', { venueId })
+                        }}
+                      />
+                    </View>
                   ) : (
                     <>
                       {loadingStatusText ? (

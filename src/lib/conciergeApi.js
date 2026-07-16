@@ -128,13 +128,16 @@ export async function sendConciergeMessage(requestBody) {
  * incremental ReadableStream reading across iOS/Android/Expo versions, so this uses
  * XMLHttpRequest + onprogress instead — a well-established pattern for consuming
  * Server-Sent Events in React Native. `onToken` is called with each text delta as it streams
- * in; the returned promise resolves with the same `{ data, error }` shape as
+ * in; `onMeta` is called once, before the first token, with the venues the response will
+ * reference (so the UI can render venue links live instead of only after the stream ends).
+ * The returned promise resolves with the same `{ data, error }` shape as
  * sendConciergeMessage once the server's `done` event arrives.
  * @param {Record<string, unknown>} requestBody
  * @param {(deltaText: string) => void} [onToken]
+ * @param {(venues: object[]) => void} [onMeta]
  * @returns {Promise<{ data: object|null, error: { message: string }|null }>}
  */
-export function streamConciergeMessage(requestBody, onToken) {
+export function streamConciergeMessage(requestBody, onToken, onMeta) {
   const searchApiUrl = resolveSearchApiBaseUrl((config.searchApiUrl || '').replace(/\/$/, ''))
 
   if (!searchApiUrl) {
@@ -180,7 +183,9 @@ export function streamConciergeMessage(requestBody, onToken) {
       if (settled) return
       const events = feeder.feed(xhr.responseText)
       for (const evt of events) {
-        if (evt.event === 'token') {
+        if (evt.event === 'meta') {
+          onMeta?.(evt.data?.venues || [])
+        } else if (evt.event === 'token') {
           onToken?.(evt.data?.text || '')
         } else if (evt.event === 'done') {
           doneData = evt.data
