@@ -76,8 +76,6 @@ export default function ChatScreen() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingStatusText, setLoadingStatusText] = useState(null)
-  const [streamingResponseText, setStreamingResponseText] = useState(null)
-  const [streamingVenues, setStreamingVenues] = useState([])
   const [error, setError] = useState(null)
   const scrollRef = useRef(null)
   const lastSessionRef = useRef(emptyConciergeClientSession())
@@ -171,9 +169,26 @@ export default function ChatScreen() {
 
     const userMessage = { role: 'user', content: text }
     const nextMessages = [...messages, userMessage]
-    setMessages(nextMessages)
+    const assistantMessageIndex = nextMessages.length
+    setMessages([...nextMessages, { role: 'assistant', content: '', venues: [], _pending: true }])
     setLoadingStatusText(buildConciergeSearchStatusText(text))
     setLoading(true)
+
+    const updatePendingAssistantMessage = (updater) => {
+      setMessages((prev) => {
+        if (assistantMessageIndex >= prev.length) return prev
+        const next = [...prev]
+        next[assistantMessageIndex] = updater(next[assistantMessageIndex])
+        return next
+      })
+    }
+
+    const removePendingAssistantMessage = () => {
+      setMessages((prev) => {
+        if (assistantMessageIndex >= prev.length || !prev[assistantMessageIndex]?._pending) return prev
+        return prev.filter((_, i) => i !== assistantMessageIndex)
+      })
+    }
 
     try {
     let sessionId = currentSessionId
@@ -223,21 +238,18 @@ export default function ChatScreen() {
       conciergeDebug: conciergeDebugEnabled,
     })
 
-    setStreamingResponseText('')
-    setStreamingVenues([])
     const { data, error: err } = await streamConciergeMessage(
       body,
       (deltaText) => {
-        setStreamingResponseText((prev) => (prev || '') + deltaText)
+        updatePendingAssistantMessage((m) => ({ ...m, content: (m.content || '') + deltaText }))
       },
       (venues) => {
-        setStreamingVenues(venues)
+        updatePendingAssistantMessage((m) => ({ ...m, venues }))
       },
     )
-    setStreamingResponseText(null)
-    setStreamingVenues([])
 
     if (err) {
+      removePendingAssistantMessage()
       setError(err.message || 'Something went wrong')
       return
     }
@@ -281,7 +293,15 @@ export default function ChatScreen() {
       rankedVenueBacklog: data.rankedVenueBacklog ?? null,
       ...(conciergeDebugEnabled && data.conciergeDebug ? { conciergeDebug: data.conciergeDebug } : {}),
     }
-    setMessages((prev) => [...prev, assistantMessage])
+    // Update the pending placeholder in place (same array index) so React reconciles this as a
+    // prop update on the existing bubble instead of unmounting the streaming preview and
+    // mounting a new message — that unmount/remount was the visible flash.
+    setMessages((prev) => {
+      if (assistantMessageIndex >= prev.length) return [...prev, assistantMessage]
+      const next = [...prev]
+      next[assistantMessageIndex] = assistantMessage
+      return next
+    })
 
     if (sessionId) {
       await saveMessage(sessionId, 'assistant', assistantMessage.content, assistantMessage.venues || [])
@@ -289,12 +309,11 @@ export default function ChatScreen() {
     }
     } catch (e) {
       console.error('[concierge] handleSend', e)
+      removePendingAssistantMessage()
       setError(e?.message || 'Something went wrong')
     } finally {
       setLoading(false)
       setLoadingStatusText(null)
-      setStreamingResponseText(null)
-      setStreamingVenues([])
     }
   }
 
@@ -506,62 +525,47 @@ export default function ChatScreen() {
           </View>
         ) : (
           <>
-            {messages.map((msg, i) => (
-              <View
-                key={i}
-                style={[styles.messageRow, msg.role === 'user' ? styles.messageUser : styles.messageAssistant]}
-              >
-                <View style={[styles.bubble, msg.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant]}>
-                  {msg.role === 'user' ? (
-                    <Text
-                      style={[styles.bubbleText, styles.bubbleTextUser]}
-                    >
-                      {msg.content}
-                    </Text>
-                  ) : (
-                    <ConciergeLinkedText
-                      content={msg.content}
-                      venues={msg.venues}
-                      textStyle={[styles.bubbleText, styles.bubbleTextAssistant]}
-                      linkStyle={styles.conciergeVenueLink}
-                      onVenuePress={(venueId) => {
-                        const root = navigation.getParent()?.getParent?.()
-                        root?.navigate?.('VenueProfile', { venueId })
-                      }}
-                    />
-                  )}
+            {messages.map((msg, i) => {
+              const isPendingEmpty = msg.role === 'assistant' && msg._pending && !msg.content
+              return (
+                <View
+                  key={i}
+                  style={[styles.messageRow, msg.role === 'user' ? styles.messageUser : styles.messageAssistant]}
+                >
+                  <View style={[styles.bubble, msg.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant]}>
+                    {msg.role === 'user' ? (
+                      <Text
+                        style={[styles.bubbleText, styles.bubbleTextUser]}
+                      >
+                        {msg.content}
+                      </Text>
+                    ) : isPendingEmpty ? (
+                      <>
+                        {loadingStatusText ? (
+                          <Text style={styles.loadingStatusText} accessibilityRole="text">
+                            {loadingStatusText}
+                          </Text>
+                        ) : null}
+                        <ActivityIndicator size="small" color={colors.browseAccent} style={styles.loadingSpinner} />
+                      </>
+                    ) : (
+                      <View accessibilityLiveRegion={msg._pending ? 'polite' : undefined}>
+                        <ConciergeLinkedText
+                          content={msg.content}
+                          venues={msg.venues}
+                          textStyle={[styles.bubbleText, styles.bubbleTextAssistant]}
+                          linkStyle={styles.conciergeVenueLink}
+                          onVenuePress={(venueId) => {
+                            const root = navigation.getParent()?.getParent?.()
+                            root?.navigate?.('VenueProfile', { venueId })
+                          }}
+                        />
+                      </View>
+                    )}
+                  </View>
                 </View>
-              </View>
-            ))}
-            {loading ? (
-              <View style={[styles.messageRow, styles.messageAssistant]}>
-                <View style={styles.bubble}>
-                  {streamingResponseText ? (
-                    <View accessibilityLiveRegion="polite">
-                      <ConciergeLinkedText
-                        content={streamingResponseText}
-                        venues={streamingVenues}
-                        textStyle={[styles.bubbleText, styles.bubbleTextAssistant]}
-                        linkStyle={styles.conciergeVenueLink}
-                        onVenuePress={(venueId) => {
-                          const root = navigation.getParent()?.getParent?.()
-                          root?.navigate?.('VenueProfile', { venueId })
-                        }}
-                      />
-                    </View>
-                  ) : (
-                    <>
-                      {loadingStatusText ? (
-                        <Text style={styles.loadingStatusText} accessibilityRole="text">
-                          {loadingStatusText}
-                        </Text>
-                      ) : null}
-                      <ActivityIndicator size="small" color={colors.browseAccent} style={styles.loadingSpinner} />
-                    </>
-                  )}
-                </View>
-              </View>
-            ) : null}
+              )
+            })}
             {error ? (
               <View style={styles.errorRow}>
                 <Text style={styles.errorText}>{error}</Text>
