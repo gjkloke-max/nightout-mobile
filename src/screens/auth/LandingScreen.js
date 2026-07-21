@@ -18,8 +18,10 @@ export default function LandingScreen({ navigation }) {
   }
 
   const onGoogle = async () => {
+    console.log('[DEBUG_ONBOARDING] LandingScreen.onGoogle: tapped, calling googleSignIn()')
     setBusy('google')
     const { error } = await googleSignIn()
+    console.log('[DEBUG_ONBOARDING] LandingScreen.onGoogle: googleSignIn() returned, error=', error?.message)
     setBusy(null)
     if (error?.message && error.message !== 'cancelled') {
       /* handled by auth state */

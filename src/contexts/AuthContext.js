@@ -19,6 +19,8 @@ export const AuthProvider = ({ children }) => {
   const [profileLoading, setProfileLoading] = useState(false)
 
   const loadProfile = useCallback(async (u) => {
+    const t0 = Date.now()
+    console.log(`[DEBUG_ONBOARDING] AuthContext.loadProfile: start for user.id=${u?.id}`)
     if (!supabase || !u?.id) {
       setProfile(null)
       return null
@@ -30,6 +32,7 @@ export const AuthProvider = ({ children }) => {
       // onboarding_step 'get_started' for an OAuth user (resumes it to 'about_you'). Short-circuiting
       // that call whenever a row already existed skipped the OAuth resume fix entirely.
       let row = await ensureProfileAfterAuth(u)
+      console.log(`[DEBUG_ONBOARDING] +${Date.now() - t0}ms AuthContext.loadProfile: ensureProfileAfterAuth returned`, JSON.stringify(row))
       if (!row) {
         row = {
           id: u.id,
@@ -38,9 +41,11 @@ export const AuthProvider = ({ children }) => {
         }
       }
       setProfile(row)
+      console.log(`[DEBUG_ONBOARDING] +${Date.now() - t0}ms AuthContext.loadProfile: setProfile done`)
       return row
     } finally {
       setProfileLoading(false)
+      console.log(`[DEBUG_ONBOARDING] +${Date.now() - t0}ms AuthContext.loadProfile: setProfileLoading(false)`)
     }
   }, [])
 
@@ -50,22 +55,27 @@ export const AuthProvider = ({ children }) => {
       return
     }
     let mounted = true
+    console.log('[DEBUG_ONBOARDING] AuthContext: calling getSession()')
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+      console.log('[DEBUG_ONBOARDING] AuthContext: getSession() resolved, user.id=', s?.user?.id, 'mounted=', mounted)
       if (!mounted) return
       setSession(s)
       setUser(s?.user ?? null)
       if (s?.user) await loadProfile(s.user)
       else setProfile(null)
       setLoading(false)
+      console.log('[DEBUG_ONBOARDING] AuthContext: getSession() branch done, setLoading(false)')
     })
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, s) => {
+      console.log('[DEBUG_ONBOARDING] AuthContext: onAuthStateChange fired, event=', _event, 'user.id=', s?.user?.id)
       setSession(s)
       setUser(s?.user ?? null)
       setLoading(false)
       if (s?.user) await loadProfile(s.user)
       else setProfile(null)
+      console.log('[DEBUG_ONBOARDING] AuthContext: onAuthStateChange handler done, event=', _event)
     })
     return () => {
       mounted = false
@@ -106,7 +116,9 @@ export const AuthProvider = ({ children }) => {
   }
 
   const googleSignIn = async () => {
+    console.log('[DEBUG_ONBOARDING] AuthContext.googleSignIn: calling signInWithGoogle()')
     const { error } = await signInWithGoogle()
+    console.log('[DEBUG_ONBOARDING] AuthContext.googleSignIn: signInWithGoogle() returned, error=', error)
     return { error: error ? { message: error } : null }
   }
 
