@@ -70,6 +70,23 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
+/** Wraps the global fetch so we can see whether Supabase's own network requests are actually
+ * dispatched and whether/when a response (or network error) comes back - the fastest way to tell
+ * a stuck-in-JS hang apart from a stuck-at-the-network-layer hang. */
+async function loggingFetch(input, init) {
+  const url = typeof input === 'string' ? input : input?.url
+  const t0 = Date.now()
+  console.log(`[DEBUG_ONBOARDING] fetch: dispatching ${init?.method || 'GET'} ${url}`)
+  try {
+    const res = await fetch(input, init)
+    console.log(`[DEBUG_ONBOARDING] +${Date.now() - t0}ms fetch: response ${res.status} for ${url}`)
+    return res
+  } catch (e) {
+    console.log(`[DEBUG_ONBOARDING] +${Date.now() - t0}ms fetch: THREW ${e?.message} for ${url}`)
+    throw e
+  }
+}
+
 export const supabase = supabaseUrl && supabaseAnonKey
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
@@ -77,6 +94,9 @@ export const supabase = supabaseUrl && supabaseAnonKey
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,
+      },
+      global: {
+        fetch: loggingFetch,
       },
     })
   : null
