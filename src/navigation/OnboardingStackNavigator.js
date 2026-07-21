@@ -28,9 +28,13 @@ function OnboardingEntryScreen({ navigation, route, targetRouteName }) {
   const isRedirecting = targetRouteName !== 'GetStarted'
 
   useEffect(() => {
-    if (isRedirecting) {
+    if (!isRedirecting) return
+    // Dispatching immediately on mount can fire before this navigator has fully registered its
+    // routes ("action was not handled by any navigator") - defer one tick so it's ready.
+    const t = setTimeout(() => {
       navigation.reset({ index: 0, routes: [{ name: targetRouteName }] })
-    }
+    }, 0)
+    return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
