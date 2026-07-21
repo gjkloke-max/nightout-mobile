@@ -109,6 +109,7 @@ export default function PreferencesOnboardingScreen({ navigation }) {
   }
 
   const onBack = useCallback(async () => {
+    console.log('[DEBUG_NAV] PreferencesOnboardingScreen.onBack: canGoBack=', navigation.canGoBack(), 'state=', JSON.stringify(navigation.getState?.()))
     if (navigation.canGoBack()) {
       navigation.goBack()
       return

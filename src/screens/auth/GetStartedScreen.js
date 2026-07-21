@@ -81,7 +81,9 @@ export default function GetStartedScreen({ navigation }) {
 
     setLoading(true)
     try {
+      console.log('[DEBUG_NAV] GetStartedScreen.onContinue: calling signUp()')
       const { data, error } = await signUp(email.trim(), password)
+      console.log('[DEBUG_NAV] GetStartedScreen.onContinue: signUp() returned, error=', error?.message, 'hasSession=', !!data?.session, 'userId=', data?.user?.id)
       if (error) {
         if (/already registered|already been registered/i.test(error.message)) {
           setErr('An account with this email already exists. Sign in instead.')
@@ -100,6 +102,7 @@ export default function GetStartedScreen({ navigation }) {
         return
       }
       if (!supabase) return
+      console.log('[DEBUG_NAV] GetStartedScreen.onContinue: calling profiles.upsert')
       const { error: pe } = await supabase.from('profiles').upsert(
         {
           id: u.id,
@@ -111,17 +114,21 @@ export default function GetStartedScreen({ navigation }) {
         },
         { onConflict: 'id' }
       )
+      console.log('[DEBUG_NAV] GetStartedScreen.onContinue: profiles.upsert returned, error=', pe?.message)
       if (pe) {
         setErr(pe.message)
         return
       }
+      console.log('[DEBUG_NAV] GetStartedScreen.onContinue: calling refreshProfile()')
       await refreshProfile()
+      console.log('[DEBUG_NAV] GetStartedScreen.onContinue: refreshProfile() done')
     } finally {
       setLoading(false)
     }
   }
 
   const onBack = useCallback(async () => {
+    console.log('[DEBUG_NAV] GetStartedScreen.onBack: canGoBack=', navigation.canGoBack(), 'state=', JSON.stringify(navigation.getState?.()))
     if (navigation.canGoBack()) {
       navigation.goBack()
       return

@@ -65,6 +65,7 @@ export default function AppNavigator() {
   const hasRenderedOnce = useRef(false)
 
   if (loading || (user && profileLoading && !hasRenderedOnce.current)) {
+    console.log('[DEBUG_NAV] AppNavigator: spinner, loading=', loading, 'profileLoading=', profileLoading, 'hasRenderedOnce=', hasRenderedOnce.current)
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={colors.accent} />
@@ -74,14 +75,17 @@ export default function AppNavigator() {
   hasRenderedOnce.current = true
 
   if (!user) {
+    console.log('[DEBUG_NAV] AppNavigator: -> AuthStackNavigator')
     return <AuthStackNavigator />
   }
 
   const onboardingIncomplete = !profile || profile.onboarding_completed !== true
   if (onboardingIncomplete) {
+    console.log('[DEBUG_NAV] AppNavigator: -> OnboardingStackNavigator, initialStep=', profile?.onboarding_step, 'profileLoading=', profileLoading)
     return <OnboardingStackNavigator initialStep={profile?.onboarding_step} />
   }
 
+  console.log('[DEBUG_NAV] AppNavigator: -> MainAppStack')
   return <MainAppStack />
 }
 

@@ -111,6 +111,7 @@ export default function AboutYouScreen({ navigation }) {
   const onBack = useCallback(async () => {
     dismissSuggestions()
     Keyboard.dismiss()
+    console.log('[DEBUG_NAV] AboutYouScreen.onBack: canGoBack=', navigation.canGoBack(), 'state=', JSON.stringify(navigation.getState?.()))
     if (navigation.canGoBack()) {
       navigation.goBack()
       return
@@ -222,7 +223,9 @@ export default function AboutYouScreen({ navigation }) {
       const derived = await applyDerivedHomeFromAddress(user.id, formattedAddr, precoded)
       if (!derived.success) throw new Error(derived.error || 'Could not save address')
       await updateOnboardingStep(user.id, ONBOARDING_STEP.PREFERENCES)
+      console.log('[DEBUG_NAV] AboutYouScreen.onContinue: calling refreshProfile(), pre-nav state=', JSON.stringify(navigation.getState?.()))
       await refreshProfile()
+      console.log('[DEBUG_NAV] AboutYouScreen.onContinue: refreshProfile() done, navigating, state=', JSON.stringify(navigation.getState?.()))
       navigation.navigate('PreferencesOnboarding')
     } catch (e) {
       setErr(e?.message || 'Something went wrong.')
