@@ -146,6 +146,10 @@ export default function PreferencesOnboardingScreen({ navigation }) {
           recommendations will be.
         </Text>
 
+        <Pressable style={styles.skip} onPress={() => finish(true)} disabled={saving}>
+          <Text style={styles.skipText}>Skip for now</Text>
+        </Pressable>
+
         {err ? <Text style={styles.error}>{err}</Text> : null}
 
         {categories.length === 0 || preferences.length === 0 ? (
@@ -207,10 +211,6 @@ export default function PreferencesOnboardingScreen({ navigation }) {
           ) : (
             <Text style={styles.primaryBtnText}>Get Started</Text>
           )}
-        </Pressable>
-
-        <Pressable style={styles.skip} onPress={() => finish(true)} disabled={saving}>
-          <Text style={styles.skipText}>Skip for now</Text>
         </Pressable>
       </ScrollView>
     </View>
