@@ -11,7 +11,6 @@ import {
   Keyboard,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { CommonActions } from '@react-navigation/native'
 import { ChevronRight } from 'lucide-react-native'
 import { authColors, authFonts, authSpacing } from '../../theme/authTheme'
 import { onboardingScrollContentBase, onboardingHeaderStyles } from '../../theme/onboardingLayout'
@@ -35,7 +34,7 @@ const PRIVACY_NOTE = 'Private · Used only for location-based recommendations'
 
 export default function AboutYouScreen({ navigation }) {
   const insets = useSafeAreaInsets()
-  const { user, profile, refreshProfile } = useAuth()
+  const { user, profile, refreshProfile, signOut } = useAuth()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [username, setUsername] = useState('')
@@ -109,20 +108,20 @@ export default function AboutYouScreen({ navigation }) {
 
   const dismissSuggestions = () => setPredictions([])
 
-  const onBack = useCallback(() => {
+  const onBack = useCallback(async () => {
     dismissSuggestions()
     Keyboard.dismiss()
     if (navigation.canGoBack()) {
       navigation.goBack()
-    } else {
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: 'GetStarted' }],
-        })
-      )
+      return
     }
-  }, [navigation])
+    // AboutYou is the root of a freshly-mounted OnboardingStackNavigator right after every sign-up
+    // (email or OAuth) - AppNavigator swaps in a brand-new stack when `user` goes truthy, so there's
+    // never real back-history here. Match GetStartedScreen's own fallback (sign out) instead of
+    // resetting to the onboarding stack's GetStarted, which is the wrong screen for OAuth users and
+    // a confusing redundant stop for email users.
+    await signOut()
+  }, [navigation, signOut])
 
   useOnboardingHeader(navigation, onBack)
 

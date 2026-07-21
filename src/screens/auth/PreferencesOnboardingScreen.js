@@ -30,7 +30,7 @@ const CATEGORY_LIMITS = {
 
 export default function PreferencesOnboardingScreen({ navigation }) {
   const insets = useSafeAreaInsets()
-  const { user, refreshProfile } = useAuth()
+  const { user, refreshProfile, signOut } = useAuth()
   const [categories, setCategories] = useState([])
   const [preferences, setPreferences] = useState([])
   const [selectedIds, setSelectedIds] = useState([])
@@ -108,13 +108,17 @@ export default function PreferencesOnboardingScreen({ navigation }) {
     }
   }
 
-  const onBack = useCallback(() => {
+  const onBack = useCallback(async () => {
     if (navigation.canGoBack()) {
       navigation.goBack()
-    } else {
-      navigation.navigate('AboutYou')
+      return
     }
-  }, [navigation])
+    // Preferences can be the stack root (e.g. relaunching the app mid-onboarding at this step) -
+    // navigate('AboutYou') here used to push AboutYou on top, which then had back-history to
+    // Preferences, creating a back-and-forth loop with no way to exit. Sign out instead, matching
+    // every other onboarding screen's no-history fallback.
+    await signOut()
+  }, [navigation, signOut])
 
   useOnboardingHeader(navigation, onBack)
 
