@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Alert,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../../contexts/AuthContext'
@@ -108,17 +109,23 @@ export default function PreferencesOnboardingScreen({ navigation }) {
     }
   }
 
-  const onBack = useCallback(async () => {
-    console.log('[DEBUG_NAV] PreferencesOnboardingScreen.onBack: canGoBack=', navigation.canGoBack(), 'state=', JSON.stringify(navigation.getState?.()))
+  const onBack = useCallback(() => {
     if (navigation.canGoBack()) {
       navigation.goBack()
       return
     }
     // Preferences can be the stack root (e.g. relaunching the app mid-onboarding at this step) -
     // navigate('AboutYou') here used to push AboutYou on top, which then had back-history to
-    // Preferences, creating a back-and-forth loop with no way to exit. Sign out instead, matching
-    // every other onboarding screen's no-history fallback.
-    await signOut()
+    // Preferences, creating a back-and-forth loop with no way to exit. Confirm before signing out,
+    // matching AboutYou's fallback - the account already exists at this point.
+    Alert.alert(
+      'Exit sign-up?',
+      'Your account was created - you can finish setting up your profile now, or sign in again later.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
+      ]
+    )
   }, [navigation, signOut])
 
   useOnboardingHeader(navigation, onBack)

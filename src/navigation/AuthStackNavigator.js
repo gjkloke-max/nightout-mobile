@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { authColors } from '../theme/authTheme'
 import { onboardingStackScreenOptions } from '../theme/onboardingStackScreenOptions'
@@ -10,15 +9,6 @@ import GetStartedScreen from '../screens/auth/GetStartedScreen'
 const Stack = createNativeStackNavigator()
 
 export default function AuthStackNavigator() {
-  const instanceId = useRef(Math.random().toString(36).slice(2, 8))
-  console.log(`[DEBUG_NAV] AuthStackNavigator render, instance=${instanceId.current}`)
-  useEffect(() => {
-    console.log(`[DEBUG_NAV] AuthStackNavigator MOUNTED, instance=${instanceId.current}`)
-    return () => {
-      console.log(`[DEBUG_NAV] AuthStackNavigator UNMOUNTED, instance=${instanceId.current}`)
-    }
-  }, [])
-
   return (
     <Stack.Navigator
       initialRouteName="Landing"

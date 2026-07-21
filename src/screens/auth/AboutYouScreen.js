@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Keyboard,
+  Alert,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronRight } from 'lucide-react-native'
@@ -108,20 +109,26 @@ export default function AboutYouScreen({ navigation }) {
 
   const dismissSuggestions = () => setPredictions([])
 
-  const onBack = useCallback(async () => {
+  const onBack = useCallback(() => {
     dismissSuggestions()
     Keyboard.dismiss()
-    console.log('[DEBUG_NAV] AboutYouScreen.onBack: canGoBack=', navigation.canGoBack(), 'state=', JSON.stringify(navigation.getState?.()))
     if (navigation.canGoBack()) {
       navigation.goBack()
       return
     }
     // AboutYou is the root of a freshly-mounted OnboardingStackNavigator right after every sign-up
     // (email or OAuth) - AppNavigator swaps in a brand-new stack when `user` goes truthy, so there's
-    // never real back-history here. Match GetStartedScreen's own fallback (sign out) instead of
-    // resetting to the onboarding stack's GetStarted, which is the wrong screen for OAuth users and
-    // a confusing redundant stop for email users.
-    await signOut()
+    // never real back-history here. The account already exists at this point (auth + profile rows
+    // both created), so confirm before signing out rather than doing it silently - otherwise it
+    // looks like nothing happened, and re-signing up with the same email hits "already registered".
+    Alert.alert(
+      'Exit sign-up?',
+      'Your account was created - you can finish setting up your profile now, or sign in again later.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
+      ]
+    )
   }, [navigation, signOut])
 
   useOnboardingHeader(navigation, onBack)
@@ -223,9 +230,7 @@ export default function AboutYouScreen({ navigation }) {
       const derived = await applyDerivedHomeFromAddress(user.id, formattedAddr, precoded)
       if (!derived.success) throw new Error(derived.error || 'Could not save address')
       await updateOnboardingStep(user.id, ONBOARDING_STEP.PREFERENCES)
-      console.log('[DEBUG_NAV] AboutYouScreen.onContinue: calling refreshProfile(), pre-nav state=', JSON.stringify(navigation.getState?.()))
       await refreshProfile()
-      console.log('[DEBUG_NAV] AboutYouScreen.onContinue: refreshProfile() done, navigating, state=', JSON.stringify(navigation.getState?.()))
       navigation.navigate('PreferencesOnboarding')
     } catch (e) {
       setErr(e?.message || 'Something went wrong.')
