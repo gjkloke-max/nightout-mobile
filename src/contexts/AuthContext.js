@@ -66,16 +66,24 @@ export const AuthProvider = ({ children }) => {
       setLoading(false)
       console.log('[DEBUG_ONBOARDING] AuthContext: getSession() branch done, setLoading(false)')
     })
+    // NOT an async function, and does not await loadProfile directly. Supabase's own setSession()/
+    // signIn() implementations hold their internal session lock while awaiting this callback
+    // (_notifyAllSubscribers is awaited inside _acquireLock's callback in auth-js) - awaiting
+    // loadProfile() here deadlocks, since it needs to re-acquire that same lock (any .from() query
+    // resolves its access token via getSession(), which needs the lock) before the outer caller
+    // has released it. setTimeout(..., 0) defers to a new macrotask, after the outer lock releases.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, s) => {
+    } = supabase.auth.onAuthStateChange((_event, s) => {
       console.log('[DEBUG_ONBOARDING] AuthContext: onAuthStateChange fired, event=', _event, 'user.id=', s?.user?.id)
       setSession(s)
       setUser(s?.user ?? null)
       setLoading(false)
-      if (s?.user) await loadProfile(s.user)
-      else setProfile(null)
-      console.log('[DEBUG_ONBOARDING] AuthContext: onAuthStateChange handler done, event=', _event)
+      setTimeout(() => {
+        if (s?.user) loadProfile(s.user)
+        else setProfile(null)
+        console.log('[DEBUG_ONBOARDING] AuthContext: onAuthStateChange deferred work done, event=', _event)
+      }, 0)
     })
     return () => {
       mounted = false
