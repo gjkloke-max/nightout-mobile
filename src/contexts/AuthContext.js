@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { fetchProfileRow, ensureProfileAfterAuth, ONBOARDING_STEP } from '../services/profileOnboarding'
+import { ensureProfileAfterAuth, ONBOARDING_STEP } from '../services/profileOnboarding'
 import { signInWithGoogle, signInWithApple } from '../services/oauthSupabase'
 
 const AuthContext = createContext({})
@@ -26,12 +26,12 @@ export const AuthProvider = ({ children }) => {
     }
     setProfileLoading(true)
     try {
-      let row = await fetchProfileRow(u.id)
-      console.log('[DEBUG_ONBOARDING] AuthContext.loadProfile: fetchProfileRow ->', JSON.stringify(row))
-      if (!row) {
-        row = await ensureProfileAfterAuth(u)
-        console.log('[DEBUG_ONBOARDING] AuthContext.loadProfile: ensureProfileAfterAuth ->', JSON.stringify(row))
-      }
+      // Always delegate to ensureProfileAfterAuth (not just when no row exists yet) - it does its
+      // own fetch first, then also handles the case where a row already exists but is stuck at
+      // onboarding_step 'get_started' for an OAuth user (resumes it to 'about_you'). Short-circuiting
+      // that call whenever a row already existed skipped the OAuth resume fix entirely.
+      let row = await ensureProfileAfterAuth(u)
+      console.log('[DEBUG_ONBOARDING] AuthContext.loadProfile: ensureProfileAfterAuth ->', JSON.stringify(row))
       if (!row) {
         row = {
           id: u.id,
