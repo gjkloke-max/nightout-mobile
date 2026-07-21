@@ -916,8 +916,12 @@ export default function BrowseScreen() {
                 <TouchableOpacity
                   style={styles.lockedCta}
                   onPress={() => {
-                    console.log('[DEBUG_NAV] BrowseScreen: Set preferences tapped, pre-nav root state=', JSON.stringify(navigation.getParent?.()?.getState?.() ?? navigation.getState?.()))
-                    navigation.navigate('Profile', { screen: 'EditPreferences' })
+                    // initial: false ensures the Profile tab's own stack is built starting from its
+                    // real default screen (ProfileMain) when it hasn't been visited yet, with
+                    // EditPreferences pushed on top - otherwise React Navigation constructs the tab's
+                    // nested stack containing ONLY EditPreferences (see getStateFromParams in
+                    // @react-navigation/core), leaving no back-history and no way to switch tabs.
+                    navigation.navigate('Profile', { screen: 'EditPreferences', initial: false })
                   }}
                   activeOpacity={0.85}
                 >
