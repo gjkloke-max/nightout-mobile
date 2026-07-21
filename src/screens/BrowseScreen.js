@@ -915,7 +915,10 @@ export default function BrowseScreen() {
               {user?.id ? (
                 <TouchableOpacity
                   style={styles.lockedCta}
-                  onPress={() => navigation.navigate('Profile', { screen: 'EditPreferences' })}
+                  onPress={() => {
+                    console.log('[DEBUG_NAV] BrowseScreen: Set preferences tapped, pre-nav root state=', JSON.stringify(navigation.getParent?.()?.getState?.() ?? navigation.getState?.()))
+                    navigation.navigate('Profile', { screen: 'EditPreferences' })
+                  }}
                   activeOpacity={0.85}
                 >
                   <Text style={styles.lockedCtaText}>Set preferences</Text>
