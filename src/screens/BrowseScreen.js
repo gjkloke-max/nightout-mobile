@@ -13,7 +13,7 @@ import {
   RefreshControl,
 } from 'react-native'
 import * as Location from 'expo-location'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Search, List, Map as MapIcon } from 'lucide-react-native'
 import { colors, fontSizes, fontWeights, spacing, borderRadius, iconSizes, fontFamilies } from '../theme'
@@ -215,38 +215,41 @@ export default function BrowseScreen() {
     loadNewVenues()
   }, [mainTab, loadTrending, loadNewVenues])
 
-  useEffect(() => {
+  const forYouPrefsRequestRef = useRef(0)
+  const loadForYouPrefsAndHome = useCallback(async () => {
+    const requestId = ++forYouPrefsRequestRef.current
     if (!user?.id) {
       setBrowseHomeNeighborhoodName(null)
       setForYouUserPreferences(null)
       setForYouPrefsReady(true)
       return
     }
-    let canceled = false
     setForYouPrefsReady(false)
-    ;(async () => {
-      try {
-        const [loc, prefs] = await Promise.all([
-          getUserHomeLocation(user.id),
-          loadUserPreferencesForSearch(user.id),
-        ])
-        if (!canceled) {
-          setBrowseHomeNeighborhoodName(loc.homeNeighborhoodName ?? null)
-          setForYouUserPreferences(prefs)
-        }
-      } catch {
-        if (!canceled) {
-          setBrowseHomeNeighborhoodName(null)
-          setForYouUserPreferences(null)
-        }
-      } finally {
-        if (!canceled) setForYouPrefsReady(true)
-      }
-    })()
-    return () => {
-      canceled = true
+    try {
+      const [loc, prefs] = await Promise.all([
+        getUserHomeLocation(user.id),
+        loadUserPreferencesForSearch(user.id),
+      ])
+      if (forYouPrefsRequestRef.current !== requestId) return
+      setBrowseHomeNeighborhoodName(loc.homeNeighborhoodName ?? null)
+      setForYouUserPreferences(prefs)
+    } catch {
+      if (forYouPrefsRequestRef.current !== requestId) return
+      setBrowseHomeNeighborhoodName(null)
+      setForYouUserPreferences(null)
+    } finally {
+      if (forYouPrefsRequestRef.current === requestId) setForYouPrefsReady(true)
     }
   }, [user?.id])
+
+  // Refetch on focus (not just when user.id changes) - editing preferences happens on a different
+  // tab/stack (Profile -> Edit Preferences), so returning to Browse needs to pick up the change
+  // instead of leaving For You showing "locked" with stale data until the next login.
+  useFocusEffect(
+    useCallback(() => {
+      loadForYouPrefsAndHome()
+    }, [loadForYouPrefsAndHome])
+  )
 
   const loadForYou = useCallback(async () => {
     if (!forYouUserPreferences) {
