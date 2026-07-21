@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { View, ActivityIndicator, StyleSheet } from 'react-native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { colors, fontSizes, fontFamilies } from '../theme'
@@ -54,14 +55,23 @@ function MainAppStack() {
 
 export default function AppNavigator() {
   const { user, loading, profile, profileLoading } = useAuth()
+  // Screens inside OnboardingStackNavigator call refreshProfile() between steps (About You ->
+  // Preferences, GetStarted -> About You), which flips profileLoading true/false. Gating render on
+  // that unmounts OnboardingStackNavigator for the duration - since the profile has already advanced
+  // to the next step by the time it remounts, it comes back rooted at that next screen with its
+  // stack history wiped, breaking back navigation. Only show the blocking spinner for the very first
+  // load (before any real content has rendered); after that, screens already show their own local
+  // loading state during a refresh, so profileLoading doesn't need to unmount the navigator too.
+  const hasRenderedOnce = useRef(false)
 
-  if (loading || (user && profileLoading)) {
+  if (loading || (user && profileLoading && !hasRenderedOnce.current)) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={colors.accent} />
       </View>
     )
   }
+  hasRenderedOnce.current = true
 
   if (!user) {
     return <AuthStackNavigator />
