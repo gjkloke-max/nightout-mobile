@@ -27,17 +27,23 @@ export async function fetchProfileRow(userId) {
  * @param {{ firstName?: string, lastName?: string, avatarUrl?: string }} [prefill]
  */
 export async function ensureProfileAfterAuth(user, prefill = {}) {
-  if (!supabase || !user?.id) return null
+  if (!supabase || !user?.id) {
+    console.log('[DEBUG_ONBOARDING] ensureProfileAfterAuth: no supabase client or user.id, bailing')
+    return null
+  }
 
   const provider = user.app_metadata?.provider || user.identities?.[0]?.provider || 'email'
   const isOAuth = provider === 'google' || provider === 'apple'
+  console.log('[DEBUG_ONBOARDING] ensureProfileAfterAuth: user.id=', user.id, 'provider=', provider, 'isOAuth=', isOAuth)
 
   const existing = await fetchProfileRow(user.id)
+  console.log('[DEBUG_ONBOARDING] ensureProfileAfterAuth: existing row=', JSON.stringify(existing))
   if (existing) {
     const incomplete = existing.onboarding_completed !== true
     const step = existing.onboarding_step
     const atGetStarted =
       step === ONBOARDING_STEP.GET_STARTED || step === 'get_started' || step == null || step === ''
+    console.log('[DEBUG_ONBOARDING] ensureProfileAfterAuth: existing row found, incomplete=', incomplete, 'step=', step, 'atGetStarted=', atGetStarted)
     if (isOAuth && incomplete && atGetStarted) {
       const { error } = await supabase
         .from('profiles')
@@ -76,13 +82,19 @@ export async function ensureProfileAfterAuth(user, prefill = {}) {
     updated_at: new Date().toISOString(),
   }
 
+  console.log('[DEBUG_ONBOARDING] ensureProfileAfterAuth: no existing row, inserting new profile:', JSON.stringify(row))
   const { error } = await supabase.from('profiles').insert(row)
+  if (error) {
+    console.warn('[DEBUG_ONBOARDING] ensureProfileAfterAuth: insert error code=', error.code, 'message=', error.message, 'details=', error.details, 'hint=', error.hint)
+  }
   if (error && error.code !== '23505') {
-    console.warn('ensureProfileAfterAuth insert', error)
     const again = await fetchProfileRow(user.id)
+    console.log('[DEBUG_ONBOARDING] ensureProfileAfterAuth: after failed insert, refetch=', JSON.stringify(again))
     return again
   }
-  return fetchProfileRow(user.id)
+  const inserted = await fetchProfileRow(user.id)
+  console.log('[DEBUG_ONBOARDING] ensureProfileAfterAuth: insert result row=', JSON.stringify(inserted))
+  return inserted
 }
 
 export async function updateOnboardingStep(userId, step) {

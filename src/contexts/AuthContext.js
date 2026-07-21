@@ -20,14 +20,17 @@ export const AuthProvider = ({ children }) => {
 
   const loadProfile = useCallback(async (u) => {
     if (!supabase || !u?.id) {
+      console.log('[DEBUG_ONBOARDING] AuthContext.loadProfile: no supabase or u.id, clearing profile')
       setProfile(null)
       return null
     }
     setProfileLoading(true)
     try {
       let row = await fetchProfileRow(u.id)
+      console.log('[DEBUG_ONBOARDING] AuthContext.loadProfile: fetchProfileRow ->', JSON.stringify(row))
       if (!row) {
         row = await ensureProfileAfterAuth(u)
+        console.log('[DEBUG_ONBOARDING] AuthContext.loadProfile: ensureProfileAfterAuth ->', JSON.stringify(row))
       }
       if (!row) {
         row = {
@@ -35,7 +38,9 @@ export const AuthProvider = ({ children }) => {
           onboarding_completed: false,
           onboarding_step: ONBOARDING_STEP.ABOUT_YOU,
         }
+        console.log('[DEBUG_ONBOARDING] AuthContext.loadProfile: falling back to synthetic incomplete profile')
       }
+      console.log('[DEBUG_ONBOARDING] AuthContext.loadProfile: setProfile ->', JSON.stringify(row))
       setProfile(row)
       return row
     } finally {

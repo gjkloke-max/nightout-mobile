@@ -68,6 +68,11 @@ export default function AppNavigator() {
   }
 
   const onboardingIncomplete = !profile || profile.onboarding_completed !== true
+  console.log(
+    '[DEBUG_ONBOARDING] AppNavigator: user.id=', user.id,
+    'profile=', JSON.stringify(profile),
+    'onboardingIncomplete=', onboardingIncomplete,
+  )
   if (onboardingIncomplete) {
     return <OnboardingStackNavigator initialStep={profile?.onboarding_step} />
   }
