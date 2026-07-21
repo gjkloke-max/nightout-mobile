@@ -87,6 +87,42 @@ async function loggingFetch(input, init) {
   }
 }
 
+console.log(
+  '[DEBUG_ONBOARDING] lock env check: typeof window=', typeof window,
+  'typeof document=', typeof document,
+  'navigator.locks=', typeof globalThis?.navigator?.locks,
+)
+
+/**
+ * Supabase's GoTrueClient serializes any operation that touches the session (setSession,
+ * getSession, token refresh, etc.) through a single named lock, so a query needing the current
+ * access token (like our profiles select) can't proceed until whatever's holding the lock releases
+ * it. Reimplements the same single-flight queue as their own processLock, but with logging on every
+ * acquire/release so a stuck/orphaned lock is directly visible instead of inferred.
+ */
+const LOCK_QUEUES = {}
+async function loggingLock(name, acquireTimeout, fn) {
+  const t0 = Date.now()
+  const tlog = (msg) => console.log(`[DEBUG_ONBOARDING] +${Date.now() - t0}ms loggingLock(${name}): ${msg}`)
+  const previous = LOCK_QUEUES[name] ?? Promise.resolve()
+  tlog(`requested, waiting on previous holder (already settled=${previous === Promise.resolve()})`)
+  const current = (async () => {
+    try {
+      await previous
+    } catch {
+      // previous holder's error doesn't block us
+    }
+    tlog('acquired')
+    try {
+      return await fn()
+    } finally {
+      tlog('released')
+    }
+  })()
+  LOCK_QUEUES[name] = current.catch(() => {})
+  return current
+}
+
 export const supabase = supabaseUrl && supabaseAnonKey
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
@@ -94,6 +130,7 @@ export const supabase = supabaseUrl && supabaseAnonKey
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,
+        lock: loggingLock,
       },
       global: {
         fetch: loggingFetch,
