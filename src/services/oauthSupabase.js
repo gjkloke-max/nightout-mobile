@@ -43,44 +43,32 @@ function parseTokensFromUrl(url) {
  * @returns {Promise<{ error?: string }>}
  */
 export async function signInWithGoogle() {
-  const t0 = Date.now()
-  const tlog = (msg) => console.log(`[DEBUG_ONBOARDING] +${Date.now() - t0}ms signInWithGoogle: ${msg}`)
-
   if (!supabase) return { error: 'Supabase not configured' }
   const redirectTo = getOAuthRedirectUrl()
-  tlog(`calling signInWithOAuth, redirectTo=${redirectTo}`)
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo, skipBrowserRedirect: true },
   })
-  tlog(`signInWithOAuth returned, error=${error?.message}, url=${data?.url}`)
   if (error) return { error: error.message }
   if (!data?.url) return { error: 'No OAuth URL' }
 
-  tlog('opening WebBrowser.openAuthSessionAsync')
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo)
-  tlog(`WebBrowser returned, type=${result.type}, url=${result.url}`)
   if (result.type !== 'success' || !result.url) {
     return { error: result.type === 'cancel' ? 'cancelled' : 'Google sign-in failed' }
   }
 
   const tokens = parseTokensFromUrl(result.url)
-  tlog(`parsed tokens, hasAccessToken=${!!tokens?.access_token}, hasCode=${!!tokens?.code}`)
   if (tokens?.access_token && tokens?.refresh_token) {
-    tlog('calling setSession')
     const { error: sessErr } = await supabase.auth.setSession({
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
     })
-    tlog(`setSession returned, error=${sessErr?.message}`)
     if (sessErr) return { error: sessErr.message }
     return {}
   }
 
   if (tokens?.code) {
-    tlog('calling exchangeCodeForSession')
     const { error: exErr } = await supabase.auth.exchangeCodeForSession(tokens.code)
-    tlog(`exchangeCodeForSession returned, error=${exErr?.message}`)
     if (exErr) return { error: exErr.message }
     return {}
   }

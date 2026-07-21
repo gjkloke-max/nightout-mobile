@@ -54,7 +54,6 @@ function MainAppStack() {
 
 export default function AppNavigator() {
   const { user, loading, profile, profileLoading } = useAuth()
-  console.log('[DEBUG_ONBOARDING] AppNavigator render: loading=', loading, 'user.id=', user?.id, 'profileLoading=', profileLoading, 'profile=', JSON.stringify(profile))
 
   if (loading || (user && profileLoading)) {
     return (

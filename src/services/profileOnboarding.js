@@ -27,16 +27,12 @@ export async function fetchProfileRow(userId) {
  * @param {{ firstName?: string, lastName?: string, avatarUrl?: string }} [prefill]
  */
 export async function ensureProfileAfterAuth(user, prefill = {}) {
-  const t0 = Date.now()
-  const tlog = (msg) => console.log(`[DEBUG_ONBOARDING] +${Date.now() - t0}ms ensureProfileAfterAuth: ${msg}`)
   if (!supabase || !user?.id) return null
 
   const provider = user.app_metadata?.provider || user.identities?.[0]?.provider || 'email'
   const isOAuth = provider === 'google' || provider === 'apple'
 
-  tlog('calling fetchProfileRow')
   const existing = await fetchProfileRow(user.id)
-  tlog(`fetchProfileRow returned, existing=${JSON.stringify(existing)}`)
   if (existing) {
     const incomplete = existing.onboarding_completed !== true
     const step = existing.onboarding_step
@@ -80,9 +76,7 @@ export async function ensureProfileAfterAuth(user, prefill = {}) {
     updated_at: new Date().toISOString(),
   }
 
-  tlog('calling profiles.insert')
   const { error } = await supabase.from('profiles').insert(row)
-  tlog(`profiles.insert returned, error=${error ? `${error.code} ${error.message}` : 'none'}`)
   if (error && error.code !== '23505') {
     console.warn('ensureProfileAfterAuth insert', error.code, error.message, error.details, error.hint)
     return fetchProfileRow(user.id)
