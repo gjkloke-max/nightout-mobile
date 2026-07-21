@@ -53,26 +53,22 @@ export async function signInWithGoogle() {
   if (!data?.url) return { error: 'No OAuth URL' }
 
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo)
-  console.log('[DEBUG_ONBOARDING] signInWithGoogle: WebBrowser result.type=', result.type)
   if (result.type !== 'success' || !result.url) {
     return { error: result.type === 'cancel' ? 'cancelled' : 'Google sign-in failed' }
   }
 
   const tokens = parseTokensFromUrl(result.url)
-  console.log('[DEBUG_ONBOARDING] signInWithGoogle: parsed tokens present -> access_token:', !!tokens?.access_token, 'code:', !!tokens?.code)
   if (tokens?.access_token && tokens?.refresh_token) {
-    const { data: sessData, error: sessErr } = await supabase.auth.setSession({
+    const { error: sessErr } = await supabase.auth.setSession({
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
     })
-    console.log('[DEBUG_ONBOARDING] signInWithGoogle: setSession user.id=', sessData?.user?.id, 'email=', sessData?.user?.email, 'error=', sessErr?.message)
     if (sessErr) return { error: sessErr.message }
     return {}
   }
 
   if (tokens?.code) {
-    const { data: exData, error: exErr } = await supabase.auth.exchangeCodeForSession(tokens.code)
-    console.log('[DEBUG_ONBOARDING] signInWithGoogle: exchangeCodeForSession user.id=', exData?.user?.id, 'email=', exData?.user?.email, 'error=', exErr?.message)
+    const { error: exErr } = await supabase.auth.exchangeCodeForSession(tokens.code)
     if (exErr) return { error: exErr.message }
     return {}
   }

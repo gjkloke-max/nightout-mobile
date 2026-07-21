@@ -20,7 +20,6 @@ export const AuthProvider = ({ children }) => {
 
   const loadProfile = useCallback(async (u) => {
     if (!supabase || !u?.id) {
-      console.log('[DEBUG_ONBOARDING] AuthContext.loadProfile: no supabase or u.id, clearing profile')
       setProfile(null)
       return null
     }
@@ -31,16 +30,13 @@ export const AuthProvider = ({ children }) => {
       // onboarding_step 'get_started' for an OAuth user (resumes it to 'about_you'). Short-circuiting
       // that call whenever a row already existed skipped the OAuth resume fix entirely.
       let row = await ensureProfileAfterAuth(u)
-      console.log('[DEBUG_ONBOARDING] AuthContext.loadProfile: ensureProfileAfterAuth ->', JSON.stringify(row))
       if (!row) {
         row = {
           id: u.id,
           onboarding_completed: false,
           onboarding_step: ONBOARDING_STEP.ABOUT_YOU,
         }
-        console.log('[DEBUG_ONBOARDING] AuthContext.loadProfile: falling back to synthetic incomplete profile')
       }
-      console.log('[DEBUG_ONBOARDING] AuthContext.loadProfile: setProfile ->', JSON.stringify(row))
       setProfile(row)
       return row
     } finally {
