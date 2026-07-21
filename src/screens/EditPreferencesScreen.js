@@ -30,18 +30,6 @@ export default function EditPreferencesScreen() {
   const insets = useSafeAreaInsets()
   const { user } = useAuth()
 
-  useLayoutEffect(() => {
-    console.log('[DEBUG_NAV] EditPreferencesScreen: own stack state=', JSON.stringify(navigation.getState?.()))
-    console.log('[DEBUG_NAV] EditPreferencesScreen: canGoBack=', navigation.canGoBack())
-    let p = navigation.getParent?.()
-    let depth = 0
-    while (p && depth < 5) {
-      console.log(`[DEBUG_NAV] EditPreferencesScreen: parent[${depth}] state=`, JSON.stringify(p.getState?.()))
-      p = p.getParent?.()
-      depth++
-    }
-  }, [navigation])
-
   const [categories, setCategories] = useState([])
   const [preferences, setPreferences] = useState([])
   const [selectedIds, setSelectedIds] = useState([])
