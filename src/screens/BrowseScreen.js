@@ -21,6 +21,7 @@ import { bm25Search } from '../lib/searchApi'
 import { fetchVenuesByIds, searchVenuesByName } from '../lib/venueService'
 import { getTrendingVenues, getNewVenues } from '../services/trendingVenues'
 import { getBrowseForYouVenues } from '../services/browseForYou'
+import { getPublishedTopListSections } from '../services/adminTopLists'
 import { getUserHomeLocation } from '../services/userHomeLocation'
 import { loadUserPreferencesForSearch } from '../services/userPreferencesForSearch'
 import { useAuth } from '../contexts/AuthContext'
@@ -178,6 +179,9 @@ export default function BrowseScreen() {
   /** Trending / For You: list vs map (same datasets; reuses Smart Search map behavior) */
   const [browseViewMode, setBrowseViewMode] = useState('list')
   const [selectedBrowseVenue, setSelectedBrowseVenue] = useState(null)
+  const [topListsSections, setTopListsSections] = useState([])
+  const [topListsLoading, setTopListsLoading] = useState(false)
+  const [topListsError, setTopListsError] = useState(null)
 
   const loadTrending = useCallback(async () => {
     setTrendingLoading(true)
@@ -214,6 +218,25 @@ export default function BrowseScreen() {
     loadTrending()
     loadNewVenues()
   }, [mainTab, loadTrending, loadNewVenues])
+
+  const loadTopLists = useCallback(async () => {
+    setTopListsLoading(true)
+    setTopListsError(null)
+    try {
+      const data = await getPublishedTopListSections()
+      setTopListsSections(data)
+    } catch (e) {
+      setTopListsError(e?.message || 'Failed to load top lists')
+      setTopListsSections([])
+    } finally {
+      setTopListsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (mainTab !== 'popularLists') return
+    loadTopLists()
+  }, [mainTab, loadTopLists])
 
   const forYouPrefsRequestRef = useRef(0)
   const loadForYouPrefsAndHome = useCallback(async () => {
@@ -1025,11 +1048,42 @@ export default function BrowseScreen() {
           ) : null}
 
           {mainTab === 'popularLists' && (
-            <View style={styles.placeholderBox}>
-              <Text style={styles.placeholderTitle}>Top lists</Text>
-              <Text style={styles.placeholderBody}>
-                Curated lists from the community will appear here. Save venues to lists from a venue profile to build your own.
-              </Text>
+            <View style={styles.browseMain}>
+              {topListsError ? (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{topListsError}</Text>
+                </View>
+              ) : null}
+              {topListsLoading && topListsSections.length === 0 ? (
+                <View style={styles.loadingBox}>
+                  <ActivityIndicator size="large" color={colors.browseAccent} />
+                  <Text style={styles.loadingText}>Loading...</Text>
+                </View>
+              ) : !topListsLoading && topListsSections.length === 0 ? (
+                <View style={styles.emptyBox}>
+                  <Text style={styles.emptyText}>No curated lists yet. Check back soon.</Text>
+                </View>
+              ) : (
+                <FlatList
+                  style={styles.flexList}
+                  data={topListsSections}
+                  keyExtractor={(section) => String(section.top_list_id)}
+                  renderItem={({ item: section }) => (
+                    <View>
+                      <View style={styles.sectionRow}>
+                        <Text style={styles.sectionTitle}>{section.title}</Text>
+                        <View style={styles.sectionLine} />
+                      </View>
+                      {section.venues.map((venue) => (
+                        <View key={String(venue.venue_id)}>{renderVenueCard(venue)}</View>
+                      ))}
+                    </View>
+                  )}
+                  ListFooterComponent={<View style={styles.listFooterPad} />}
+                  contentContainerStyle={[styles.trendingListContent, styles.browseListFabPad]}
+                  showsVerticalScrollIndicator={false}
+                />
+              )}
             </View>
           )}
           </View>
@@ -1514,23 +1568,4 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   listFooterPad: { height: spacing.lg },
-  placeholderBox: {
-    flex: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing['2xl'],
-    alignItems: 'center',
-  },
-  placeholderTitle: {
-    fontSize: fontSizes.xl,
-    fontFamily: fontFamilies.frauncesSemiBold,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  placeholderBody: {
-    fontSize: fontSizes.base,
-    fontFamily: fontFamilies.inter,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
 })
