@@ -12,6 +12,7 @@ import WriteReviewScreen from '../screens/WriteReviewScreen'
 import FriendProfileScreen from '../screens/FriendProfileScreen'
 import SocialReviewDetailScreen from '../screens/SocialReviewDetailScreen'
 import ListDetailScreen from '../screens/ListDetailScreen'
+import TopListDetailScreen from '../screens/TopListDetailScreen'
 import CreateListScreen from '../screens/CreateListScreen'
 import FollowListScreen from '../screens/FollowListScreen'
 import ReviewedVenuesListScreen from '../screens/ReviewedVenuesListScreen'
@@ -43,6 +44,7 @@ function MainAppStack() {
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
       <Stack.Screen name="SocialReviewDetail" component={SocialReviewDetailScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ListDetail" component={ListDetailScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="TopListDetail" component={TopListDetailScreen} options={{ headerShown: false }} />
       <Stack.Screen name="CreateList" component={CreateListScreen} options={{ headerShown: false }} />
       <Stack.Screen name="FollowList" component={FollowListScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ReviewedVenuesList" component={ReviewedVenuesListScreen} options={{ headerShown: false }} />

@@ -406,6 +406,11 @@ export default function BrowseScreen() {
     root?.navigate?.('VenueProfile', { venueId: venue.venue_id })
   }
 
+  const handleTopListPress = (section) => {
+    const root = navigation.getParent()?.getParent?.()
+    root?.navigate?.('TopListDetail', { topListId: section.top_list_id })
+  }
+
   const onTabPress = (id) => {
     setMainTab(id)
     setHasSearched(false)
@@ -1068,17 +1073,28 @@ export default function BrowseScreen() {
                   style={styles.flexList}
                   data={topListsSections}
                   keyExtractor={(section) => String(section.top_list_id)}
-                  renderItem={({ item: section }) => (
-                    <View>
-                      <View style={styles.sectionRow}>
-                        <Text style={styles.sectionTitle}>{section.title}</Text>
-                        <View style={styles.sectionLine} />
-                      </View>
-                      {section.venues.map((venue) => (
-                        <View key={String(venue.venue_id)}>{renderVenueCard(venue)}</View>
-                      ))}
-                    </View>
-                  )}
+                  renderItem={({ item: section }) => {
+                    const thumb = section.preview_venues?.[0]?.primary_photo_url
+                    return (
+                      <Pressable style={styles.topListRow} onPress={() => handleTopListPress(section)}>
+                        <View style={styles.listThumbWrap}>
+                          {thumb ? (
+                            <Image source={{ uri: thumb }} style={styles.listThumb} />
+                          ) : (
+                            <View style={[styles.listThumb, styles.listThumbPh]} />
+                          )}
+                        </View>
+                        <View style={styles.listRowBody}>
+                          <Text style={styles.listName} numberOfLines={1}>
+                            {section.title}
+                          </Text>
+                          <Text style={styles.listMeta}>
+                            {`${section.item_count} ${section.item_count === 1 ? 'PLACE' : 'PLACES'}`}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    )
+                  }}
                   ListFooterComponent={<View style={styles.listFooterPad} />}
                   contentContainerStyle={[styles.trendingListContent, styles.browseListFabPad]}
                   showsVerticalScrollIndicator={false}
@@ -1568,4 +1584,26 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   listFooterPad: { height: spacing.lg },
+  topListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  listThumbWrap: { width: 48, height: 48, borderRadius: 6, overflow: 'hidden' },
+  listThumb: { width: '100%', height: '100%' },
+  listThumbPh: { backgroundColor: colors.surface },
+  listRowBody: { flex: 1, minWidth: 0 },
+  listName: { fontSize: fontSizes.base, fontFamily: fontFamilies.interMedium, color: colors.textPrimary },
+  listMeta: {
+    fontSize: 10,
+    fontWeight: fontWeights.bold,
+    fontFamily: fontFamilies.interBold,
+    letterSpacing: 0.5,
+    color: colors.textTag,
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
 })
