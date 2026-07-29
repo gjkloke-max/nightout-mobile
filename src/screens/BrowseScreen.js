@@ -1076,25 +1076,28 @@ export default function BrowseScreen() {
                   renderItem={({ item: section }) => {
                     const thumb = section.preview_venues?.[0]?.primary_photo_url
                     return (
-                      <Pressable style={styles.topListRow} onPress={() => handleTopListPress(section)}>
-                        <View style={styles.listThumbWrap}>
+                      <Pressable style={styles.topListCard} onPress={() => handleTopListPress(section)}>
+                        <View style={styles.topListHeroWrap}>
                           {thumb ? (
-                            <Image source={{ uri: thumb }} style={styles.listThumb} />
+                            <Image source={{ uri: thumb }} style={styles.topListHero} />
                           ) : (
-                            <View style={[styles.listThumb, styles.listThumbPh]} />
+                            <View style={[styles.topListHero, styles.topListHeroPh]} />
                           )}
+                          <View style={styles.topListBadge}>
+                            <List size={12} color={colors.textPrimary} strokeWidth={2.25} />
+                            <Text style={styles.topListBadgeText}>{section.item_count}</Text>
+                          </View>
                         </View>
-                        <View style={styles.listRowBody}>
-                          <Text style={styles.listName} numberOfLines={1}>
+                        <View style={styles.topListCardBody}>
+                          <Text style={styles.topListTitle} numberOfLines={1}>
                             {section.title}
                           </Text>
-                          <Text style={styles.listMeta}>
-                            {`${section.item_count} ${section.item_count === 1 ? 'PLACE' : 'PLACES'}`}
-                          </Text>
+                          <Text style={styles.topListByline}>by Brio</Text>
                         </View>
                       </Pressable>
                     )
                   }}
+                  ItemSeparatorComponent={() => <View style={styles.topListCardGap} />}
                   ListFooterComponent={<View style={styles.listFooterPad} />}
                   contentContainerStyle={[styles.trendingListContent, styles.browseListFabPad]}
                   showsVerticalScrollIndicator={false}
@@ -1584,26 +1587,49 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   listFooterPad: { height: spacing.lg },
-  topListRow: {
+  topListCardGap: { height: spacing.lg },
+  topListCard: { borderRadius: borderRadius.lg },
+  topListHeroWrap: {
+    width: '100%',
+    aspectRatio: 16 / 10,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+  },
+  topListHero: { width: '100%', height: '100%' },
+  topListHeroPh: { backgroundColor: colors.surface },
+  topListBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  listThumbWrap: { width: 48, height: 48, borderRadius: 6, overflow: 'hidden' },
-  listThumb: { width: '100%', height: '100%' },
-  listThumbPh: { backgroundColor: colors.surface },
-  listRowBody: { flex: 1, minWidth: 0 },
-  listName: { fontSize: fontSizes.base, fontFamily: fontFamilies.interMedium, color: colors.textPrimary },
-  listMeta: {
-    fontSize: 10,
-    fontWeight: fontWeights.bold,
-    fontFamily: fontFamilies.interBold,
-    letterSpacing: 0.5,
-    color: colors.textTag,
+  topListBadgeText: {
+    fontSize: fontSizes.xs,
+    fontFamily: fontFamilies.interSemiBold,
+    color: colors.textPrimary,
+  },
+  topListCardBody: { paddingTop: spacing.sm },
+  topListTitle: {
+    fontSize: fontSizes.lg,
+    fontFamily: fontFamilies.frauncesSemiBold,
+    color: colors.textPrimary,
+  },
+  topListByline: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.inter,
+    color: colors.textSecondary,
     marginTop: 2,
-    textTransform: 'uppercase',
   },
 })
