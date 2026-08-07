@@ -17,6 +17,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.nightout.mobile',
+      buildNumber: '1',
       infoPlist: {
         NSAppTransportSecurity: {
           NSAllowsLocalNetworking: true,
@@ -24,6 +25,8 @@ module.exports = {
       },
     },
     android: {
+      package: 'com.nightout.mobile',
+      versionCode: 1,
       usesCleartextTraffic: true,
       softwareKeyboardLayoutMode: 'resize',
       adaptiveIcon: {

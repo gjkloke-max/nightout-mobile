@@ -1,10 +1,11 @@
 import { useLayoutEffect } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Pencil, Bell, SlidersHorizontal, Lock, LogOut, ChevronRight } from 'lucide-react-native'
+import { Pencil, Bell, SlidersHorizontal, Lock, Shield, FileText, LogOut, ChevronRight } from 'lucide-react-native'
 import { useAuth } from '../contexts/AuthContext'
 import { colors, fontFamilies, spacing } from '../theme'
+import { config } from '../lib/config'
 
 /** Figma NewCo — node 123:2399 Settings */
 export default function SettingsScreen() {
@@ -33,6 +34,12 @@ export default function SettingsScreen() {
 
   const handleLogout = async () => {
     await signOut()
+  }
+
+  const openLegal = (path) => {
+    const base = (config.webAppUrl || '').replace(/\/$/, '')
+    if (!base) return
+    Linking.openURL(`${base}${path}`)
   }
 
   return (
@@ -85,6 +92,32 @@ export default function SettingsScreen() {
           <View style={styles.rowLeft}>
             <Lock size={20} color={colors.textPrimary} strokeWidth={2} />
             <Text style={styles.rowLabel}>Account Privacy</Text>
+          </View>
+          <ChevronRight size={20} color={colors.textMuted} strokeWidth={2} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.row, styles.rowBorder]}
+          onPress={() => openLegal('/privacy')}
+          activeOpacity={0.65}
+          disabled={!config.webAppUrl}
+        >
+          <View style={styles.rowLeft}>
+            <Shield size={20} color={colors.textPrimary} strokeWidth={2} />
+            <Text style={styles.rowLabel}>Privacy Policy</Text>
+          </View>
+          <ChevronRight size={20} color={colors.textMuted} strokeWidth={2} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.row, styles.rowBorder]}
+          onPress={() => openLegal('/terms')}
+          activeOpacity={0.65}
+          disabled={!config.webAppUrl}
+        >
+          <View style={styles.rowLeft}>
+            <FileText size={20} color={colors.textPrimary} strokeWidth={2} />
+            <Text style={styles.rowLabel}>Terms of Service</Text>
           </View>
           <ChevronRight size={20} color={colors.textMuted} strokeWidth={2} />
         </TouchableOpacity>
