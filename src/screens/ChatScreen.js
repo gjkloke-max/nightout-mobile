@@ -32,7 +32,7 @@ import {
 } from '../lib/conciergeRequestContext'
 import { getUserHomeLocation } from '../services/userHomeLocation'
 import ConciergeLinkedText from '../components/ConciergeLinkedText'
-import { CONCIERGE_USERS_SAYING_HEADING_RE } from '@pulse-web/src/constants/appBrand.js'
+import { CONCIERGE_USERS_SAYING_HEADING_RE } from '../vendor/pulse-web/src/constants/appBrand.js'
 import { ChevronRight, Send, Menu, SquarePen } from 'lucide-react-native'
 import {
   getActiveSession,

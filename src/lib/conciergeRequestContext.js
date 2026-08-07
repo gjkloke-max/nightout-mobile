@@ -1,6 +1,6 @@
 /**
- * Re-exports from pulse web shared/concierge-client (canonical source in pulse/NightOut repo).
- * Metro resolves @pulse-web → ../pulse (staging) or ../NightOut (local dev). See metro.config.js.
+ * Re-exports from shared/concierge-client, vendored from the pulse/NightOut web repo (see
+ * src/vendor/pulse-web/README.md) since EAS cloud builds can't reach a sibling repo directory.
  */
 export {
   analyzeConciergeTurnIntent,
@@ -14,4 +14,4 @@ export {
   priorSearchQueryFromSession,
   rankedVenueBacklogFromSession,
   rehydrateConciergeSessionFromMessages,
-} from '@pulse-web/shared/concierge-client/index.js'
+} from '../vendor/pulse-web/shared/concierge-client/index.js'

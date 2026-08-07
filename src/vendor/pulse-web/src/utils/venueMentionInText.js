@@ -1,13 +1,13 @@
 /**
- * Keep in sync with NightOut web: src/utils/venueMentionInText.js
+ * Detect venue display names in assistant/search prose (for inline links and card alignment).
  */
 
-import { expandVenueNameVariants } from './venueNameMatch'
+import { expandVenueNameVariants } from './venueNameMatch.js'
 import {
   isKnownMicroNeighborhood,
   resolveMicroNeighborhood,
   resolveNeighborhoodTag,
-} from '../vendor/pulse-web/src/utils/locationRegistry.js'
+} from './locationRegistry.js'
 
 /** Skip linking single-word names this short (avoids matching common words like "art"). */
 const MIN_SINGLE_WORD_MENTION_LEN = 4
@@ -60,6 +60,7 @@ export function isKnownLocationPhrase(phrase) {
 }
 
 /**
+ * Block prefix variants like "Old Town" from "Old Town Pub" or known neighborhoods used as venue prefixes.
  * @param {string} variant
  * @param {string} fullVenueName
  */
@@ -111,38 +112,54 @@ function isLinkableVariant(variant, fullVenueName = '') {
   return isSafeVenueLinkVariant(variant, fullVenueName)
 }
 
-function escapeRe(s) {
-  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 function mentionBoundaryRe(escapedVariant) {
   return new RegExp(`(?<![\\w])${escapedVariant}(?![\\w])`, 'i')
 }
 
+function escapeRe(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * @param {string} text
+ * @param {string} venueName
+ * @returns {boolean}
+ */
 export function venueNameAppearsInText(text, venueName) {
   const haystack = text || ''
   if (!haystack.trim()) return false
   for (const variant of expandVenueNameVariants(venueName)) {
     if (!isLinkableVariant(variant, venueName)) continue
+    const escaped = escapeRe(variant)
     try {
-      if (mentionBoundaryRe(escapeRe(variant)).test(haystack)) return true
+      if (mentionBoundaryRe(escaped).test(haystack)) return true
     } catch {
-      /* ignore */
+      /* ignore invalid pattern */
     }
   }
   return false
 }
 
+/**
+ * @param {string} textLower — lowercased prose
+ * @param {string} venueName
+ * @returns {number}
+ */
 export function firstIndexOfVenueNameInText(textLower, venueName) {
   let best = Infinity
   for (const variant of expandVenueNameVariants(venueName)) {
-    if (!isLinkableVariant(variant, venueName)) continue
     const i = textLower.indexOf(variant.toLowerCase())
     if (i >= 0 && i < best) best = i
   }
   return best === Infinity ? -1 : best
 }
 
+/**
+ * @param {string} text
+ * @param {Array<Record<string, unknown>>} venues
+ * @param {(v: Record<string, unknown>) => string | null | undefined} [getName]
+ * @returns {Array<Record<string, unknown>>}
+ */
 export function filterVenuesMentionedInText(text, venues, getName = (v) => v?.name || v?.venue?.name) {
   const out = []
   const seen = new Set()
