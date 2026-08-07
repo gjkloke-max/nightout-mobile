@@ -31,7 +31,6 @@ import {
   rehydrateConciergeSessionFromMessages,
   rankedVenueBacklogFromSession,
 } from '../lib/conciergeRequestContext'
-import { buildConciergeSearchStatusText } from '../lib/conciergeSearchStatus'
 import { getUserHomeLocation } from '../services/userHomeLocation'
 import ConciergeLinkedText from '../components/ConciergeLinkedText'
 import { CONCIERGE_USERS_SAYING_HEADING_RE } from '@pulse-web/src/constants/appBrand.js'
@@ -75,7 +74,6 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [loadingStatusText, setLoadingStatusText] = useState(null)
   const [error, setError] = useState(null)
   const scrollRef = useRef(null)
   const lastSessionRef = useRef(emptyConciergeClientSession())
@@ -170,7 +168,6 @@ export default function ChatScreen() {
     const userMessage = { role: 'user', content: text }
     const nextMessages = [...messages, userMessage]
     setMessages(nextMessages)
-    setLoadingStatusText(buildConciergeSearchStatusText(text))
     setLoading(true)
 
     try {
@@ -278,7 +275,6 @@ export default function ChatScreen() {
       setError(e?.message || 'Something went wrong')
     } finally {
       setLoading(false)
-      setLoadingStatusText(null)
     }
   }
 
@@ -520,12 +516,12 @@ export default function ChatScreen() {
             {loading ? (
               <View style={[styles.messageRow, styles.messageAssistant]}>
                 <View style={styles.bubble}>
-                  {loadingStatusText ? (
-                    <Text style={styles.loadingStatusText} accessibilityRole="text">
-                      {loadingStatusText}
-                    </Text>
-                  ) : null}
-                  <ActivityIndicator size="small" color={colors.browseAccent} style={styles.loadingSpinner} />
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.browseAccent}
+                    style={styles.loadingSpinner}
+                    accessibilityLabel="Loading"
+                  />
                 </View>
               </View>
             ) : null}
@@ -788,13 +784,6 @@ const styles = StyleSheet.create({
     color: colors.browseAccent,
     fontWeight: '600',
     textDecorationLine: 'underline',
-  },
-  loadingStatusText: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: fontFamilies.interMedium,
-    lineHeight: 20,
-    marginBottom: spacing.xs,
   },
   loadingSpinner: { alignSelf: 'flex-start' },
   errorRow: { padding: spacing.md },
