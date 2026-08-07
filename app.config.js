@@ -4,6 +4,7 @@ module.exports = {
   expo: {
     name: 'Brio',
     slug: 'nightout-mobile',
+    owner: 'gkloke',
     scheme: 'nightout',
     version: '1.0.0',
     orientation: 'portrait',
@@ -64,6 +65,9 @@ module.exports = {
       webAppUrl: process.env.EXPO_PUBLIC_WEB_APP_URL,
       appScheme: process.env.EXPO_PUBLIC_APP_SCHEME,
       googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+      eas: {
+        projectId: '9c0b95b9-8fde-43c5-9e12-df10b6244d2a',
+      },
     },
   },
 };
