@@ -109,7 +109,11 @@ export default function TabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarHideOnKeyboard: true,
+        // Was true (duplicated) — combined with ChatScreen's own KeyboardAvoidingView, the tab bar
+        // hide animation and the screen's padding animation were two independent, unsynchronized
+        // responses to the same keyboard-show event, producing a visible jump/settle on focus.
+        // KeyboardAvoidingView is now the sole thing that reacts to the keyboard.
+        tabBarHideOnKeyboard: false,
         tabBarIcon: ({ focused, color }) => <TabIcon label={route.name} focused={focused} color={color} />,
         tabBarActiveTintColor: colors.browseAccent,
         tabBarInactiveTintColor: colors.textMuted,
@@ -122,7 +126,6 @@ export default function TabNavigator() {
           fontFamily: fontFamilies.frauncesSemiBold,
           letterSpacing: 0.5,
         },
-        tabBarHideOnKeyboard: true,
         headerShown: false,
       })}
     >
