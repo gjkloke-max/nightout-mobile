@@ -12,45 +12,53 @@ Run the Expo dev server on Ubuntu and expose it via nginx so team members can co
 
 ---
 
-## Mobile + shared concierge-client (required since shared code landed)
+## Mobile + shared concierge-client
 
-Mobile imports **`shared/concierge-client`** from the **web repo** (`appbrio`), not from inside `appbrio-mobile`.
-
-On the server both clones must exist as siblings:
-
-```
-/var/www/appbrio          ← web + search API + shared/concierge-client
-/var/www/appbrio-mobile   ← Expo app (Metro reads ../appbrio via PULSE_WEB_ROOT)
-```
-
-After pulling **both** repos:
+The concierge-client logic used to be resolved at runtime from a sibling
+`/var/www/appbrio` (web repo) checkout via `PULSE_WEB_ROOT`. That mechanism
+worked locally but couldn't work on EAS's cloud build servers (which only
+clone this repo), so it's been replaced: the needed files are now vendored
+directly into `src/vendor/pulse-web/` in this repo (see that directory's
+README). `appbrio-mobile` is now fully self-contained — no sibling repo,
+no `PULSE_WEB_ROOT`. A plain `git pull` + `npm install` here is all you need:
 
 ```bash
-cd /var/www/appbrio
-git pull
-npm install
-
 cd /var/www/appbrio-mobile
 git pull
 npm install
 sudo systemctl restart expo-staging
 ```
 
-`expo-staging.service` sets `PULSE_WEB_ROOT=/var/www/appbrio`. If Metro fails with “Could not find web repo”, verify:
+---
 
-```bash
-test -f /var/www/appbrio/shared/concierge-client/index.js && echo OK
-ls -la /var/www/appbrio /var/www/appbrio-mobile
-sudo journalctl -u expo-staging -n 50 --no-pager
+## EXPO_TOKEN (required)
+
+`app.config.js` sets `owner: 'gkloke'` and `extra.eas.projectId`, needed so
+`eas build`/`eas submit` can resolve the project non-interactively. This
+also means any `expo` CLI invocation — including this server's `expo
+start` — now needs to verify Expo account membership. Without
+authentication, `--non-interactive` mode fails immediately with:
+
+```
+CommandError: Input is required, but 'npx expo' is in non-interactive mode.
+Use the EXPO_TOKEN environment variable to authenticate in CI
 ```
 
-Ensure `www-data` can read both trees:
+Fix: generate a personal/robot access token at
+https://expo.dev/accounts/gkloke/settings/access-tokens, then set it as an
+env var for the service:
 
 ```bash
-sudo chown -R www-data:www-data /var/www/appbrio-mobile
-# appbrio may be owned by ubuntu; at minimum:
-sudo chmod -R o+rX /var/www/appbrio/shared /var/www/appbrio/src/utils
+sudo nano /etc/systemd/system/expo-staging.service
+# set: Environment="EXPO_TOKEN=<the token>"
+sudo systemctl daemon-reload
+sudo systemctl restart expo-staging
+sudo systemctl status expo-staging
 ```
+
+(The `expo-staging.service` file in this repo has a placeholder line —
+copy it over and fill in the real token, or edit the deployed unit
+directly. Never commit the real token to the repo.)
 
 ---
 
@@ -313,8 +321,7 @@ sudo journalctl -u expo-staging -n 150 --no-pager
 ```
 
 Look for:
-- `Could not find pulse web repo` → fix `PULSE_WEB_ROOT=/var/www/appbrio` and paths
-- `Missing pulse web file` → pull web repo; `chmod -R o+rX /var/www/appbrio/shared`
+- `'npx expo' is in non-interactive mode` / `Use the EXPO_TOKEN environment variable` → see **EXPO_TOKEN** section above
 - `EACCES` / permission denied → fix ownership (step 4 below)
 - Metro never prints `Metro waiting on exp://expo.appbrio.com:80` → Expo failed before ready
 
