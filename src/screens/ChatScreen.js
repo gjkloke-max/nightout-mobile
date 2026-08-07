@@ -11,15 +11,8 @@ import {
   Modal,
   FlatList,
   Alert,
-  Keyboard,
   KeyboardAvoidingView,
-  LayoutAnimation,
-  UIManager,
 } from 'react-native'
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true)
-}
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
@@ -90,7 +83,6 @@ export default function ChatScreen() {
   const [chatPreviews, setChatPreviews] = useState({})
   const [historyOpen, setHistoryOpen] = useState(false)
   const [initializing, setInitializing] = useState(true)
-  const [keyboardVisible, setKeyboardVisible] = useState(false)
 
   const refreshHistoryList = useCallback(async () => {
     const { data: sessions, previews, error } = await loadChatHistoryWithPreviews()
@@ -145,30 +137,6 @@ export default function ChatScreen() {
     }
   }, [messages])
 
-  useEffect(() => {
-    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
-    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
-    // The inputRow's bottom padding changes when the keyboard shows/hides (see styles below), as a
-    // plain synchronous style update. On iOS that fought visibly against KeyboardAvoidingView's own
-    // native-animated padding adjustment for the same event — two adjustments settling at slightly
-    // different times reads as a flicker right as the input gets focus. Animating this one too, with
-    // the keyboard's own reported duration/easing, keeps both in sync instead of one snapping.
-    const animateTo = (visible, event) => {
-      const duration = event?.duration || 250
-      const curve = Platform.OS === 'ios' ? LayoutAnimation.Types.keyboard : LayoutAnimation.Types.easeInEaseOut
-      LayoutAnimation.configureNext({
-        duration,
-        update: { type: curve },
-      })
-      setKeyboardVisible(visible)
-    }
-    const showSub = Keyboard.addListener(showEvt, (event) => animateTo(true, event))
-    const hideSub = Keyboard.addListener(hideEvt, (event) => animateTo(false, event))
-    return () => {
-      showSub.remove()
-      hideSub.remove()
-    }
-  }, [])
 
   const showLanding = !messages.some((m) => m.role === 'user')
 
@@ -557,8 +525,8 @@ export default function ChatScreen() {
         style={[
           styles.inputRow,
           {
-            paddingBottom: keyboardVisible ? 10 : Math.max(spacing.sm, insets.bottom),
-            paddingTop: keyboardVisible ? 10 : spacing.sm,
+            paddingBottom: Math.max(spacing.sm, insets.bottom),
+            paddingTop: spacing.sm,
           },
         ]}
       >
