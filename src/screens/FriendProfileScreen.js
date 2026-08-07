@@ -27,6 +27,7 @@ import {
   cancelFollowRequest,
 } from '../services/follows'
 import { getUserTopTenVenues, getUserTopTenEligibility } from '../services/userTopTen'
+import { getOrCreateDirectConversation } from '../services/messaging'
 import { config } from '../lib/config'
 import { getPublicListsForUser } from '../utils/venueLists'
 import {
@@ -116,6 +117,7 @@ export default function FriendProfileScreen() {
   const [targetIsPrivate, setTargetIsPrivate] = useState(false)
   const [profileLocked, setProfileLocked] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+  const [messageLoading, setMessageLoading] = useState(false)
   const [reviewCount, setReviewCount] = useState(0)
   const [photoViewerVisible, setPhotoViewerVisible] = useState(false)
   const scrollRef = useRef(null)
@@ -301,8 +303,17 @@ export default function FriendProfileScreen() {
     : targetIsPrivate ? 'Request to Follow'
     : 'Follow'
 
-  const handleMessage = () => {
-    navigation.navigate('MainTabs', { screen: 'Chat' })
+  const handleMessage = async () => {
+    if (!userId || messageLoading) return
+    setMessageLoading(true)
+    try {
+      const conversationId = await getOrCreateDirectConversation(userId)
+      navigation.navigate('DMConversation', { conversationId })
+    } catch (e) {
+      console.warn('getOrCreateDirectConversation:', e)
+    } finally {
+      setMessageLoading(false)
+    }
   }
 
   const handleVenuePress = (venue) => {
@@ -456,8 +467,8 @@ export default function FriendProfileScreen() {
                       {followLabel}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.messageBtn} onPress={handleMessage}>
-                    <Text style={styles.messageBtnText}>Message</Text>
+                  <TouchableOpacity style={styles.messageBtn} onPress={handleMessage} disabled={messageLoading}>
+                    <Text style={styles.messageBtnText}>{messageLoading ? '...' : 'Message'}</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -526,8 +537,8 @@ export default function FriendProfileScreen() {
                       {followLabel}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.messageBtn} onPress={handleMessage}>
-                    <Text style={styles.messageBtnText}>Message</Text>
+                  <TouchableOpacity style={styles.messageBtn} onPress={handleMessage} disabled={messageLoading}>
+                    <Text style={styles.messageBtnText}>{messageLoading ? '...' : 'Message'}</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
