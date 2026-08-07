@@ -13,7 +13,13 @@ import {
   Alert,
   Keyboard,
   KeyboardAvoidingView,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native'
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true)
+}
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
@@ -142,8 +148,22 @@ export default function ChatScreen() {
   useEffect(() => {
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
     const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
-    const showSub = Keyboard.addListener(showEvt, () => setKeyboardVisible(true))
-    const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardVisible(false))
+    // The inputRow's bottom padding changes when the keyboard shows/hides (see styles below), as a
+    // plain synchronous style update. On iOS that fought visibly against KeyboardAvoidingView's own
+    // native-animated padding adjustment for the same event — two adjustments settling at slightly
+    // different times reads as a flicker right as the input gets focus. Animating this one too, with
+    // the keyboard's own reported duration/easing, keeps both in sync instead of one snapping.
+    const animateTo = (visible, event) => {
+      const duration = event?.duration || 250
+      const curve = Platform.OS === 'ios' ? LayoutAnimation.Types.keyboard : LayoutAnimation.Types.easeInEaseOut
+      LayoutAnimation.configureNext({
+        duration,
+        update: { type: curve },
+      })
+      setKeyboardVisible(visible)
+    }
+    const showSub = Keyboard.addListener(showEvt, (event) => animateTo(true, event))
+    const hideSub = Keyboard.addListener(hideEvt, (event) => animateTo(false, event))
     return () => {
       showSub.remove()
       hideSub.remove()
