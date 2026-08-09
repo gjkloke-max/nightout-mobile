@@ -1,14 +1,19 @@
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Linking, Image } from 'react-native'
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Linking, Image, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useState } from 'react'
 import { Ionicons } from '@expo/vector-icons'
+import {
+  AppleAuthenticationButton,
+  AppleAuthenticationButtonType,
+  AppleAuthenticationButtonStyle,
+} from 'expo-apple-authentication'
 import { authColors, authFonts, authSpacing } from '../../theme/authTheme'
 import { useAuth } from '../../contexts/AuthContext'
 import { config } from '../../lib/config'
 
 export default function LandingScreen({ navigation }) {
   const insets = useSafeAreaInsets()
-  const { googleSignIn } = useAuth()
+  const { googleSignIn, appleSignIn } = useAuth()
   const [busy, setBusy] = useState(null)
 
   const openLegal = (path) => {
@@ -20,6 +25,15 @@ export default function LandingScreen({ navigation }) {
   const onGoogle = async () => {
     setBusy('google')
     const { error } = await googleSignIn()
+    setBusy(null)
+    if (error?.message && error.message !== 'cancelled') {
+      /* handled by auth state */
+    }
+  }
+
+  const onApple = async () => {
+    setBusy('apple')
+    const { error } = await appleSignIn()
     setBusy(null)
     if (error?.message && error.message !== 'cancelled') {
       /* handled by auth state */
@@ -48,6 +62,16 @@ export default function LandingScreen({ navigation }) {
             </View>
           )}
         </Pressable>
+
+        {Platform.OS === 'ios' && (
+          <AppleAuthenticationButton
+            buttonType={AppleAuthenticationButtonType.CONTINUE}
+            buttonStyle={AppleAuthenticationButtonStyle.WHITE_OUTLINE}
+            cornerRadius={0}
+            style={styles.btnApple}
+            onPress={busy === null ? onApple : () => {}}
+          />
+        )}
 
         <View style={styles.orRow}>
           <View style={styles.orLine} />
@@ -131,6 +155,10 @@ const styles = StyleSheet.create({
     fontFamily: authFonts.interMedium,
     fontSize: 16,
     color: authColors.textPrimary,
+  },
+  btnApple: {
+    height: 56,
+    width: '100%',
   },
   btnCreate: {
     backgroundColor: authColors.accent,
