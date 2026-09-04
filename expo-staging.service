@@ -8,10 +8,11 @@ User=www-data
 Group=www-data
 WorkingDirectory=/var/www/appbrio-mobile
 Environment="HOME=/var/www/appbrio-mobile"
-# EXPO_TOKEN is required now that app.config.js sets "owner" (needed for EAS builds) —
-# without it, `expo start --non-interactive` can't resolve account membership and
-# fails with "Input is required, but 'npx expo' is in non-interactive mode."
-# Generate one at https://expo.dev/accounts/gkloke/settings/access-tokens and paste it below.
+# EXPO_TOKEN is OPTIONAL again. app.config.js now omits "owner" unless EAS_BUILD is set, so the
+# dev server serves an @anonymous manifest and Expo Go opens it without a login — which is how
+# testers without Expo accounts use staging. It stays here because an authenticated CLI is
+# harmless, and because a token is still what you would need if "owner" were ever reinstated.
+# Generate one at https://expo.dev/accounts/gkloke/settings/access-tokens if you do need it.
 Environment="EXPO_TOKEN=REPLACE_ME"
 Environment="REACT_NATIVE_PACKAGER_HOSTNAME=expo.appbrio.com"
 Environment="REACT_NATIVE_PACKAGER_PORT=80"

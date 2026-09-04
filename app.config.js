@@ -1,10 +1,21 @@
 require('dotenv').config();
 
+// `owner` is what makes Expo Go demand a login: when a project declares an owner, Expo Go will only
+// open it for someone signed in to an account with access. Staging is opened by testers who do not
+// have Expo accounts, so the dev server must serve a manifest without it — that is how this worked
+// before the owner field was added for EAS.
+//
+// EAS does not need it here: the project is resolved by extra.eas.projectId below. It is still
+// emitted on EAS builds, and EXPO_INCLUDE_OWNER=1 forces it back on if a future eas command ever
+// asks for it.
+const includeOwner =
+  process.env.EAS_BUILD === 'true' || process.env.EXPO_INCLUDE_OWNER === '1';
+
 module.exports = {
   expo: {
     name: 'Brio',
     slug: 'nightout-mobile',
-    owner: 'gkloke',
+    ...(includeOwner ? { owner: 'gkloke' } : {}),
     scheme: 'nightout',
     version: '1.0.0',
     orientation: 'portrait',
