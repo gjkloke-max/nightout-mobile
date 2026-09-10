@@ -19,9 +19,11 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "YOUR_APPLE_ID_EMAIL",
-        "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "YOUR_APPLE_TEAM_ID"
+        "ascAppId": "6810850381",
+        "appleTeamId": "Z9KW47RY6P",
+        "ascApiKeyPath": "./AuthKey_FPS6WGX3P5.p8",
+        "ascApiKeyIssuerId": "29216010-e95d-44ef-9a39-e11c6d0d1536",
+        "ascApiKeyId": "FPS6WGX3P5"
       },
       "android": {
         "serviceAccountKeyPath": "./google-play-service-account.json",
