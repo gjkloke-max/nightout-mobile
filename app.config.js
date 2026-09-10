@@ -29,7 +29,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.nightout.mobile',
-      buildNumber: '2',
+      buildNumber: '3',
       infoPlist: {
         // Export compliance. Declared here so App Store Connect does not gate every single upload
         // on answering the encryption question by hand before testers can install.
