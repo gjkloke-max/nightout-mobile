@@ -31,6 +31,15 @@ module.exports = {
       bundleIdentifier: 'com.nightout.mobile',
       buildNumber: '1',
       infoPlist: {
+        // Export compliance. Declared here so App Store Connect does not gate every single upload
+        // on answering the encryption question by hand before testers can install.
+        //
+        // false = "no non-exempt encryption". The app's only cryptography is standard HTTPS to
+        // Supabase and the OpenAI API, the iOS Keychain via expo-secure-store, and the aes-js
+        // encryption in src/lib/supabase.js that protects the stored Supabase session — encryption
+        // used to safeguard the user's own auth token, which is the exempt category. Revisit this
+        // if the app ever encrypts user content rather than credentials.
+        ITSAppUsesNonExemptEncryption: false,
         NSAppTransportSecurity: {
           NSAllowsLocalNetworking: true,
         },
