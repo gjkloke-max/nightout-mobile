@@ -1,8 +1,8 @@
-import { useLayoutEffect } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native'
+import { useLayoutEffect, useState } from 'react'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Pencil, Bell, SlidersHorizontal, Lock, Shield, FileText, LogOut, ChevronRight } from 'lucide-react-native'
+import { Pencil, Bell, SlidersHorizontal, Lock, Shield, FileText, LogOut, Trash2, ChevronRight } from 'lucide-react-native'
 import { useAuth } from '../contexts/AuthContext'
 import { colors, fontFamilies, spacing } from '../theme'
 import { config } from '../lib/config'
@@ -11,7 +11,8 @@ import { config } from '../lib/config'
 export default function SettingsScreen() {
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
-  const { signOut } = useAuth()
+  const { signOut, deleteAccount } = useAuth()
+  const [deleting, setDeleting] = useState(false)
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -34,6 +35,39 @@ export default function SettingsScreen() {
 
   const handleLogout = async () => {
     await signOut()
+  }
+
+  // Two taps, with the destructive one second and the wording explicit about what goes. Apple wants
+  // deletion startable in the app (Guideline 5.1.1(v)); it does not want it easy to do by accident.
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your account, along with your profile, saved venues, lists, reviews and messages. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Are you sure?', 'Your account and all of its data will be deleted immediately.', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete my account',
+                style: 'destructive',
+                onPress: async () => {
+                  setDeleting(true)
+                  const { error } = await deleteAccount()
+                  setDeleting(false)
+                  // On success the auth state change unmounts this screen, so only the failure
+                  // path needs to say anything.
+                  if (error) Alert.alert('Could not delete account', error.message)
+                },
+              },
+            ])
+          },
+        },
+      ],
+    )
   }
 
   const openLegal = (path) => {
@@ -128,6 +162,18 @@ export default function SettingsScreen() {
             <Text style={styles.logoutLabel}>Logout</Text>
           </View>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.row}
+          onPress={handleDeleteAccount}
+          activeOpacity={0.65}
+          disabled={deleting}
+        >
+          <View style={styles.rowLeft}>
+            <Trash2 size={20} color={colors.error} strokeWidth={2} />
+            <Text style={styles.deleteLabel}>{deleting ? 'Deleting account...' : 'Delete Account'}</Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
       <Text style={styles.version}>Version 1.0.0</Text>
@@ -178,6 +224,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontFamily: fontFamilies.interMedium,
     color: colors.profileAccent,
+  },
+  deleteLabel: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: fontFamilies.interMedium,
+    color: colors.error,
   },
   version: {
     marginTop: spacing.xl,

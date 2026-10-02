@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { supabase } from '../lib/supabase'
 import { ensureProfileAfterAuth, ONBOARDING_STEP } from '../services/profileOnboarding'
 import { signInWithGoogle, signInWithApple } from '../services/oauthSupabase'
+import { config } from '../lib/config'
 
 const AuthContext = createContext({})
 
@@ -113,6 +114,53 @@ export const AuthProvider = ({ children }) => {
     return { error: null }
   }
 
+  /**
+   * Delete this account for good.
+   *
+   * Apple requires account deletion to be startable inside the app when the app offers account
+   * creation (Guideline 5.1.1(v)); a support email does not satisfy it. Removing an auth user needs
+   * credentials no client should hold, so the work happens on the server and this just proves who
+   * is asking: the access token goes up, and the server takes the user id from the verified token
+   * rather than from anything we send.
+   *
+   * Signs out on success regardless of what the server says about rows, because the session is
+   * worthless once the account behind it is gone.
+   */
+  const deleteAccount = async () => {
+    if (!supabase) return { error: { message: 'Not configured' } }
+    const base = String(config.searchApiUrl || '').replace(/\/+$/, '')
+    if (!base) return { error: { message: 'Not configured' } }
+    try {
+      const {
+        data: { session: s },
+      } = await supabase.auth.getSession()
+      const token = s?.access_token
+      if (!token) return { error: { message: 'You are signed out. Sign in again to delete your account.' } }
+
+      const res = await fetch(`${base}/api/account/delete`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        return {
+          error: {
+            message:
+              res.status === 401
+                ? 'Your session expired. Sign in again and retry.'
+                : body?.error === 'delete_failed'
+                  ? 'Something went wrong deleting your account. Please try again.'
+                  : 'Account deletion is unavailable right now. Please try again later.',
+          },
+        }
+      }
+      await signOut()
+      return { error: null }
+    } catch (e) {
+      return { error: { message: e?.message || 'Could not reach the server.' } }
+    }
+  }
+
   const googleSignIn = async () => {
     const { error } = await signInWithGoogle()
     return { error: error ? { message: error } : null }
@@ -150,6 +198,7 @@ export const AuthProvider = ({ children }) => {
         signIn,
         signUp,
         signOut,
+        deleteAccount,
         googleSignIn,
         appleSignIn,
       }}
