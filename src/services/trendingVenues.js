@@ -7,8 +7,14 @@ export const TRENDING_RANK_POOL_SIZE = 200
 /** Default venues shown in Browse trending. */
 export const TRENDING_DISPLAY_LIMIT_DEFAULT = 100
 
-/** Venues created within this many days appear in Browse > Trending > What's New. */
-export const NEW_VENUE_WINDOW_DAYS = 60
+/**
+ * Venues created within this many days appear in Browse > Trending > What's New.
+ *
+ * Mirrored in the web app's src/services/trendingVenuesQuery.js -- the two are separate constants
+ * in separate repos, so changing one without the other makes What's New mean different things on
+ * web and on a phone.
+ */
+export const NEW_VENUE_WINDOW_DAYS = 120
 
 /** Default venues shown in Browse / What's New. */
 export const NEW_VENUE_DISPLAY_LIMIT_DEFAULT = 50
