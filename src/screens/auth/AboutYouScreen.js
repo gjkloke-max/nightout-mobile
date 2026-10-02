@@ -25,7 +25,7 @@ import { updateOnboardingStep, ONBOARDING_STEP } from '../../services/profileOnb
 import {
   fetchAddressPredictions,
   fetchPlaceDetails,
-  hasGooglePlacesKey,
+  hasAddressAutocomplete,
 } from '../../services/placesAutocomplete'
 import AddressAutocompleteField from '../../components/AddressAutocompleteField'
 
@@ -72,7 +72,7 @@ export default function AboutYouScreen({ navigation }) {
       if (debounceRef.current) clearTimeout(debounceRef.current)
       return
     }
-    if (!hasGooglePlacesKey()) {
+    if (!hasAddressAutocomplete()) {
       setPredictions([])
       return
     }
@@ -103,7 +103,7 @@ export default function AboutYouScreen({ navigation }) {
     if (!firstName.trim() || !lastName.trim()) return false
     if (!usernameCheck.ok) return false
     if (!address.trim()) return false
-    if (hasGooglePlacesKey() && !pickedPlace?.placeId) return false
+    if (hasAddressAutocomplete() && !pickedPlace?.placeId) return false
     return true
   }, [loading, firstName, lastName, usernameCheck.ok, address, pickedPlace?.placeId])
 
@@ -192,7 +192,7 @@ export default function AboutYouScreen({ navigation }) {
     let formattedAddr = trimmedAddr
     let precoded = null
 
-    if (hasGooglePlacesKey()) {
+    if (hasAddressAutocomplete()) {
       if (!pickedPlace?.placeId) {
         setErr('Choose an address from the suggestions.')
         return
@@ -305,7 +305,7 @@ export default function AboutYouScreen({ navigation }) {
           <AddressAutocompleteField
             value={address}
             onChangeText={onAddressChange}
-            placeholder={hasGooglePlacesKey() ? 'Start typing your address' : 'Street, city, state'}
+            placeholder={hasAddressAutocomplete() ? 'Start typing your address' : 'Street, city, state'}
             predictions={addressInputFocused ? predictions : []}
             predictionsLoading={addressInputFocused && predLoading}
             onSelectPrediction={onPickPrediction}

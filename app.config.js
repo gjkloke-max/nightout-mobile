@@ -48,6 +48,21 @@ module.exports = {
     android: {
       package: 'com.nightout.mobile',
       versionCode: 1,
+      config: {
+        googleMaps: {
+          // react-native-maps uses Google Maps on Android (iOS falls through to Apple Maps, since
+          // no PROVIDER_GOOGLE is set), and the native SDK reads its key from the manifest rather
+          // than from JS. Without this the Android map renders blank.
+          //
+          // Deliberately a different key from the one the server uses for Places, and deliberately
+          // not EXPO_PUBLIC_*, so Metro never inlines it into the JS bundle. This is the one usage
+          // Google's application restrictions actually cover: restrict it to Maps SDK for Android
+          // plus package com.nightout.mobile and the SHA-1 of the signing cert. With EAS and Play
+          // App Signing that fingerprint is Google Play's, from Play Console -> Setup -> App
+          // signing, not the local keystore's.
+          apiKey: process.env.ANDROID_MAPS_API_KEY,
+        },
+      },
       usesCleartextTraffic: true,
       softwareKeyboardLayoutMode: 'resize',
       adaptiveIcon: {
@@ -84,7 +99,6 @@ module.exports = {
       conciergeTimeoutMs: process.env.EXPO_PUBLIC_CONCIERGE_TIMEOUT_MS,
       webAppUrl: process.env.EXPO_PUBLIC_WEB_APP_URL,
       appScheme: process.env.EXPO_PUBLIC_APP_SCHEME,
-      googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
       eas: {
         projectId: '9c0b95b9-8fde-43c5-9e12-df10b6244d2a',
       },

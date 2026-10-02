@@ -27,7 +27,7 @@ import AddressAutocompleteField from '../components/AddressAutocompleteField'
 import {
   fetchAddressPredictions,
   fetchPlaceDetails,
-  hasGooglePlacesKey,
+  hasAddressAutocomplete,
 } from '../services/placesAutocomplete'
 
 export default function EditProfileScreen({ navigation }) {
@@ -103,7 +103,7 @@ export default function EditProfileScreen({ navigation }) {
       if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current)
       return
     }
-    if (!hasGooglePlacesKey()) {
+    if (!hasAddressAutocomplete()) {
       setAddressPredictions([])
       return
     }
@@ -249,7 +249,7 @@ export default function EditProfileScreen({ navigation }) {
       if (addrChanged && nextAddr) {
         let formatted = nextAddr
         let precoded = null
-        if (pickedAddressPlace?.placeId && hasGooglePlacesKey()) {
+        if (pickedAddressPlace?.placeId && hasAddressAutocomplete()) {
           const det = await fetchPlaceDetails(pickedAddressPlace.placeId)
           if (det) {
             formatted = det.formattedAddress || nextAddr
@@ -394,7 +394,7 @@ export default function EditProfileScreen({ navigation }) {
         <AddressAutocompleteField
           value={homeAddress}
           onChangeText={setHomeAddress}
-          placeholder={hasGooglePlacesKey() ? 'Start typing your address' : 'Street, city, state'}
+          placeholder={hasAddressAutocomplete() ? 'Start typing your address' : 'Street, city, state'}
           placeholderTextColor={colors.textMuted}
           predictions={addressFieldFocused ? addressPredictions : []}
           predictionsLoading={addressFieldFocused && addressPredLoading}
