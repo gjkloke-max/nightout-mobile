@@ -27,9 +27,13 @@ module.exports = {
       backgroundColor: '#F7F5F2',
     },
     ios: {
-      supportsTablet: true,
+      // iPhone only. There is no tablet-specific layout anywhere in the app, and offering it on
+      // iPad means Apple requires 13" iPad screenshots and reviewers test it there -- a phone
+      // layout stretched to iPad is a standard Guideline 4 (Design) rejection. Flip this back only
+      // alongside real iPad layouts.
+      supportsTablet: false,
       bundleIdentifier: 'com.nightout.mobile',
-      buildNumber: '5',
+      buildNumber: '6',
       infoPlist: {
         // Export compliance. Declared here so App Store Connect does not gate every single upload
         // on answering the encryption question by hand before testers can install.
