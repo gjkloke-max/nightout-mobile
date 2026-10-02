@@ -43,3 +43,7 @@ google-play-service-account.json
 # generated native folders
 /ios
 /android
+*.csr
+*.cer
+credentials.json
+eas-debug.log
