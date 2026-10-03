@@ -5,12 +5,12 @@
 
 import { supabase } from '../lib/supabase'
 import {
-import { getBlockedUserIds } from './userBlocks'
   onFollowCreated,
   onFollowRequestAccepted,
   onFollowRequestCreated,
   onFollowRequestDeclined,
 } from './notificationHandlers'
+import { getBlockedUserIds } from './userBlocks'
 
 export async function getTargetIsPrivate(targetUserId) {
   if (!targetUserId || !supabase) return false
