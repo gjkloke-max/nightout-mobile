@@ -15,6 +15,7 @@ import VenueHeader from '../components/VenueProfile/VenueHeader'
 import VenueActionBar from '../components/VenueProfile/VenueActionBar'
 import VenueCrowdSentimentSection from '../components/VenueProfile/VenueCrowdSentimentSection'
 import VenueReviewList from '../components/VenueProfile/VenueReviewList'
+import PoweredByGoogle from '../components/PoweredByGoogle'
 import VenueTemporarilyClosedBanner from '../components/VenueProfile/VenueTemporarilyClosedBanner'
 import VenueDmShareModal from '../components/VenueProfile/VenueDmShareModal'
 import { isVenueTemporarilyClosed } from '../utils/venueProfileUtils'
@@ -316,6 +317,10 @@ export default function VenueProfileScreen() {
             onLoadMoreReviews={loadMoreReviews}
             totalReviewCount={totalReviewCount}
           />
+        {/* Attribution belongs to the venue data that genuinely comes from the Places API --
+            photo, rating, editorial summary, hours, price level -- not to the review list, where
+            most rows are scraped rather than API-sourced. */}
+        <PoweredByGoogle style={{ paddingHorizontal: 20, paddingBottom: 12 }} />
       </ScrollView>
 
       {photoViewerIndex != null && photos.length > 0 ? (

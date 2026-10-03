@@ -1,6 +1,5 @@
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native'
 import { colors, fontSizes, fontFamilies, spacing, borderRadius } from '../../theme'
-import PoweredByGoogle from '../PoweredByGoogle'
 
 function formatReviewDate(d) {
   if (!d) return ''
@@ -128,9 +127,6 @@ export default function VenueReviewList({
           )}
         </Pressable>
       ) : null}
-      {/* Most reviews here are imported from Google Places, so the list carries the attribution
-          their policies require outside a Google Map. */}
-      <PoweredByGoogle />
     </View>
   )
 }
