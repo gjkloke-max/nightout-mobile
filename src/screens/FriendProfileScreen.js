@@ -11,10 +11,11 @@ import {
   Pressable,
   Image,
   ActivityIndicator,
+  Alert,
 } from 'react-native'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ChevronLeft, Lock } from 'lucide-react-native'
+import { ChevronLeft, Lock, MoreVertical } from 'lucide-react-native'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import {
@@ -28,6 +29,9 @@ import {
 } from '../services/follows'
 import { getUserTopTenVenues, getUserTopTenEligibility } from '../services/userTopTen'
 import { getOrCreateDirectConversation } from '../services/messaging'
+import ReportContentModal from '../components/ReportContentModal'
+import { REPORT_CONTENT_TYPE } from '../services/contentReports'
+import { blockUser, unblockUser, getBlockState } from '../services/userBlocks'
 import { config } from '../lib/config'
 import { getPublicListsForUser } from '../utils/venueLists'
 import {
@@ -99,6 +103,8 @@ export default function FriendProfileScreen() {
   const userId = route.params?.userId
 
   const [profile, setProfile] = useState(null)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [blockState, setBlockState] = useState({ blocked: false, canUnblock: false })
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('reviews')
   const [myReviews, setMyReviews] = useState([])
@@ -303,6 +309,60 @@ export default function FriendProfileScreen() {
     : targetIsPrivate ? 'Request to Follow'
     : 'Follow'
 
+  useEffect(() => {
+    let cancelled = false
+    if (!userId) return undefined
+    getBlockState(userId).then((st) => {
+      if (!cancelled) setBlockState(st)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
+
+  // Guideline 1.2 needs blocking reachable from a profile, not only from a conversation -- someone
+  // may never have messaged the person they want gone.
+  const openProfileOptions = () => {
+    if (!userId) return
+    const blockAction = blockState.blocked
+      ? {
+          text: blockState.canUnblock ? 'Unblock' : 'Blocked',
+          onPress: blockState.canUnblock
+            ? async () => {
+                const { error } = await unblockUser(userId)
+                if (error) Alert.alert('Could not unblock', error.message)
+                else setBlockState({ blocked: false, canUnblock: false })
+              }
+            : undefined,
+        }
+      : {
+          text: 'Block',
+          style: 'destructive',
+          onPress: () =>
+            Alert.alert(
+              'Block this person?',
+              'You will no longer see each other. Any conversation between you disappears for both of you.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Block',
+                  style: 'destructive',
+                  onPress: async () => {
+                    const { error } = await blockUser(userId)
+                    if (error) Alert.alert('Could not block', error.message)
+                    else setBlockState({ blocked: true, canUnblock: true })
+                  },
+                },
+              ],
+            ),
+        }
+    Alert.alert(displayName || 'Profile', undefined, [
+      { text: 'Report profile', onPress: () => setReportOpen(true) },
+      blockAction,
+      { text: 'Cancel', style: 'cancel' },
+    ])
+  }
+
   const handleMessage = async () => {
     if (!userId || messageLoading) return
     setMessageLoading(true)
@@ -310,7 +370,14 @@ export default function FriendProfileScreen() {
       const conversationId = await getOrCreateDirectConversation(userId)
       navigation.navigate('DMConversation', { conversationId })
     } catch (e) {
-      console.warn('getOrCreateDirectConversation:', e)
+      // A block is an expected outcome here, not a fault: say so rather than appearing to do
+      // nothing. Anything else stays a warning.
+      if (e?.code === 'blocked') {
+        setBlockState((prev) => ({ ...prev, blocked: true }))
+        Alert.alert('Unavailable', 'You cannot message this person.')
+      } else {
+        console.warn('getOrCreateDirectConversation:', e)
+      }
     } finally {
       setMessageLoading(false)
     }
@@ -397,6 +464,15 @@ export default function FriendProfileScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={goBack} accessibilityRole="button" accessibilityLabel="Back">
           <ChevronLeft size={22} color={colors.textPrimary} strokeWidth={2} />
           <Text style={styles.backText}>BACK</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.profileOptionsBtn}
+          onPress={openProfileOptions}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Profile options"
+        >
+          <MoreVertical size={20} color={colors.textPrimary} strokeWidth={2} />
         </TouchableOpacity>
       </View>
 
@@ -707,6 +783,19 @@ export default function FriendProfileScreen() {
         initialLetter={(displayName || '?')[0]}
         showEditActions={false}
       />
+      <ReportContentModal
+        visible={reportOpen}
+        onClose={() => setReportOpen(false)}
+        contentType={REPORT_CONTENT_TYPE.PROFILE}
+        contentId={userId}
+        reportedUserId={userId}
+        title="Report profile"
+        onAlsoBlock={async () => {
+          const { error } = await blockUser(userId)
+          if (error) Alert.alert('Could not block', error.message)
+          else setBlockState({ blocked: true, canUnblock: true })
+        }}
+      />
     </View>
   )
 }
@@ -717,11 +806,17 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: spacing['3xl'] },
   topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderBottomWidth: 2,
     borderBottomColor: colors.border,
     backgroundColor: colors.backgroundCanvas,
+  },
+  profileOptionsBtn: {
+    padding: spacing.xs,
   },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   backText: {

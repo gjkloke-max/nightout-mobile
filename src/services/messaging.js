@@ -45,11 +45,22 @@ export async function listConversations(userId) {
   }))
 }
 
+/**
+ * @throws {Error} with code 'blocked' when a block exists in either direction. The RPC raises it
+ * (migrations/dm_blocking.sql) rather than returning an id the caller could not then write to.
+ */
 export async function getOrCreateDirectConversation(otherUserId) {
   const { data, error } = await supabase.rpc('dm_get_or_create_direct_conversation', {
     p_other_user_id: otherUserId,
   })
-  if (error) throw error
+  if (error) {
+    if (/blocked/i.test(error.message || '')) {
+      const e = new Error('You cannot message this person.')
+      e.code = 'blocked'
+      throw e
+    }
+    throw error
+  }
   return data
 }
 

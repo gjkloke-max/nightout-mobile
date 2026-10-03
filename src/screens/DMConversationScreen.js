@@ -11,10 +11,14 @@ import {
   Platform,
   Image,
   Keyboard,
+  Alert,
 } from 'react-native'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronLeft, Send, MoreVertical } from 'lucide-react-native'
+import ReportContentModal from '../components/ReportContentModal'
+import { REPORT_CONTENT_TYPE } from '../services/contentReports'
+import { blockUser } from '../services/userBlocks'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import {
@@ -41,6 +45,7 @@ export default function DMConversationScreen() {
   const conversationId = route.params?.conversationId
   const [peer, setPeer] = useState({ name: 'Messages', handle: '', avatarUrl: null })
   const [peerUserId, setPeerUserId] = useState(null)
+  const [reportOpen, setReportOpen] = useState(false)
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -152,6 +157,37 @@ export default function DMConversationScreen() {
     }
   }
 
+  // Guideline 1.2: a conversation must offer a way out. Block is confirmed because it is
+  // bidirectional and hides the thread for both people -- see migrations/dm_blocking.sql.
+  const openConversationOptions = () => {
+    if (!peerUserId) return
+    Alert.alert(peer.name || 'Conversation', undefined, [
+      { text: 'Report conversation', onPress: () => setReportOpen(true) },
+      {
+        text: 'Block this person',
+        style: 'destructive',
+        onPress: () =>
+          Alert.alert(
+            'Block this person?',
+            'You will no longer see each other, and this conversation disappears for both of you. You can undo this from their profile.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Block',
+                style: 'destructive',
+                onPress: async () => {
+                  const { error } = await blockUser(peerUserId)
+                  if (error) Alert.alert('Could not block', error.message)
+                  else navigation.goBack()
+                },
+              },
+            ],
+          ),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ])
+  }
+
   const peerInitials = peer.name
     .split(/\s+/)
     .map((s) => s[0])
@@ -213,7 +249,13 @@ export default function DMConversationScreen() {
               ) : null}
             </View>
           </View>
-          <TouchableOpacity style={styles.headerBtn} hitSlop={12} accessibilityLabel="Conversation options">
+          <TouchableOpacity
+            style={styles.headerBtn}
+            hitSlop={12}
+            accessibilityLabel="Conversation options"
+            onPress={openConversationOptions}
+            disabled={!peerUserId}
+          >
             <MoreVertical size={20} color={colors.textPrimary} strokeWidth={2} />
           </TouchableOpacity>
         </View>
@@ -309,6 +351,24 @@ export default function DMConversationScreen() {
           </View>
         </View>
       </View>
+
+      <ReportContentModal
+        visible={reportOpen}
+        onClose={() => setReportOpen(false)}
+        contentType={REPORT_CONTENT_TYPE.MESSAGE}
+        contentId={conversationId}
+        reportedUserId={peerUserId}
+        title="Report conversation"
+        onAlsoBlock={async () => {
+          const { error } = await blockUser(peerUserId)
+          if (error) Alert.alert('Could not block', error.message)
+        }}
+        onReported={({ blocked }) => {
+          // Either way the thread is handled; leaving the screen avoids sitting in a conversation
+          // that is now hidden for both people.
+          if (blocked) navigation.goBack()
+        }}
+      />
     </KeyboardAvoidingView>
   )
 }
