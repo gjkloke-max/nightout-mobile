@@ -12,6 +12,7 @@ import {
 } from 'react-native'
 import { MapPin } from 'lucide-react-native'
 import { authColors, authFonts, authSpacing } from '../theme/authTheme'
+import PoweredByGoogle from './PoweredByGoogle'
 
 /**
  * Address search input + suggestions; styled as one bordered control (onboarding / settings).
@@ -104,6 +105,9 @@ export default function AddressAutocompleteField({
                 </Pressable>
               ))}
             </ScrollView>
+            {/* Places Autocomplete predictions are shown without a Google Map, which is exactly
+                the case their policies require this for. */}
+            <PoweredByGoogle style={styles.attribution} />
           </>
         ) : null}
       </View>
@@ -181,6 +185,10 @@ const styles = StyleSheet.create({
   },
   dropdownContent: {
     paddingBottom: authSpacing.xs,
+  },
+  attribution: {
+    paddingRight: 12,
+    paddingBottom: 4,
   },
   suggestionRow: {
     flexDirection: 'row',
