@@ -33,7 +33,7 @@ module.exports = {
       // alongside real iPad layouts.
       supportsTablet: false,
       bundleIdentifier: 'com.nightout.mobile',
-      buildNumber: '9',
+      buildNumber: '10',
       infoPlist: {
         // Export compliance. Declared here so App Store Connect does not gate every single upload
         // on answering the encryption question by hand before testers can install.
