@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { enrichCommentsWithLikes } from './commentLikes'
+import { getBlockedUserIds } from './userBlocks'
 
 function profilesByIdMap(rows) {
   const m = {}
@@ -23,7 +24,10 @@ export async function getSocialFeed(userId, limit = 30) {
     .select('followed_user_id')
     .eq('follower_user_id', userId)
   const followedIds = (following || []).map((r) => r.followed_user_id)
-  const authorIds = [...new Set([userId, ...followedIds])]
+  // A block outranks a follow: if either of you blocked the other, their content leaves the feed
+  // even though the follow row still exists.
+  const blockedIds = await getBlockedUserIds(userId)
+  const authorIds = [...new Set([userId, ...followedIds])].filter((id) => !blockedIds.has(id))
 
   const { data: reviews, error } = await supabase
     .from('venue_review')
@@ -66,7 +70,10 @@ export async function getSocialFeed(userId, limit = 30) {
       .order('id', { ascending: true }),
   ])
 
-  ;(commentsRes.data || []).forEach((c) => commenterIds.add(c.user_id))
+  // Comments filter separately: a blocked person can have commented on a review whose author is
+  // perfectly visible.
+  const visibleComments = (commentsRes.data || []).filter((c) => !blockedIds.has(c.user_id))
+  visibleComments.forEach((c) => commenterIds.add(c.user_id))
   const commenterProfiles = commenterIds.size
     ? await supabase.from('profiles').select('id, first_name, last_name, avatar_url, username').in('id', [...commenterIds])
     : { data: [] }
@@ -79,7 +86,7 @@ export async function getSocialFeed(userId, limit = 30) {
     likesByReview[l.review_id].push(l.user_id)
   })
   const commentsByReview = {}
-  ;(commentsRes.data || []).forEach((c) => {
+  visibleComments.forEach((c) => {
     if (!commentsByReview[c.review_id]) commentsByReview[c.review_id] = []
     commentsByReview[c.review_id].push({
       ...c,
@@ -121,7 +128,10 @@ export async function getSocialReviewById(userId, venueReviewId) {
     .select('followed_user_id')
     .eq('follower_user_id', userId)
   const followedIds = (following || []).map((r) => r.followed_user_id)
-  const authorIds = [...new Set([userId, ...followedIds])]
+  // A block outranks a follow: if either of you blocked the other, their content leaves the feed
+  // even though the follow row still exists.
+  const blockedIds = await getBlockedUserIds(userId)
+  const authorIds = [...new Set([userId, ...followedIds])].filter((id) => !blockedIds.has(id))
 
   const { data: r, error } = await supabase
     .from('venue_review')
@@ -158,7 +168,10 @@ export async function getSocialReviewById(userId, venueReviewId) {
       .order('id', { ascending: true }),
   ])
 
-  ;(commentsRes.data || []).forEach((c) => commenterIds.add(c.user_id))
+  // Comments filter separately: a blocked person can have commented on a review whose author is
+  // perfectly visible.
+  const visibleComments = (commentsRes.data || []).filter((c) => !blockedIds.has(c.user_id))
+  visibleComments.forEach((c) => commenterIds.add(c.user_id))
   const commenterProfiles = commenterIds.size
     ? await supabase.from('profiles').select('id, first_name, last_name, avatar_url, username').in('id', [...commenterIds])
     : { data: [] }
@@ -171,7 +184,7 @@ export async function getSocialReviewById(userId, venueReviewId) {
     likesByReview[l.review_id].push(l.user_id)
   })
   const commentsByReview = {}
-  ;(commentsRes.data || []).forEach((c) => {
+  visibleComments.forEach((c) => {
     if (!commentsByReview[c.review_id]) commentsByReview[c.review_id] = []
     commentsByReview[c.review_id].push({
       ...c,

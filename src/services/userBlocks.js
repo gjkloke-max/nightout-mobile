@@ -85,11 +85,22 @@ export async function blockUser(blockedUserId) {
     console.warn('[userBlocks] block', error)
     return { error: { message: 'Could not block this person. Please try again.' } }
   }
+  // Sever the follow graph both ways. Leaving the rows would keep a blocked person listed as a
+  // follower, and their follow would silently come back to life on unblock.
+  await supabase
+    .from('user_follows')
+    .delete()
+    .or(
+      `and(follower_user_id.eq.${user.id},followed_user_id.eq.${blockedUserId}),` +
+        `and(follower_user_id.eq.${blockedUserId},followed_user_id.eq.${user.id})`,
+    )
   invalidateBlockedIdsCache()
   return { error: null }
 }
 
 /**
+ * Unblocking restores visibility, not the follow -- those rows were deleted when the block landed,
+ * and silently re-following someone you blocked is not a decision this should make for you.
  * @param {string} blockedUserId
  */
 export async function unblockUser(blockedUserId) {

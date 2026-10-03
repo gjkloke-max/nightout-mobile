@@ -3,6 +3,7 @@
  */
 
 import { supabase } from '../lib/supabase'
+import { getBlockedUserIds } from './userBlocks'
 
 function escapeIlike(term) {
   return String(term || '').replace(/%/g, '\\%').replace(/_/g, '\\_')
@@ -86,7 +87,12 @@ export async function searchUsers(currentUserId, searchTerm, limit = 20) {
   if (currentUserId) query = query.neq('id', currentUserId)
 
   const { data } = await query
-  const filtered = (data || []).filter((row) => profileMatchesAllTokens(row, tokens))
+  // Someone blocked in either direction must not be findable -- search is otherwise a way around
+  // the block, including for @-mentions.
+  const blockedIds = await getBlockedUserIds(currentUserId)
+  const filtered = (data || [])
+    .filter((row) => !blockedIds.has(row.id))
+    .filter((row) => profileMatchesAllTokens(row, tokens))
   return rankMentionResults(trimmed, filtered).slice(0, limit)
 }
 

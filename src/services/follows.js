@@ -5,6 +5,7 @@
 
 import { supabase } from '../lib/supabase'
 import {
+import { getBlockedUserIds } from './userBlocks'
   onFollowCreated,
   onFollowRequestAccepted,
   onFollowRequestCreated,
@@ -49,6 +50,11 @@ export async function getFollowStatusBatch(requesterId, targetIds) {
 
 export async function followOrRequest(requesterId, targetId) {
   if (!requesterId || !targetId || requesterId === targetId || !supabase) return { success: false, error: 'Invalid', status: null }
+  // Following someone you have blocked, or who blocked you, would quietly reopen the feed to them.
+  const blockedIds = await getBlockedUserIds(requesterId)
+  if (blockedIds.has(targetId)) {
+    return { success: false, error: 'Unavailable', status: null }
+  }
   const isPrivate = await getTargetIsPrivate(targetId)
   if (isPrivate) {
     return requestFollow(requesterId, targetId)

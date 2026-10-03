@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { onReviewCommented, onCommentReplyCreated } from './notificationHandlers'
 import { enrichCommentsWithLikes } from './commentLikes'
+import { getBlockedUserIds } from './userBlocks'
 
 async function notifyReviewAuthorOfComment({ commentId, reviewId, actorUserId }) {
   try {
@@ -102,13 +103,17 @@ export async function getCommentsWithProfiles(reviewId, viewerUserId) {
     .eq('review_id', reviewId)
     .order('created_at', { ascending: true })
   if (!comments?.length) return []
-  const userIds = [...new Set(comments.map((c) => c.user_id))]
+  // Comments from someone blocked in either direction never render, on anyone's review.
+  const blockedIds = await getBlockedUserIds(viewerUserId)
+  const visible = blockedIds.size ? comments.filter((c) => !blockedIds.has(c.user_id)) : comments
+  if (!visible.length) return []
+  const userIds = [...new Set(visible.map((c) => c.user_id))]
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, first_name, last_name, avatar_url, username')
     .in('id', userIds)
   const byId = Object.fromEntries((profiles || []).map((p) => [p.id, p]))
-  const withProfiles = comments.map((c) => ({
+  const withProfiles = visible.map((c) => ({
     ...c,
     profile: byId[c.user_id] || null,
   }))
