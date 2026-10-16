@@ -5,6 +5,7 @@
 
 import { Platform } from 'react-native'
 import { config } from './config'
+import { supabase } from './supabase'
 
 /** Android emulator maps host “localhost” to the dev machine via 10.0.2.2 */
 function resolveSearchApiBaseUrl(url) {
@@ -86,9 +87,20 @@ export async function sendConciergeMessage(requestBody) {
       }
     }
 
+    // Signed-in users send their token so the concierge can apply their saved preferences — the
+    // web client always did; without it every mobile user was treated as signed out. A missing or
+    // expired session just means no preferences, never a failed request.
+    const headers = { 'Content-Type': 'application/json' }
+    try {
+      const token = supabase ? (await supabase.auth.getSession())?.data?.session?.access_token : null
+      if (token) headers.Authorization = `Bearer ${token}`
+    } catch {
+      // no session: send the request without preferences
+    }
+
     const res = await fetchWithTimeout(`${searchApiUrl}/api/concierge`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
     })
     const data = await res.json().catch(() => ({}))
