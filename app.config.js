@@ -11,13 +11,22 @@ require('dotenv').config();
 const includeOwner =
   process.env.EAS_BUILD === 'true' || process.env.EXPO_INCLUDE_OWNER === '1';
 
+// Native Google Sign-In (iOS). Client IDs are public identifiers, not secrets. The iOS client ID's
+// reversed form is the URL scheme Google's SDK returns to; the plugin is only added when the ID is
+// set, so a build without it keeps the browser sign-in instead of failing to build.
+const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
+const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
+const googleIosUrlScheme = googleIosClientId
+  ? `com.googleusercontent.apps.${googleIosClientId.replace(/\.apps\.googleusercontent\.com$/, '')}`
+  : null;
+
 module.exports = {
   expo: {
     name: 'Brio',
     slug: 'nightout-mobile',
     ...(includeOwner ? { owner: 'gkloke' } : {}),
     scheme: 'nightout',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -33,7 +42,7 @@ module.exports = {
       // alongside real iPad layouts.
       supportsTablet: false,
       bundleIdentifier: 'com.nightout.mobile',
-      buildNumber: '10',
+      buildNumber: '11',
       infoPlist: {
         // Export compliance. Declared here so App Store Connect does not gate every single upload
         // on answering the encryption question by hand before testers can install.
@@ -85,9 +94,12 @@ module.exports = {
         'expo-location',
         {
           locationWhenInUsePermission:
-            'Night Out uses your location to show where you are on the map next to venue results.',
+            'Brio uses your location to show where you are on the map next to venue results.',
         },
       ],
+      ...(googleIosUrlScheme
+        ? [['@react-native-google-signin/google-signin', { iosUrlScheme: googleIosUrlScheme }]]
+        : []),
       [
         'expo-image-picker',
         {
@@ -103,6 +115,8 @@ module.exports = {
       conciergeTimeoutMs: process.env.EXPO_PUBLIC_CONCIERGE_TIMEOUT_MS,
       webAppUrl: process.env.EXPO_PUBLIC_WEB_APP_URL,
       appScheme: process.env.EXPO_PUBLIC_APP_SCHEME,
+      googleIosClientId,
+      googleWebClientId,
       eas: {
         projectId: '9c0b95b9-8fde-43c5-9e12-df10b6244d2a',
       },

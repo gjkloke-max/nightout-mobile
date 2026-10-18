@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { ensureProfileAfterAuth, ONBOARDING_STEP } from '../services/profileOnboarding'
-import { signInWithGoogle, signInWithApple } from '../services/oauthSupabase'
+import { signInWithGoogle, signInWithApple, signOutGoogleNative } from '../services/oauthSupabase'
 import { config } from '../lib/config'
 
 const AuthContext = createContext({})
@@ -108,6 +108,7 @@ export const AuthProvider = ({ children }) => {
 
   const signOut = async () => {
     if (supabase) await supabase.auth.signOut()
+    await signOutGoogleNative()
     setSession(null)
     setUser(null)
     setProfile(null)

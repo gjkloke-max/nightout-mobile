@@ -1,7 +1,50 @@
+import { Platform } from 'react-native'
+import Constants from 'expo-constants'
 import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import { supabase } from '../lib/supabase'
+
+const extra = Constants.expoConfig?.extra || {}
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || extra.googleIosClientId || ''
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || extra.googleWebClientId || ''
+
+/**
+ * The native Google SDK, when this build has it. Native sign-in shows Google's own account sheet;
+ * the browser flow below makes iOS ask "Brio wants to use <supabase project>.supabase.co to Sign In".
+ *
+ * Not available in Expo Go (no native module), on Android (needs its own Play signing setup), or in
+ * a build made without the client IDs — those keep the browser flow. Required lazily so a build
+ * without the module never crashes at import.
+ */
+let googleNative
+function nativeGoogle() {
+  if (googleNative !== undefined) return googleNative
+  googleNative = null
+  if (Platform.OS !== 'ios' || Constants.executionEnvironment === 'storeClient') return null
+  if (!GOOGLE_IOS_CLIENT_ID || !GOOGLE_WEB_CLIENT_ID) return null
+  try {
+    const mod = require('@react-native-google-signin/google-signin')
+    // The ID token is issued for the web client, which is the client Supabase's Google provider
+    // is configured with, so Supabase accepts it.
+    mod.GoogleSignin.configure({ iosClientId: GOOGLE_IOS_CLIENT_ID, webClientId: GOOGLE_WEB_CLIENT_ID })
+    googleNative = mod
+  } catch {
+    googleNative = null
+  }
+  return googleNative
+}
+
+/** Sign out of the native Google session too, so the next sign-in offers the account choice. */
+export async function signOutGoogleNative() {
+  const mod = nativeGoogle()
+  if (!mod) return
+  try {
+    await mod.GoogleSignin.signOut()
+  } catch {
+    // best effort
+  }
+}
 
 export function getOAuthRedirectUrl() {
   return Linking.createURL('auth/callback')
@@ -44,6 +87,30 @@ function parseTokensFromUrl(url) {
  */
 export async function signInWithGoogle() {
   if (!supabase) return { error: 'Supabase not configured' }
+  const native = nativeGoogle()
+  return native ? signInWithGoogleNative(native) : signInWithGoogleBrowser()
+}
+
+/** Google's native account sheet, then the ID token goes to Supabase — the same path as Apple. */
+async function signInWithGoogleNative({ GoogleSignin, statusCodes }) {
+  let response
+  try {
+    response = await GoogleSignin.signIn()
+  } catch (e) {
+    if (e?.code === statusCodes?.SIGN_IN_CANCELLED) return { error: 'cancelled' }
+    if (e?.code === statusCodes?.IN_PROGRESS) return { error: 'cancelled' }
+    return { error: e?.message || 'Google sign-in failed' }
+  }
+  if (response?.type === 'cancelled') return { error: 'cancelled' }
+  const idToken = response?.data?.idToken
+  if (!idToken) return { error: 'No identity token from Google' }
+
+  const { error } = await supabase.auth.signInWithIdToken({ provider: 'google', token: idToken })
+  if (error) return { error: error.message }
+  return {}
+}
+
+async function signInWithGoogleBrowser() {
   const redirectTo = getOAuthRedirectUrl()
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
