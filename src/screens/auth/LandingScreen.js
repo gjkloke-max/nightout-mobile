@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Linking, Image, Platform } from 'react-native'
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Linking, Image, Platform, Alert } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useState } from 'react'
 import { Ionicons } from '@expo/vector-icons'
@@ -22,22 +22,28 @@ export default function LandingScreen({ navigation }) {
     Linking.openURL(`${base}${path}`)
   }
 
+  // A failed sign-in used to return to this screen with no message at all.
+  const reportSignInError = (provider, error) => {
+    if (!error?.message || error.message === 'cancelled') return
+    console.warn(`[auth] ${provider} sign-in failed:`, error.message)
+    Alert.alert(
+      `${provider} sign-in didn't work`,
+      `${error.message}\n\nPlease try again, or use another way to sign in.`,
+    )
+  }
+
   const onGoogle = async () => {
     setBusy('google')
     const { error } = await googleSignIn()
     setBusy(null)
-    if (error?.message && error.message !== 'cancelled') {
-      /* handled by auth state */
-    }
+    reportSignInError('Google', error)
   }
 
   const onApple = async () => {
     setBusy('apple')
     const { error } = await appleSignIn()
     setBusy(null)
-    if (error?.message && error.message !== 'cancelled') {
-      /* handled by auth state */
-    }
+    reportSignInError('Apple', error)
   }
 
   return (

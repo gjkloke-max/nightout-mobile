@@ -42,7 +42,10 @@ module.exports = {
       // alongside real iPad layouts.
       supportsTablet: false,
       bundleIdentifier: 'com.nightout.mobile',
-      buildNumber: '11',
+      buildNumber: '12',
+      // Sign in with Apple: adds the entitlement, and EAS enables the capability on the App ID.
+      // Without it iOS refuses the Apple sheet (AuthorizationError 1000) and nothing reaches Supabase.
+      usesAppleSignIn: true,
       infoPlist: {
         // Export compliance. Declared here so App Store Connect does not gate every single upload
         // on answering the encryption question by hand before testers can install.
