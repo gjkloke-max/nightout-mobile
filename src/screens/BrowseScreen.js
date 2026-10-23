@@ -139,6 +139,20 @@ function regionForVenueMap(venues) {
 
 const SEARCH_PLACEHOLDER = "Try 'best date night' or 'cozy cafe'..."
 
+/** The device location, only when location access is already allowed — searching never prompts. */
+async function grantedDeviceLocation() {
+  try {
+    const { status } = await Location.getForegroundPermissionsAsync()
+    if (status !== 'granted') return null
+    const pos =
+      (await Location.getLastKnownPositionAsync({ maxAge: 5 * 60 * 1000 })) ||
+      (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }))
+    return pos?.coords ? { lat: pos.coords.latitude, lng: pos.coords.longitude } : null
+  } catch {
+    return null
+  }
+}
+
 export default function BrowseScreen() {
   const navigation = useNavigation()
   const { user } = useAuth()
@@ -341,9 +355,16 @@ export default function BrowseScreen() {
     Keyboard.dismiss()
 
     try {
+      // "Near me" needs a place to be near: the device location if allowed, else the saved home.
+      const [userHome, userLocation] = await Promise.all([
+        user?.id ? getUserHomeLocation(user.id).catch(() => null) : null,
+        grantedDeviceLocation(),
+      ])
       const { data: apiRows, error: apiErr } = await bm25Search({
         queryText: q,
         matchCount: 25,
+        userLocation,
+        userHome,
       })
 
       if (apiErr || !apiRows?.length) {
@@ -382,7 +403,7 @@ export default function BrowseScreen() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user?.id])
 
   const handleSubmit = () => runSearch(searchQuery)
 

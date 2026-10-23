@@ -13,6 +13,8 @@ export async function hybridSearch({
   userPreferences,
   forYouBrowse = false,
   effectiveNeighborhood,
+  userLocation,
+  userHome,
 }) {
   const baseUrl = (config.searchApiUrl || '').replace(/\/$/, '')
   if (!baseUrl) {
@@ -43,6 +45,13 @@ export async function hybridSearch({
   }
   if (effectiveNeighborhood && typeof effectiveNeighborhood === 'string' && effectiveNeighborhood.trim()) {
     body.effective_neighborhood = effectiveNeighborhood.trim()
+  }
+  // "Near me" needs somewhere to be near: the device location when allowed, else the saved home.
+  if (userLocation?.lat != null && userLocation?.lng != null) {
+    body.user_location = { lat: userLocation.lat, lng: userLocation.lng }
+  }
+  if (userHome?.lat != null && userHome?.lng != null) {
+    body.user_home = { lat: userHome.lat, lng: userHome.lng, homeNeighborhoodName: userHome.homeNeighborhoodName ?? null }
   }
 
   if (__DEV__) {
@@ -76,6 +85,6 @@ export async function hybridSearch({
 }
 
 /** BM25-only search (no embedding). */
-export async function bm25Search({ queryText, matchCount = 20 }) {
-  return hybridSearch({ queryText, queryEmbedding: null, matchCount })
+export async function bm25Search({ queryText, matchCount = 20, userLocation, userHome }) {
+  return hybridSearch({ queryText, queryEmbedding: null, matchCount, userLocation, userHome })
 }

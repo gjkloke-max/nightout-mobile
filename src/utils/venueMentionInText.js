@@ -93,7 +93,9 @@ export function isSafeVenueLinkVariant(variant, fullVenueName = '') {
 
   const full = (fullVenueName || '').trim()
   if (full && normKey(t) === normKey(full)) {
-    return t.includes(' ') || t.length >= MIN_SINGLE_WORD_MENTION_LEN
+    // A short one-word name ("Aba", "AJI") is still the venue's whole name; isNameLikeOccurrence
+    // then links it only where it is written exactly as named.
+    return t.includes(' ') || t.length >= MIN_SINGLE_WORD_MENTION_LEN || !GENERIC_VENUE_LINK_BLOCKLIST.has(t.toLowerCase())
   }
 
   if (isUnsafeVenuePrefixVariant(t, full)) return false
@@ -125,12 +127,30 @@ export function venueNameAppearsInText(text, venueName) {
   for (const variant of expandVenueNameVariants(venueName)) {
     if (!isLinkableVariant(variant, venueName)) continue
     try {
-      if (mentionBoundaryRe(escapeRe(variant)).test(haystack)) return true
+      const re = new RegExp(mentionBoundaryRe(escapeRe(variant)).source, 'gi')
+      for (const m of haystack.matchAll(re)) {
+        if (isNameLikeOccurrence(variant, m[0])) return true
+      }
     } catch {
       /* ignore */
     }
   }
   return false
+}
+
+/**
+ * A one-word form of a venue name ("Lemon") is also an ordinary word, so it counts as the venue
+ * only where it is written as a name: capitalized. Multi-word forms count however they are cased.
+ * Keep in sync with NightOut web: src/utils/venueMentionInText.js
+ */
+export function isNameLikeOccurrence(variant, occurrence) {
+  const v = String(variant || '').trim()
+  if (/\s/.test(v)) return true
+  const occ = String(occurrence || '').trim()
+  // Under four letters, only the exact spelling counts: "AJI" the restaurant, not aji the pepper.
+  if (v.length < MIN_SINGLE_WORD_MENTION_LEN) return occ === v
+  const first = occ.charAt(0)
+  return first !== '' && first === first.toUpperCase()
 }
 
 export function firstIndexOfVenueNameInText(textLower, venueName) {

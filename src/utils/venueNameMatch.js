@@ -25,6 +25,11 @@ export function expandVenueNameVariants(name) {
   const primary = uni.split(/\s*[-–—]\s*/)[0] || ''
   if (primary && primary.trim() !== uni) add(primary)
 
+  // A trailing note in brackets is not part of the name people write: "Wheat's End Cafe & Bakery
+  // (NO DINE-IN)", "Cupitol Coffee & Eatery (Streeterville)".
+  const noNote = uni.replace(/(?:\s*\([^()]*\))+\s*$/, '').trim()
+  if (noNote.length >= 2 && noNote !== uni) add(noNote)
+
   add(uni.replace(/'/g, ''))
 
   if (/\s&\s/.test(uni)) add(uni.replace(/\s*&\s*/g, ' and '))
