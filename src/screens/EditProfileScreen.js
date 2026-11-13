@@ -17,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { fetchMyProfile } from '../services/myProfile'
 import { setUserHomeNeighborhood } from '../services/userHomeLocation'
 import { applyDerivedHomeFromAddress } from '../services/addressNeighborhood'
 import { pickAndUploadProfileAvatar, removeAvatar } from '../services/profileAvatar'
@@ -58,7 +59,7 @@ export default function EditProfileScreen({ navigation }) {
     setLoading(true)
     try {
       const [{ data: profile }, { data: hoods }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
+        fetchMyProfile(supabase),
         supabase.from('neighborhoods').select('neighborhood_id, name').order('name', { ascending: true }),
       ])
       if (profile) {

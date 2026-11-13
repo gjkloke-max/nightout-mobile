@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronLeft, Lock, MoreVertical } from 'lucide-react-native'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { PUBLIC_PROFILE_COLUMNS } from '../services/myProfile'
 import {
   getFollowCounts,
   getFollowStatus,
@@ -149,7 +150,7 @@ export default function FriendProfileScreen() {
         status,
         reviewCountRes,
       ] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', userId).single(),
+        supabase.from('profiles').select(PUBLIC_PROFILE_COLUMNS).eq('id', userId).single(),
         supabase
           .from('venue_review')
           .select(

@@ -2,6 +2,7 @@
  * Home neighborhood for recommendations (matches web src/services/userHomeLocation.js).
  */
 import { supabase } from '../lib/supabase'
+import { fetchMyProfile } from './myProfile'
 
 const LOCATION_SOURCE_MANUAL_NEIGHBORHOOD = 'manual_neighborhood'
 
@@ -82,11 +83,12 @@ export async function getUserHomeLocation(userId) {
     return { homeNeighborhoodId: null, homeNeighborhoodName: null, lat: null, lng: null }
   }
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('home_neighborhood_id, home_neighborhood_name, home_lat, home_lng')
-    .eq('id', userId)
-    .maybeSingle()
+  // Home location is private: read the signed-in user's own row (get_my_profile).
+  const { data: mine, error } = await fetchMyProfile(
+    supabase,
+    'id, home_neighborhood_id, home_neighborhood_name, home_lat, home_lng',
+  )
+  const data = mine && mine.id === userId ? mine : null
 
   if (error) {
     console.error('getUserHomeLocation error:', error)

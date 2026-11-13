@@ -14,6 +14,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { PUBLIC_PROFILE_COLUMNS } from '../services/myProfile'
 import { getUserFavorites } from '../utils/favorites'
 import { getUserLists } from '../utils/venueLists'
 import { getUserTopTenVenues, getUserTopTenEligibility } from '../services/userTopTen'
@@ -113,7 +114,7 @@ export default function ProfileScreen() {
     if (showSpinner) setLoading(true)
     try {
       const [profileRes, favRes, listsRes, reviewsRes, topTenRes, eligRes, countsRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
+        supabase.from('profiles').select(PUBLIC_PROFILE_COLUMNS).eq('id', user.id).single(),
         getUserFavorites(),
         getUserLists(),
         supabase

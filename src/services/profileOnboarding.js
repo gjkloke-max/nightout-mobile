@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { fetchMyProfile } from './myProfile'
 
 export const ONBOARDING_STEP = {
   GET_STARTED: 'get_started',
@@ -8,17 +9,18 @@ export const ONBOARDING_STEP = {
 }
 
 /**
- * @param {string} userId
+ * The signed-in user's own profile row, private fields included (get_my_profile).
+ * @param {string} userId - must be the signed-in user's id; any other id returns null
  * @returns {Promise<object|null>}
  */
 export async function fetchProfileRow(userId) {
   if (!supabase || !userId) return null
-  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+  const { data, error } = await fetchMyProfile(supabase)
   if (error) {
     console.warn('fetchProfileRow', error)
     return null
   }
-  return data
+  return data && data.id === userId ? data : null
 }
 
 /**
