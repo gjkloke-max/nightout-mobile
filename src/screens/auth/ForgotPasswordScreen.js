@@ -11,9 +11,9 @@ import {
   ScrollView,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import * as Linking from 'expo-linking'
 import { authColors, authFonts, authSpacing } from '../../theme/authTheme'
 import { supabase } from '../../lib/supabase'
+import { config } from '../../lib/config'
 
 export default function ForgotPasswordScreen({ navigation }) {
   const insets = useSafeAreaInsets()
@@ -36,13 +36,16 @@ export default function ForgotPasswordScreen({ navigation }) {
     }
     setLoading(true)
     try {
-      const redirectTo = Linking.createURL('auth/recovery')
+      // The reset link opens Brio's website, where the new password is set. A nightout:// link
+      // did nothing when the email was read on a computer, and the app has no set-password screen.
+      const base = String(config.webAppUrl || 'https://appbrio.com').replace(/\/+$/, '')
+      const redirectTo = `${base}/reset-password`
       const { error } = await supabase.auth.resetPasswordForEmail(e, { redirectTo })
       if (error) {
         setErr(error.message)
         return
       }
-      setMsg('Check your email for reset instructions.')
+      setMsg('Check your email for a link to choose a new password.')
     } finally {
       setLoading(false)
     }
