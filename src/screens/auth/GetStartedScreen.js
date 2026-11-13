@@ -16,6 +16,7 @@ import { useOnboardingHeader } from '../../components/onboarding/useOnboardingHe
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ONBOARDING_STEP } from '../../services/profileOnboarding'
+import { saveMyProfile } from '../../services/myProfile'
 
 function validEmail(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((s || '').trim())
@@ -56,17 +57,13 @@ export default function GetStartedScreen({ navigation }) {
       setLoading(true)
       try {
         if (!supabase) return
-        const { error: pe } = await supabase.from('profiles').upsert(
-          {
-            id: user.id,
-            email: email.trim(),
-            auth_provider: profile?.auth_provider || 'email',
-            onboarding_completed: false,
-            onboarding_step: ONBOARDING_STEP.ABOUT_YOU,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'id' }
-        )
+        const { error: pe } = await saveMyProfile(supabase, user.id, {
+          email: email.trim(),
+          auth_provider: profile?.auth_provider || 'email',
+          onboarding_completed: false,
+          onboarding_step: ONBOARDING_STEP.ABOUT_YOU,
+          updated_at: new Date().toISOString(),
+        })
         if (pe) {
           setErr(pe.message)
           return
@@ -100,17 +97,13 @@ export default function GetStartedScreen({ navigation }) {
         return
       }
       if (!supabase) return
-      const { error: pe } = await supabase.from('profiles').upsert(
-        {
-          id: u.id,
-          email: email.trim(),
-          auth_provider: 'email',
-          onboarding_completed: false,
-          onboarding_step: ONBOARDING_STEP.ABOUT_YOU,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' }
-      )
+      const { error: pe } = await saveMyProfile(supabase, u.id, {
+        email: email.trim(),
+        auth_provider: 'email',
+        onboarding_completed: false,
+        onboarding_step: ONBOARDING_STEP.ABOUT_YOU,
+        updated_at: new Date().toISOString(),
+      })
       if (pe) {
         setErr(pe.message)
         return

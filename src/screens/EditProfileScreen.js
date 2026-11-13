@@ -17,7 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { fetchMyProfile } from '../services/myProfile'
+import { fetchMyProfile, saveMyProfile } from '../services/myProfile'
 import { setUserHomeNeighborhood } from '../services/userHomeLocation'
 import { applyDerivedHomeFromAddress } from '../services/addressNeighborhood'
 import { pickAndUploadProfileAvatar, removeAvatar } from '../services/profileAvatar'
@@ -226,18 +226,14 @@ export default function EditProfileScreen({ navigation }) {
         }
       }
       setUsernameError('')
-      const { error } = await supabase.from('profiles').upsert(
-        {
-          id: user.id,
-          first_name: firstName.trim() || null,
-          last_name: lastName.trim() || null,
-          username: v.normalized || null,
-          home_address: homeAddress.trim() || null,
-          phone_number: null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' }
-      )
+      const { error } = await saveMyProfile(supabase, user.id, {
+        first_name: firstName.trim() || null,
+        last_name: lastName.trim() || null,
+        username: v.normalized || null,
+        home_address: homeAddress.trim() || null,
+        phone_number: null,
+        updated_at: new Date().toISOString(),
+      })
       if (error) {
         if (error.code === '23505') setUsernameError('That username is already taken.')
         throw error
