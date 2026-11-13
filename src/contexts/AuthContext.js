@@ -96,13 +96,16 @@ export const AuthProvider = ({ children }) => {
 
   const signUp = async (email, password, applicationRoleId) => {
     if (!supabase) return { data: null, error: { message: 'Supabase not configured' } }
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (!error && data?.user && applicationRoleId) {
-      await supabase.from('user_application_role').insert({
-        user_id: data.user.id,
-        application_role_id: applicationRoleId,
-      })
-    }
+    // A role, if given, travels in user metadata; a database trigger on auth.users assigns
+    // it when it is a visible role. Clients cannot write user_application_role directly.
+    const roleId = applicationRoleId ? Number(applicationRoleId) : null
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      ...(Number.isFinite(roleId) && roleId > 0
+        ? { options: { data: { application_role_id: roleId } } }
+        : {}),
+    })
     return { data, error }
   }
 
