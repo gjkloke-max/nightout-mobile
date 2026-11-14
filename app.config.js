@@ -63,7 +63,7 @@ module.exports = {
     },
     android: {
       package: 'com.nightout.mobile',
-      versionCode: 1,
+      versionCode: 2,
       config: {
         googleMaps: {
           // react-native-maps uses Google Maps on Android (iOS falls through to Apple Maps, since
