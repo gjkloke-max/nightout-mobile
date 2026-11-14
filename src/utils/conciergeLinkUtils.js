@@ -4,6 +4,7 @@
 
 import { expandVenueNameVariants } from './venueNameMatch'
 import { isSafeVenueLinkVariant, isNameLikeOccurrence } from './venueMentionInText'
+import { stripMarkdownEmphasis } from './markdownEmphasis'
 
 function isLinkableVariant(variant, fullVenueName = '') {
   return isSafeVenueLinkVariant(variant, fullVenueName)
@@ -51,7 +52,8 @@ function findHitForSegment(rows, rawPart) {
 }
 
 export function splitTextWithVenueLinks(text, venues) {
-  const raw = text || ''
+  // Neither app renders markdown, so a bolded name would show its asterisks (markdownEmphasis.js).
+  const raw = stripMarkdownEmphasis(text || '')
   const rows = []
   const seenPattern = new Set()
   for (const v of venues || []) {
@@ -84,4 +86,4 @@ export function splitTextWithVenueLinks(text, venues) {
   }
   return out.length ? out : [{ type: 'text', text: raw }]
 }
-
+
