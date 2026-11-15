@@ -33,11 +33,15 @@ Apple and Google can only deliver the push if they are given credentials, which 
 
 ## One-time setup: iOS (Apple push key)
 
+EAS isn't installed as a global command on this machine, so every `eas` command here is run as
+`npx eas-cli ...`, from `C:\Development
+ightout-mobile` (not the web repo).
+
 You need your Apple Developer login. EAS stores the key for you.
 
 1. Open a terminal in `C:\Development\nightout-mobile` and run:
    ```
-   eas credentials -p ios
+   npx eas-cli credentials -p ios
    ```
 2. Pick the **production** build profile.
 3. Choose **Push Notifications: Manage your Apple Push Notifications Key**.
@@ -51,7 +55,7 @@ You need your Apple Developer login. EAS stores the key for you.
       Choose **Sandbox & Production** and **Team Scoped (All Topics)**, then **Save**.
    3. Click **Continue**, then **Register**. **Download** the `.p8` file. Apple lets you download it
       only once, so keep it safe and outside the repo. Note the **Key ID** shown on that page.
-   4. Back in `eas credentials -p ios`, choose to **upload** an existing key. Give it:
+   4. Back in `npx eas-cli credentials -p ios`, choose to **upload** an existing key. Give it:
       - the `.p8` path,
       - the Key ID,
       - Team ID `Z9KW47RY6P`.
@@ -59,7 +63,7 @@ You need your Apple Developer login. EAS stores the key for you.
    app ID and makes a new provisioning profile. It may ask you to sign in to Apple; say yes.
    - If that build fails with *"Provisioning profile doesn't support the Push Notifications
      capability"*:
-     1. Run `eas credentials -p ios` → production → **Provisioning Profile** → remove it.
+     1. Run `npx eas-cli credentials -p ios` → production → **Provisioning Profile** → remove it.
      2. Build again, and EAS makes a fresh profile.
 
 ## One-time setup: Android (Firebase Cloud Messaging)
@@ -98,7 +102,7 @@ The file is not committed to git (it's in `.gitignore`), so EAS gets it as a fil
 
 To do the same from the terminal instead:
 ```
-eas env:create --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json --environment production --visibility secret
+npx eas-cli env:create --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json --environment production --visibility secret
 ```
 
 ### C. Upload the FCM service-account key to EAS
@@ -111,7 +115,7 @@ This key lets Expo's servers send through your Firebase project.
    - Save it **outside** the repo, e.g. `Documents\Brio keys\`.
 3. In `C:\Development\nightout-mobile` run:
    ```
-   eas credentials -p android
+   npx eas-cli credentials -p android
    ```
 4. Pick **production**, then choose **Google Service Account**.
 5. Choose **Manage your Google Service Account Key for Push Notifications (FCM V1)**.
@@ -144,7 +148,7 @@ Settings. For the App Store version, paste the description from `store-assets/de
 
 1. `npx expo export --platform ios --output-dir <temp folder>`. This checks the code bundles.
 2. Commit. EAS builds from git HEAD, not from uncommitted files.
-3. `eas build -p ios --profile production` and `eas build -p android --profile production`.
+3. `npx eas-cli build -p ios --profile production` and `npx eas-cli build -p android --profile production`.
 4. Test **before** submitting for review:
    - **iOS:** use TestFlight.
    - **Android:** use the Play **internal testing** track.
