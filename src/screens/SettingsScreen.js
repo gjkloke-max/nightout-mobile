@@ -1,11 +1,21 @@
 import { useLayoutEffect, useState } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, Platform } from 'react-native'
+import Constants from 'expo-constants'
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Pencil, Bell, SlidersHorizontal, Lock, Shield, FileText, LogOut, Trash2, ChevronRight } from 'lucide-react-native'
 import { useAuth } from '../contexts/AuthContext'
 import { colors, fontFamilies, spacing } from '../theme'
 import { config } from '../lib/config'
+
+/** "1.0.1 (15)": the version and store build number baked into this build from app.config.js. */
+function appVersionLabel() {
+  const cfg = Constants.expoConfig || {}
+  const version = cfg.version || ''
+  const build = Platform.OS === 'ios' ? cfg.ios?.buildNumber : cfg.android?.versionCode
+  if (!version) return ''
+  return build != null && build !== '' ? `${version} (${build})` : version
+}
 
 /** Figma NewCo — node 123:2399 Settings */
 export default function SettingsScreen() {
@@ -176,7 +186,7 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.version}>Version 1.0.0</Text>
+      <Text style={styles.version}>Version {appVersionLabel()}</Text>
     </ScrollView>
   )
 }
