@@ -307,21 +307,36 @@ function buildInitialMetadata(n) {
 /**
  * @param {ReturnType<typeof normalizePayload>} n
  */
+// Wording after the actor's name. Keep in sync with public.notification_body_phrase()
+// (web migrations/notification_default_bodies.sql), which fills in the same text server-side.
+const BODY_PHRASE_BY_TYPE = {
+  user_followed_you: 'started following you',
+  follow_request_received: 'sent you a follow request',
+  follow_request_accepted: 'accepted your follow request',
+  follow_request_declined: 'declined your follow request',
+  post_liked: 'liked your post',
+  post_commented: 'commented on your post',
+  comment_liked: 'liked your comment',
+  comment_replied: 'replied to your comment',
+  thread_replied: "replied in a conversation you're in",
+  list_liked: 'liked your list',
+  list_commented: 'commented on your list',
+  list_followed: 'followed your list',
+  mentioned_in_comment: 'mentioned you in a comment',
+  mentioned_in_post: 'mentioned you in a post',
+  list_collab_invited: 'invited you to collaborate on a list',
+  list_collab_accepted: 'accepted your invite to collaborate on a list',
+  collaborative_list_updated: 'updated a list you collaborate on',
+  following_user_created_list: 'created a new list',
+  following_user_saved_place: 'saved a new place',
+  following_user_added_place_to_list: 'added a place to a list',
+}
+
 function defaultBodyForType(n) {
-  const actor = n.metadata?.requester_name || n.metadata?.actor_display_name || n.metadata?.target_name
-  const a = actor ? `${actor} ` : ''
-  switch (n.type) {
-    case 'follow_request_received':
-      return `${a}sent you a follow request`.trim()
-    case 'follow_request_accepted':
-      return `${a}accepted your follow request`.trim()
-    case 'follow_request_declined':
-      return `${a}declined your follow request`.trim()
-    case 'user_followed_you':
-      return `${a}started following you`.trim()
-    default:
-      return n.type.replace(/_/g, ' ')
-  }
+  const actor =
+    n.metadata?.requester_name || n.metadata?.actor_display_name || n.metadata?.target_name || 'Someone'
+  const phrase = BODY_PHRASE_BY_TYPE[n.type]
+  return phrase ? `${actor} ${phrase}` : n.type.replace(/_/g, ' ')
 }
 
 /**

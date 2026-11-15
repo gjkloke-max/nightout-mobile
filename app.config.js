@@ -57,7 +57,7 @@ module.exports = {
       // alongside real iPad layouts.
       supportsTablet: false,
       bundleIdentifier: 'com.nightout.mobile',
-      buildNumber: '17',
+      buildNumber: '18',
       // Sign in with Apple: adds the entitlement, and EAS enables the capability on the App ID.
       // Without it iOS refuses the Apple sheet (AuthorizationError 1000) and nothing reaches Supabase.
       usesAppleSignIn: true,
@@ -78,7 +78,7 @@ module.exports = {
     },
     android: {
       package: 'com.nightout.mobile',
-      versionCode: 4,
+      versionCode: 5,
       ...(googleServicesFile ? { googleServicesFile } : {}),
       config: {
         googleMaps: {

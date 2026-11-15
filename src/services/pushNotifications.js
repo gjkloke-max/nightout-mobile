@@ -27,11 +27,13 @@ const supported = Platform.OS === 'ios' || Platform.OS === 'android'
 
 if (supported) {
   // While the app is open, still show the banner (otherwise iOS drops foreground pushes silently).
+  // Sound on Android only: Android files a silent notification straight into the shade with no
+  // pop-up, even on a high-importance channel. iOS shows the banner either way.
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowBanner: true,
       shouldShowList: true,
-      shouldPlaySound: false,
+      shouldPlaySound: Platform.OS === 'android',
       shouldSetBadge: false,
     }),
   })
