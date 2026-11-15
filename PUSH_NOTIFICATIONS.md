@@ -125,24 +125,30 @@ This key lets Expo's servers send through your Firebase project.
    ⚠️ EAS may offer `google-play-service-account.json` from the project folder. **Don't pick that
    one.** That is the Play Store upload key; choose the Firebase file.
 
-### D. Later: lock down the Firebase API key
+### D. The API key Android push uses (done 2026-11-15)
 
-When you added the Android app, Firebase created an API key called *"Android key (auto created by
-Firebase)"* in nightout-480519. The app uses it to register for push. Leave it alone until push is
-confirmed working on a real phone. Then:
+`google-services.json` did not get a new key. Firebase put the existing **"Android"** key in it, the
+Maps key. That key allows only the APIs on its list, so at first Firebase was refused and the app
+could not get a push token. The log showed `FIS_AUTH_ERROR` and *Firebase Installations: 403
+Permission denied*.
 
-1. Open Google Cloud console → **APIs & Services** → **Credentials** (project nightout-480519) →
-   that key.
-2. Under **Application restrictions**, choose **Android apps**. Add package `com.nightout.mobile`
-   with the **SHA-1 of the Play app-signing certificate**, from Play Console → **Setup** → **App
-   signing**. Don't use your local keystore's SHA-1.
-3. Save, then send yourself a test push again. If it stops working, undo the restriction.
+Fix, in Google Cloud console → **APIs & Services** → **Credentials** → **Android** → **API
+restrictions**, where these three are now allowed:
+- **Maps SDK for Android** (the map)
+- **Firebase Installations API** (push)
+- **FCM Registration API** (push)
+
+Keep its application restriction as it is: Android apps, `com.nightout.mobile` + the Play
+app-signing SHA-1. If that list ever loses the two Firebase APIs, Android push stops silently.
+
+The *"Browser key (auto created by Firebase)"* is not used by the app.
 
 ---
 
 ## Building and testing
 
-Release: **1.0.2**, iOS build **16**, Android versionCode **3** (already set in `app.config.js`).
+Release: **1.0.2**, iOS build **17**, Android versionCode **4** (already set in `app.config.js`).
+Don't ship iOS 16 / Android 3: they re-registered the push token in a loop (~50 calls a second).
 This build also carries the earlier fixes: no `**` in concierge links, and the real version shown in
 Settings. For the App Store version, paste the description from `store-assets/description.txt`.
 
@@ -169,6 +175,9 @@ Settings. For the App Store version, paste the description from `store-assets/de
    from public.notification_deliveries d join public.notifications n on n.id = d.notification_id
    where d.channel = 'mobile_push' order by d.id desc limit 20;
    ```
+   If a phone never shows up in `public.notification_push_targets`, open Notification Settings on
+   it: when the token can't be fetched or saved, a grey line there says why.
+
    The `status` values mean:
    - `sent`: Expo accepted it;
    - `skipped` + `mobile_push_disabled`: the toggle is off;

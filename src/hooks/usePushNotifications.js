@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { AppState } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import { navigationRef } from '../navigation/navigationRef'
 import { navigateFromNotificationMobileLink } from '../services/notificationDeepLink'
@@ -16,12 +17,18 @@ const NAV_GIVE_UP_MS = 8000
  *   mainAppReady: the signed-in, onboarded screens are mounted, so their routes exist.
  */
 export function usePushNotifications({ userId, mainAppReady }) {
-  // Refresh the token on every app start / sign-in (tokens can change; it also re-claims the token if
-  // another account last used this phone). Does nothing until permission is granted.
+  // Save the token on app start / sign-in, and again on each return to the foreground -- that is how
+  // a permission granted in the phone's Settings app gets picked up. registerPushToken throttles
+  // itself, so this costs nothing most of the time.
+  //
+  // No Notifications.addPushTokenListener here: fetching the token fires that listener, and
+  // re-registering from it looped ~50 times a second (iOS build 16 / Android 3).
   useEffect(() => {
     if (!userId) return
     registerPushToken()
-    const sub = Notifications.addPushTokenListener(() => registerPushToken())
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') registerPushToken()
+    })
     return () => sub.remove()
   }, [userId])
 

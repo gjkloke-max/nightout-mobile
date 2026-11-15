@@ -78,24 +78,73 @@ export async function requestPushPermission() {
     console.warn('[push] permission request failed:', e?.message || e)
   }
   const state = await getPushPermissionState()
-  if (state === 'granted') await registerPushToken()
+  if (state === 'granted') await registerPushToken({ force: true })
   return state
 }
 
+/** Re-save an unchanged token at most this often (app start / foreground call registerPushToken). */
+const REREGISTER_MS = 6 * 60 * 60 * 1000
+
+let inFlight = null
+/** @type {{ userId: string, token: string, at: number } | null} */
+let lastSuccess = null
+/** Why the last attempt failed, for the Notification Settings screen. Null after a success. */
+let lastError = null
+
+export function getLastPushError() {
+  return lastError
+}
+
 /**
- * Get this phone's Expo push token and save it for the signed-in user. Safe to call often (app start,
- * token rotation); does nothing without permission. Never throws.
+ * Get this phone's Expo push token and save it for the signed-in user. Does nothing without
+ * permission. Never throws.
+ *
+ * Cheap to call often (app start, every return to the foreground): only one attempt runs at a time,
+ * and an account whose token was saved in the last REREGISTER_MS is skipped without touching the
+ * network. `force` skips that check (right after permission is granted).
+ *
+ * Do NOT call this from Notifications.addPushTokenListener: fetching the token fires that listener,
+ * so it loops (build iOS 16 / Android 3 did this ~50 times a second).
  */
-export async function registerPushToken() {
-  if (!supported || !supabase) return null
+export function registerPushToken({ force = false } = {}) {
+  if (!supported || !supabase) return Promise.resolve(null)
+  if (!inFlight) {
+    inFlight = doRegisterPushToken(force).finally(() => {
+      inFlight = null
+    })
+  }
+  return inFlight
+}
+
+async function doRegisterPushToken(force) {
+  let step = 'permission'
   try {
     if ((await getPushPermissionState()) !== 'granted') return null
+
+    step = 'session'
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+    if (!userId) return null
+    if (
+      !force &&
+      lastSuccess &&
+      lastSuccess.userId === userId &&
+      Date.now() - lastSuccess.at < REREGISTER_MS
+    ) {
+      return lastSuccess.token
+    }
+
+    step = 'channel'
     await ensureAndroidChannel()
 
+    step = 'token'
     const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId })
-    if (!token) return null
+    if (!token) throw new Error('no token returned')
 
+    step = 'save'
     const version = Constants.expoConfig?.version || ''
     const build =
       Platform.OS === 'ios'
@@ -106,15 +155,16 @@ export async function registerPushToken() {
       p_platform: Platform.OS,
       p_app_version: build ? `${version} (${build})` : version,
     })
-    if (error) {
-      console.warn('[push] could not save token:', error.message)
-      return null
-    }
+    if (error) throw new Error(error.message)
+
     await AsyncStorage.setItem(REGISTERED_TOKEN_KEY, token).catch(() => {})
+    lastSuccess = { userId, token, at: Date.now() }
+    lastError = null
     return token
   } catch (e) {
     // Simulators, Android builds without google-services.json, no network: push just stays off.
-    console.warn('[push] token registration skipped:', e?.message || e)
+    lastError = `${step}: ${e?.message || e}`
+    console.warn('[push] token registration failed at', lastError)
     return null
   }
 }
@@ -142,6 +192,7 @@ export async function unregisterPushToken(timeoutMs = 3000) {
   // If the delete never arrived, the next account to sign in here takes the token over
   // (register_push_token removes it from other users), so nothing leaks for long.
   await AsyncStorage.removeItem(REGISTERED_TOKEN_KEY).catch(() => {})
+  lastSuccess = null
 }
 
 /**

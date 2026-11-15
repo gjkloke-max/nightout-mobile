@@ -18,6 +18,8 @@ import {
   getPushPermissionState,
   requestPushPermission,
   openPhoneNotificationSettings,
+  registerPushToken,
+  getLastPushError,
 } from '../services/pushNotifications'
 import { colors, fontSizes, fontFamilies, spacing } from '../theme'
 
@@ -66,13 +68,20 @@ export default function NotificationSettingsScreen() {
   const [error, setError] = useState(null)
   // Whether this phone allows notifications at all; the Mobile push toggles do nothing without it.
   const [pushState, setPushState] = useState(null)
+  // Permission granted but the token could not be fetched or saved: shown so it can be reported.
+  const [pushError, setPushError] = useState(null)
 
   useEffect(() => {
     let active = true
-    const check = () =>
-      getPushPermissionState().then((s) => {
-        if (active) setPushState(s)
-      })
+    const check = async () => {
+      const s = await getPushPermissionState()
+      if (!active) return
+      setPushState(s)
+      if (s === 'granted') {
+        await registerPushToken()
+        if (active) setPushError(getLastPushError())
+      }
+    }
     check()
     // Re-check when coming back from the phone's Settings app.
     const sub = AppState.addEventListener('change', (st) => {
@@ -90,6 +99,7 @@ export default function NotificationSettingsScreen() {
       return
     }
     setPushState(await requestPushPermission())
+    setPushError(getLastPushError())
   }
 
   const load = useCallback(async () => {
@@ -170,6 +180,11 @@ export default function NotificationSettingsScreen() {
           </Pressable>
         </View>
       ) : null}
+      {pushState === 'granted' && pushError ? (
+        <Text style={styles.pushError}>
+          Push notifications couldn't be set up on this phone ({pushError}).
+        </Text>
+      ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {saving ? (
         <Text style={styles.saving}>Saving…</Text>
@@ -229,6 +244,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.base,
+  },
+  pushError: {
+    fontSize: fontSizes.xs,
+    fontFamily: fontFamilies.inter,
+    color: colors.textMuted,
+    lineHeight: 18,
+    marginBottom: spacing.lg,
   },
   pushBannerButtonPressed: { backgroundColor: colors.profileAccentPressed },
   pushBannerButtonText: {
