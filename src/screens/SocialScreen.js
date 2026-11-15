@@ -31,6 +31,7 @@ import { getGlobalUnreadDmCount } from '../services/messaging'
 import { colors, fontSizes, fontWeights, spacing, borderRadius, fontFamilies, hitSlop, textStyles } from '../theme'
 import { WRITE_REVIEW_ORIGIN } from '../navigation/writeReviewOrigin'
 import { subscribeReviewMutated } from '../constants/reviewMutated'
+import { maybeAskForPushAfterFollow } from '../services/pushNotifications'
 
 /** Figma Social — search placeholder (ellipsis) */
 const SEARCH_PLACEHOLDER = 'Search friends or reviews…'
@@ -154,6 +155,7 @@ export default function SocialScreen() {
       } else {
         const { success, status: newStatus } = await followOrRequest(user.id, targetId)
         if (success && newStatus) {
+          maybeAskForPushAfterFollow()
           setFollowStatusMap((m) => new Map(m).set(targetId, newStatus))
           loadFeed()
         }

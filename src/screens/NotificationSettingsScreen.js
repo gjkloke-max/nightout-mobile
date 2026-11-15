@@ -6,12 +6,19 @@ import {
   ScrollView,
   Switch,
   ActivityIndicator,
+  AppState,
+  Pressable,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { getNotificationPreferences, upsertNotificationPreferences } from '../services/notifications'
 import { mergeNotificationSettings } from '../services/notificationPreferences'
+import {
+  getPushPermissionState,
+  requestPushPermission,
+  openPhoneNotificationSettings,
+} from '../services/pushNotifications'
 import { colors, fontSizes, fontFamilies, spacing } from '../theme'
 
 const CATEGORIES = [
@@ -57,6 +64,33 @@ export default function NotificationSettingsScreen() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  // Whether this phone allows notifications at all; the Mobile push toggles do nothing without it.
+  const [pushState, setPushState] = useState(null)
+
+  useEffect(() => {
+    let active = true
+    const check = () =>
+      getPushPermissionState().then((s) => {
+        if (active) setPushState(s)
+      })
+    check()
+    // Re-check when coming back from the phone's Settings app.
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') check()
+    })
+    return () => {
+      active = false
+      sub.remove()
+    }
+  }, [])
+
+  const turnOnPush = async () => {
+    if (pushState === 'denied') {
+      openPhoneNotificationSettings()
+      return
+    }
+    setPushState(await requestPushPermission())
+  }
 
   const load = useCallback(async () => {
     if (!user?.id) return
@@ -115,9 +149,27 @@ export default function NotificationSettingsScreen() {
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing['2xl'] }]}
     >
       <Text style={styles.intro}>
-        Choose how you get notified for each category. In-app notifications appear in your feed; push options
-        apply when those features are enabled on your device.
+        Choose how you get notified for each category. In-app notifications appear in your feed; Mobile push
+        sends them to this phone.
       </Text>
+      {pushState === 'undetermined' || pushState === 'denied' ? (
+        <View style={styles.pushBanner}>
+          <Text style={styles.pushBannerText}>
+            {pushState === 'denied'
+              ? "Notifications for Brio are turned off in your phone's settings, so Mobile push can't reach you."
+              : 'Push notifications are off on this phone.'}
+          </Text>
+          <Pressable
+            onPress={turnOnPush}
+            style={({ pressed }) => [styles.pushBannerButton, pressed && styles.pushBannerButtonPressed]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.pushBannerButtonText}>
+              {pushState === 'denied' ? 'Open Settings' : 'Turn on'}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {saving ? (
         <Text style={styles.saving}>Saving…</Text>
@@ -156,6 +208,34 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   error: { fontSize: fontSizes.sm, color: colors.error, marginBottom: spacing.sm },
+  pushBanner: {
+    marginBottom: spacing.lg,
+    backgroundColor: colors.backgroundElevated,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.profileAccent,
+    padding: spacing.base,
+  },
+  pushBannerText: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.inter,
+    color: colors.textPrimary,
+    lineHeight: 20,
+    marginBottom: spacing.md,
+  },
+  pushBannerButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.profileAccent,
+    borderRadius: 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.base,
+  },
+  pushBannerButtonPressed: { backgroundColor: colors.profileAccentPressed },
+  pushBannerButtonText: {
+    fontSize: fontSizes.sm,
+    fontFamily: fontFamilies.interSemiBold,
+    color: '#FFFFFF',
+  },
   saving: { fontSize: fontSizes.xs, color: colors.textMuted, marginBottom: spacing.sm },
   section: {
     marginBottom: spacing.xl,

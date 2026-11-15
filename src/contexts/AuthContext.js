@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { supabase } from '../lib/supabase'
 import { ensureProfileAfterAuth, ONBOARDING_STEP } from '../services/profileOnboarding'
 import { signInWithGoogle, signInWithApple, signOutGoogleNative } from '../services/oauthSupabase'
+import { unregisterPushToken } from '../services/pushNotifications'
 import { config } from '../lib/config'
 
 const AuthContext = createContext({})
@@ -110,6 +111,8 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signOut = async () => {
+    // Before signOut: removing this phone's push token needs the session (RLS). Capped at 3s.
+    await unregisterPushToken()
     if (supabase) await supabase.auth.signOut()
     await signOutGoogleNative()
     setSession(null)

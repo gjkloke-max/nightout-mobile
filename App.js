@@ -10,6 +10,9 @@ import { AuthProvider } from './src/contexts/AuthContext'
 import { logDevOAuthRedirectUrl } from './src/services/oauthSupabase'
 import { colors } from './src/theme'
 import AppNavigator from './src/navigation/AppNavigator'
+import { navigationRef } from './src/navigation/navigationRef'
+// Registers the foreground notification handler at startup.
+import './src/services/pushNotifications'
 
 WebBrowser.maybeCompleteAuthSession()
 
@@ -74,7 +77,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer linking={linking}>
+        <NavigationContainer ref={navigationRef} linking={linking}>
           <AppContent />
         </NavigationContainer>
       </AuthProvider>

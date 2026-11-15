@@ -45,6 +45,7 @@ import { colors, fontSizes, fontWeights, spacing, fontFamilies } from '../theme'
 import ProfilePhotoViewerModal from '../components/ProfilePhotoViewerModal'
 import ProfileReviewEngagementRow from '../components/ProfileReviewEngagementRow'
 import { useProfileReviewEngagement } from '../hooks/useProfileReviewEngagement'
+import { maybeAskForPushAfterFollow } from '../services/pushNotifications'
 
 const TABS = ['reviews', 'lists']
 
@@ -286,6 +287,7 @@ export default function FriendProfileScreen() {
       } else {
         const { success, status: newStatus, error } = await followOrRequest(user.id, userId)
         if (success) {
+          maybeAskForPushAfterFollow()
           if (newStatus) {
             setFollowStatus(newStatus)
             getFollowCounts(userId).then(setFollowCounts)

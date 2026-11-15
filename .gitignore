@@ -47,3 +47,6 @@ google-play-service-account.json
 *.cer
 credentials.json
 eas-debug.log
+
+# Firebase config for Android push (comes from the EAS env var GOOGLE_SERVICES_JSON on builds)
+google-services.json

@@ -3,6 +3,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { colors, fontSizes, fontFamilies } from '../theme'
 import { useAuth } from '../contexts/AuthContext'
+import { usePushNotifications } from '../hooks/usePushNotifications'
 import TabNavigator from './TabNavigator'
 import AuthStackNavigator from './AuthStackNavigator'
 import OnboardingStackNavigator from './OnboardingStackNavigator'
@@ -66,6 +67,10 @@ export default function AppNavigator() {
   // loading state during a refresh, so profileLoading doesn't need to unmount the navigator too.
   const hasRenderedOnce = useRef(false)
 
+  const onboardingIncomplete = !profile || profile.onboarding_completed !== true
+  const mainAppReady = !loading && !!user && !onboardingIncomplete
+  usePushNotifications({ userId: user?.id, mainAppReady })
+
   if (loading || (user && profileLoading && !hasRenderedOnce.current)) {
     return (
       <View style={styles.loading}>
@@ -79,7 +84,6 @@ export default function AppNavigator() {
     return <AuthStackNavigator />
   }
 
-  const onboardingIncomplete = !profile || profile.onboarding_completed !== true
   if (onboardingIncomplete) {
     return <OnboardingStackNavigator initialStep={profile?.onboarding_step} />
   }

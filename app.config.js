@@ -1,4 +1,6 @@
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 
 // `owner` is what makes Expo Go demand a login: when a project declares an owner, Expo Go will only
 // open it for someone signed in to an account with access. Staging is opened by testers who do not
@@ -20,13 +22,26 @@ const googleIosUrlScheme = googleIosClientId
   ? `com.googleusercontent.apps.${googleIosClientId.replace(/\.apps\.googleusercontent\.com$/, '')}`
   : null;
 
+// Android push goes through Firebase Cloud Messaging, which needs google-services.json from the
+// Firebase project (Google Cloud project "NightOut", nightout-480519). The file is not committed: on
+// EAS it comes from the file-type environment variable GOOGLE_SERVICES_JSON (EAS sets that to the
+// path of a temporary copy); locally, drop it at ./google-services.json. Without it the app still
+// builds and runs, but Android cannot get a push token. See PUSH_NOTIFICATIONS.md.
+const localGoogleServices = path.join(__dirname, 'google-services.json');
+const googleServicesFile =
+  process.env.GOOGLE_SERVICES_JSON ||
+  (fs.existsSync(localGoogleServices) ? './google-services.json' : undefined);
+if (!googleServicesFile && process.env.EAS_BUILD === 'true' && process.env.EAS_BUILD_PLATFORM === 'android') {
+  console.warn('[app.config] GOOGLE_SERVICES_JSON is not set: this Android build will not receive push notifications.');
+}
+
 module.exports = {
   expo: {
     name: 'Brio',
     slug: 'nightout-mobile',
     ...(includeOwner ? { owner: 'gkloke' } : {}),
     scheme: 'nightout',
-    version: '1.0.1',
+    version: '1.0.2',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -42,7 +57,7 @@ module.exports = {
       // alongside real iPad layouts.
       supportsTablet: false,
       bundleIdentifier: 'com.nightout.mobile',
-      buildNumber: '15',
+      buildNumber: '16',
       // Sign in with Apple: adds the entitlement, and EAS enables the capability on the App ID.
       // Without it iOS refuses the Apple sheet (AuthorizationError 1000) and nothing reaches Supabase.
       usesAppleSignIn: true,
@@ -63,7 +78,8 @@ module.exports = {
     },
     android: {
       package: 'com.nightout.mobile',
-      versionCode: 2,
+      versionCode: 3,
+      ...(googleServicesFile ? { googleServicesFile } : {}),
       config: {
         googleMaps: {
           // react-native-maps uses Google Maps on Android (iOS falls through to Apple Maps, since
@@ -103,6 +119,19 @@ module.exports = {
       ...(googleIosUrlScheme
         ? [['@react-native-google-signin/google-signin', { iosUrlScheme: googleIosUrlScheme }]]
         : []),
+      [
+        'expo-notifications',
+        {
+          // Android status-bar icon: white shape on transparent (Android ignores colour), tinted below.
+          icon: './assets/notification-icon.png',
+          color: '#9D174D',
+          // Must match the channel the app creates and send-push targets (src/services/pushNotifications.js).
+          defaultChannel: 'default',
+          // iOS aps-environment. App Store / TestFlight builds use Apple's production push servers;
+          // development builds use the sandbox.
+          mode: process.env.EAS_BUILD_PROFILE === 'production' ? 'production' : 'development',
+        },
+      ],
       [
         'expo-image-picker',
         {
