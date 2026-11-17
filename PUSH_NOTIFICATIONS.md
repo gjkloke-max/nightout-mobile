@@ -147,7 +147,8 @@ The *"Browser key (auto created by Firebase)"* is not used by the app.
 
 ## Building and testing
 
-Release: **1.0.2**, iOS build **18**, Android versionCode **5** (already set in `app.config.js`).
+Release: **1.0.2**, iOS build **19**, Android versionCode **6** (already set in `app.config.js`). Build 19 / 6 adds
+scrolling to the comment when a comment, reply or mention notification is tapped.
 Don't ship iOS 16 / Android 3: they re-registered the push token in a loop (~50 calls a second).
 This build also carries the earlier fixes: no `**` in concierge links, and the real version shown in
 Settings. For the App Store version, paste the description from `store-assets/description.txt`.

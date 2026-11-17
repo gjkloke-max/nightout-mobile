@@ -11,6 +11,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   Keyboard,
+  Animated,
 } from 'react-native'
 import { useRoute, useNavigation } from '@react-navigation/native'
 import { Heart, MessageCircle, ChevronLeft } from 'lucide-react-native'
@@ -71,6 +72,12 @@ function composerInitials(user) {
 const serifTime = Platform.select({ ios: 'Georgia', android: 'serif' })
 const serifBody = Platform.select({ ios: 'Georgia', android: 'serif' })
 
+/** When opened at a comment, leave this much of the screen above it so the reader sees context. */
+const TARGET_COMMENT_TOP_GAP = 96
+/** Brand accent (#9d174d) at low strength; fades to transparent. */
+const HIGHLIGHT_BG = 'rgba(157, 23, 77, 0.10)'
+const HIGHLIGHT_BG_CLEAR = 'rgba(157, 23, 77, 0)'
+
 export default function SocialReviewDetailScreen() {
   const route = useRoute()
   const navigation = useNavigation()
@@ -78,7 +85,26 @@ export default function SocialReviewDetailScreen() {
   const { user } = useAuth()
   const reviewId = route.params?.reviewId
   const scrollRef = useRef(null)
-  const [commentsY, setCommentsY] = useState(0)
+  /** Top of the comments block inside the scroll content; null until laid out. */
+  const [commentsY, setCommentsY] = useState(null)
+
+  // Opened from a notification about a comment (comment, reply, comment like, mention): scroll to that
+  // comment and highlight it briefly. The key changes when a new notification is tapped while this
+  // screen is already open, which may be for a comment that isn't loaded yet.
+  const commentIdParam = route.params?.commentId
+  const targetCommentId = commentIdParam != null && commentIdParam !== '' ? String(commentIdParam) : null
+  const targetKey = targetCommentId && reviewId != null ? `${reviewId}:${targetCommentId}` : null
+  const targetKeyRef = useRef(targetKey)
+  targetKeyRef.current = targetKey
+  /** The target key the latest load was started for. */
+  const loadedForKeyRef = useRef(null)
+  /** The target key already scrolled to (or given up on), so later reloads don't jump back. */
+  const handledTargetKeyRef = useRef(null)
+  /** Each comment row's y inside the comments block, by comment id. */
+  const commentYsRef = useRef({})
+  const [targetLayoutTick, setTargetLayoutTick] = useState(0)
+  const [highlightId, setHighlightId] = useState(null)
+  const highlightAnim = useRef(new Animated.Value(0)).current
   const [post, setPost] = useState(null)
   const [loading, setLoading] = useState(true)
   const [likeCount, setLikeCount] = useState(0)
@@ -97,6 +123,8 @@ export default function SocialReviewDetailScreen() {
       setLoading(false)
       return
     }
+    loadedForKeyRef.current = targetKeyRef.current
+    commentYsRef.current = {}
     setLoading(true)
     const data = await getSocialReviewById(user.id, reviewId)
     setPost(data)
@@ -111,6 +139,42 @@ export default function SocialReviewDetailScreen() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    if (!targetKey || loading || !post) return
+    // Still showing the previous post for a moment after reviewId changed; its load is under way.
+    if (String(post.venue_review_id) !== String(reviewId)) return
+    if (handledTargetKeyRef.current === targetKey) return
+
+    const target = comments.find((c) => String(c.id) === targetCommentId)
+    if (!target) {
+      if (loadedForKeyRef.current !== targetKey) {
+        // A newer notification for this same post: its comment came after our last load.
+        load()
+      } else {
+        // Deleted, or by someone the viewer blocked: stay at the top of the post.
+        handledTargetKeyRef.current = targetKey
+      }
+      return
+    }
+
+    const rowY = commentYsRef.current[target.id]
+    if (commentsY == null || rowY == null) return // wait for layout (targetLayoutTick re-runs this)
+
+    handledTargetKeyRef.current = targetKey
+    scrollRef.current?.scrollTo({ y: Math.max(0, commentsY + rowY - TARGET_COMMENT_TOP_GAP), animated: true })
+    setHighlightId(target.id)
+    highlightAnim.stopAnimation()
+    highlightAnim.setValue(1)
+    Animated.timing(highlightAnim, {
+      toValue: 0,
+      duration: 1800,
+      delay: 900,
+      useNativeDriver: false, // backgroundColor
+    }).start(({ finished }) => {
+      if (finished) setHighlightId(null)
+    })
+  }, [targetKey, targetCommentId, loading, post, reviewId, comments, commentsY, targetLayoutTick, load, highlightAnim])
 
   useEffect(() => {
     if (!user?.id || !supabase) {
@@ -211,7 +275,7 @@ export default function SocialReviewDetailScreen() {
   }
 
   const scrollToComments = () => {
-    scrollRef.current?.scrollTo({ y: Math.max(0, commentsY - 8), animated: true })
+    scrollRef.current?.scrollTo({ y: Math.max(0, (commentsY ?? 0) - 8), animated: true })
   }
 
   if (loading) {
@@ -384,7 +448,25 @@ export default function SocialReviewDetailScreen() {
                     isReply && styles.commentRowIndented,
                     idx === comments.length - 1 && styles.commentRowLast,
                   ]}
+                  onLayout={(e) => {
+                    commentYsRef.current[c.id] = e.nativeEvent.layout.y
+                    if (String(c.id) === targetCommentId) setTargetLayoutTick((t) => t + 1)
+                  }}
                 >
+                  {highlightId === c.id ? (
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[
+                        styles.commentHighlight,
+                        {
+                          backgroundColor: highlightAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [HIGHLIGHT_BG_CLEAR, HIGHLIGHT_BG],
+                          }),
+                        },
+                      ]}
+                    />
+                  ) : null}
                   <Pressable
                     style={styles.commentAvatarPress}
                     onPress={() => canOpen && openFriendProfile(cid)}
@@ -706,6 +788,15 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.border,
   },
   commentRowLast: { marginBottom: 0 },
+  /** Behind a comment opened from a notification; spills slightly past the row so text isn't flush. */
+  commentHighlight: {
+    position: 'absolute',
+    top: -10,
+    bottom: -10,
+    left: -12,
+    right: -12,
+    borderRadius: 8,
+  },
   commentAvatarPress: {},
   commentPressable: {
     flex: 1,
