@@ -41,7 +41,7 @@ module.exports = {
     slug: 'nightout-mobile',
     ...(includeOwner ? { owner: 'gkloke' } : {}),
     scheme: 'nightout',
-    version: '1.0.2',
+    version: '1.0.3',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -57,7 +57,7 @@ module.exports = {
       // alongside real iPad layouts.
       supportsTablet: false,
       bundleIdentifier: 'com.nightout.mobile',
-      buildNumber: '19',
+      buildNumber: '20',
       // Sign in with Apple: adds the entitlement, and EAS enables the capability on the App ID.
       // Without it iOS refuses the Apple sheet (AuthorizationError 1000) and nothing reaches Supabase.
       usesAppleSignIn: true,
@@ -78,7 +78,7 @@ module.exports = {
     },
     android: {
       package: 'com.nightout.mobile',
-      versionCode: 6,
+      versionCode: 7,
       ...(googleServicesFile ? { googleServicesFile } : {}),
       config: {
         googleMaps: {

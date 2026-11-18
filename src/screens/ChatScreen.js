@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { sendConciergeMessage } from '../lib/conciergeApi'
+import { friendlyErrorMessage } from '../lib/networkErrors'
 import { isConciergeDebugEnabled } from '../lib/conciergeDebug'
 import {
   applyConciergeResponseToSession,
@@ -74,6 +75,8 @@ export default function ChatScreen() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  // The turn whose reply failed, so "Try again" can resend it without repeating the message.
+  const [retryTurn, setRetryTurn] = useState(null)
   const scrollRef = useRef(null)
   const lastSessionRef = useRef(emptyConciergeClientSession())
   const introducedVenueIdsRef = useRef(new Set())
@@ -140,44 +143,8 @@ export default function ChatScreen() {
 
   const showLanding = !messages.some((m) => m.role === 'user')
 
-  const handleSend = async (overrideText) => {
-    const raw = overrideText != null ? String(overrideText) : input
-    const text = raw.trim()
-    if (!text || loading) return
-
-    if (!user?.id) {
-      setError('Sign in to save chats and use Concierge.')
-      return
-    }
-
-    setInput('')
-    setError(null)
-
-    const userMessage = { role: 'user', content: text }
-    const nextMessages = [...messages, userMessage]
-    setMessages(nextMessages)
-    setLoading(true)
-
-    try {
-    let sessionId = currentSessionId
-    if (!sessionId) {
-      const { data: newSession } = await createNewSession()
-      if (newSession) {
-        sessionId = newSession.chat_session_id
-        setCurrentSessionId(sessionId)
-      }
-    }
-
-    if (sessionId) {
-      await saveMessage(sessionId, 'user', text, [])
-      const priorUserCount = messages.filter((m) => m.role === 'user').length
-      if (priorUserCount === 0) {
-        const title = generateSessionTitle(text)
-        await updateSessionTitle(sessionId, title)
-        await refreshHistoryList()
-      }
-    }
-
+  /** Ask the concierge for a reply to an already-shown, already-saved user message. */
+  const requestReply = async ({ text, nextMessages, sessionId }) => {
     const conversationHistory = nextMessages.map((m) => ({
       role: m.role,
       content: typeof m.content === 'string' ? m.content : '',
@@ -210,6 +177,8 @@ export default function ChatScreen() {
 
     if (err) {
       setError(err.message || 'Something went wrong')
+      // Keep what's needed to resend this exact turn; the user message is already shown and saved.
+      if (err.retryable) setRetryTurn({ text, nextMessages, sessionId })
       return
     }
 
@@ -258,13 +227,88 @@ export default function ChatScreen() {
       await saveMessage(sessionId, 'assistant', assistantMessage.content, assistantMessage.venues || [])
       await refreshHistoryList()
     }
+  }
+
+  const handleSend = async (overrideText) => {
+    const raw = overrideText != null ? String(overrideText) : input
+    const text = raw.trim()
+    if (!text || loading) return
+
+    if (!user?.id) {
+      setError('Sign in to save chats and use Concierge.')
+      return
+    }
+
+    setInput('')
+    setError(null)
+    setRetryTurn(null)
+
+    const userMessage = { role: 'user', content: text }
+    const nextMessages = [...messages, userMessage]
+    setMessages(nextMessages)
+    setLoading(true)
+
+    try {
+    let sessionId = currentSessionId
+    if (!sessionId) {
+      const { data: newSession } = await createNewSession()
+      if (newSession) {
+        sessionId = newSession.chat_session_id
+        setCurrentSessionId(sessionId)
+      }
+    }
+
+    if (sessionId) {
+      await saveMessage(sessionId, 'user', text, [])
+      const priorUserCount = messages.filter((m) => m.role === 'user').length
+      if (priorUserCount === 0) {
+        const title = generateSessionTitle(text)
+        await updateSessionTitle(sessionId, title)
+        await refreshHistoryList()
+      }
+    }
+
+    await requestReply({ text, nextMessages, sessionId })
     } catch (e) {
       console.error('[concierge] handleSend', e)
-      setError(e?.message || 'Something went wrong')
+      setError(friendlyErrorMessage(e))
     } finally {
       setLoading(false)
     }
   }
+
+  const handleRetry = async () => {
+    const turn = retryTurn
+    if (!turn || loading) return
+    setRetryTurn(null)
+    setError(null)
+    setLoading(true)
+    try {
+      await requestReply(turn)
+    } catch (e) {
+      console.error('[concierge] handleRetry', e)
+      setError(friendlyErrorMessage(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const renderError = () =>
+    error ? (
+      <View style={styles.errorRow}>
+        <Text style={styles.errorText}>{error}</Text>
+        {retryTurn && !loading ? (
+          <Pressable
+            onPress={handleRetry}
+            style={({ pressed }) => [styles.retryButton, pressed && styles.retryButtonPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Try again"
+          >
+            <Text style={styles.retryButtonText}>Try again</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    ) : null
 
   const handlePromptPress = (prompt) => {
     handleSend(prompt)
@@ -278,6 +322,7 @@ export default function ChatScreen() {
         setMessages([])
         setInput('')
         setError(null)
+        setRetryTurn(null)
         lastSessionRef.current = emptyConciergeClientSession()
         introducedVenueIdsRef.current = new Set()
         await refreshHistoryList()
@@ -295,6 +340,8 @@ export default function ChatScreen() {
         setMessages(sessionData.messages)
         setCurrentSessionId(sessionId)
         setHistoryOpen(false)
+        setError(null)
+        setRetryTurn(null)
         lastSessionRef.current = rehydrateConciergeSessionFromMessages(sessionData.messages)
         introducedVenueIdsRef.current = collectIntroducedVenueIdsFromMessages(sessionData.messages)
       } else {
@@ -466,11 +513,7 @@ export default function ChatScreen() {
                 </Pressable>
               ))}
             </View>
-            {error ? (
-              <View style={styles.errorRow}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
+            {renderError()}
           </View>
         ) : (
           <>
@@ -513,11 +556,7 @@ export default function ChatScreen() {
                 </View>
               </View>
             ) : null}
-            {error ? (
-              <View style={styles.errorRow}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
+            {renderError()}
           </>
         )}
       </ScrollView>
@@ -774,8 +813,17 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   loadingSpinner: { alignSelf: 'flex-start' },
-  errorRow: { padding: spacing.md },
+  errorRow: { padding: spacing.md, alignItems: 'flex-start', gap: spacing.sm },
   errorText: { fontSize: fontSizes.sm, color: colors.error },
+  retryButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.browseAccent,
+  },
+  retryButtonPressed: { opacity: 0.6 },
+  retryButtonText: { fontSize: fontSizes.sm, color: colors.browseAccent, fontWeight: '600' },
   inputRow: {
     flexShrink: 0,
     paddingHorizontal: spacing.lg,

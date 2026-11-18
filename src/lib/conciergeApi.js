@@ -6,6 +6,12 @@
 import { Platform } from 'react-native'
 import { config } from './config'
 import { supabase } from './supabase'
+import {
+  NETWORK_ERROR_MESSAGE,
+  TIMEOUT_ERROR_MESSAGE,
+  friendlyErrorMessage,
+  isTransientNetworkError,
+} from './networkErrors'
 
 /** Android emulator maps host “localhost” to the dev machine via 10.0.2.2 */
 function resolveSearchApiBaseUrl(url) {
@@ -17,25 +23,65 @@ function resolveSearchApiBaseUrl(url) {
   )
 }
 
+class ConciergeTimeoutError extends Error {
+  constructor() {
+    super('Concierge request timed out')
+    this.name = 'ConciergeTimeoutError'
+  }
+}
+
 async function fetchWithTimeout(url, options = {}, timeoutMs) {
   const ms = timeoutMs ?? config.conciergeTimeoutMs
   const controller = new AbortController()
-  const id = setTimeout(() => controller.abort(), ms)
+  // expo/fetch reports a cancelled request as a generic FetchError, not an AbortError, so the
+  // timeout is tracked here rather than inferred from the error it throws.
+  let timedOut = false
+  const id = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, ms)
   try {
     return await fetch(url, { ...options, signal: controller.signal })
+  } catch (err) {
+    if (timedOut) throw new ConciergeTimeoutError()
+    throw err
   } finally {
     clearTimeout(id)
   }
 }
 
-function conciergeFetchError(err) {
-  if (err?.name === 'AbortError') {
-    return {
-      message:
-        'Concierge is taking longer than usual. Check your connection or try again — if this keeps happening, the server may need a higher proxy timeout for /api/concierge.',
-    }
+/** Wait before the one automatic retry, so a connection that just dropped has a moment to recover. */
+const RETRY_DELAY_MS = 600
+/** No automatic retry after this long: the user has already waited, and gets a Try again button. */
+const RETRY_WITHIN_MS = 20000
+
+/**
+ * POST with one automatic retry when the request fails at the network/TLS level (no HTTP
+ * response) — see networkErrors.js for why that is safe and why it is needed on iOS.
+ */
+async function postWithRetry(url, options) {
+  const started = Date.now()
+  try {
+    return await fetchWithTimeout(url, options)
+  } catch (err) {
+    // Never after our own timeout: the user has already waited the full limit.
+    if (err instanceof ConciergeTimeoutError) throw err
+    if (!isTransientNetworkError(err) || Date.now() - started > RETRY_WITHIN_MS) throw err
+    if (__DEV__) console.warn('[concierge] network error, retrying once:', err?.message)
+    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS))
+    return await fetchWithTimeout(url, options)
   }
-  return { message: err?.message || 'Network error' }
+}
+
+function conciergeFetchError(err) {
+  if (err instanceof ConciergeTimeoutError || err?.name === 'AbortError') {
+    return { message: TIMEOUT_ERROR_MESSAGE, retryable: true }
+  }
+  if (isTransientNetworkError(err)) {
+    return { message: NETWORK_ERROR_MESSAGE, retryable: true }
+  }
+  if (__DEV__) console.warn('[concierge] request failed:', err?.message)
+  return { message: friendlyErrorMessage(err), retryable: true }
 }
 
 /**
@@ -98,14 +144,29 @@ export async function sendConciergeMessage(requestBody) {
       // no session: send the request without preferences
     }
 
-    const res = await fetchWithTimeout(`${searchApiUrl}/api/concierge`, {
+    const res = await postWithRetry(`${searchApiUrl}/api/concierge`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
     })
-    const data = await res.json().catch(() => ({}))
+    let bodyFailed = false
+    const data = await res.json().catch(() => {
+      bodyFailed = true
+      return {}
+    })
+    // A 200 whose body never arrived intact (connection dropped mid-download) is a network
+    // failure, not an empty answer.
+    if (res.ok && bodyFailed) {
+      return { data: null, error: { message: NETWORK_ERROR_MESSAGE, retryable: true } }
+    }
     if (!res.ok) {
-      return { data: null, error: { message: data.error || 'Concierge request failed' } }
+      // 5xx (including nginx 502/504 while the API restarts) is worth retrying; 4xx is not.
+      const retryable = res.status >= 500
+      const message =
+        retryable || !data.error
+          ? "Concierge couldn't answer just now. Try again in a moment."
+          : data.error
+      return { data: null, error: { message, retryable } }
     }
     return {
       data: {
