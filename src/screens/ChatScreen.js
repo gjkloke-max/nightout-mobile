@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { sendConciergeMessage } from '../lib/conciergeApi'
+import ConciergeFeedback from '../components/ConciergeFeedback'
 import { friendlyErrorMessage } from '../lib/networkErrors'
 import { isConciergeDebugEnabled } from '../lib/conciergeDebug'
 import {
@@ -219,6 +220,7 @@ export default function ChatScreen() {
       recommendationState: data.recommendationState ?? null,
       canonicalConversationState: data.canonicalConversationState ?? null,
       rankedVenueBacklog: data.rankedVenueBacklog ?? null,
+      ...(data.traceId ? { traceId: data.traceId } : {}),
       ...(conciergeDebugEnabled && data.conciergeDebug ? { conciergeDebug: data.conciergeDebug } : {}),
     }
     setMessages((prev) => [...prev, assistantMessage])
@@ -542,6 +544,7 @@ export default function ChatScreen() {
                     />
                   )}
                 </View>
+                {msg.role === 'assistant' && msg.traceId ? <ConciergeFeedback traceId={msg.traceId} /> : null}
               </View>
             ))}
             {loading ? (

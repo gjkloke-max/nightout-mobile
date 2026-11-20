@@ -34,6 +34,11 @@ export {
 export { analyzeConciergeTurnIntent } from './followUpIntent.js'
 export { buildConciergeRequest } from './buildRequest.js'
 export {
+  buildConciergeFeedbackBody,
+  CONCIERGE_FEEDBACK_NOTE_MAX,
+  CONCIERGE_FEEDBACK_REASONS,
+} from './feedback.js'
+export {
   applyConciergeResponseToSession,
   emptyConciergeClientSession,
   lastGeoContextFromSession,

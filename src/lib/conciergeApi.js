@@ -4,6 +4,7 @@
  */
 
 import { Platform } from 'react-native'
+import Constants from 'expo-constants'
 import { config } from './config'
 import { supabase } from './supabase'
 import {
@@ -121,6 +122,8 @@ export async function sendConciergeMessage(requestBody) {
     const body = {
       ...raw,
       message,
+      // Only labels the server's saved trace of this turn ("ios 1.0.3").
+      client: `${Platform.OS} ${Constants.expoConfig?.version || ''}`.trim(),
       conversationHistory: Array.isArray(raw.conversationHistory)
         ? raw.conversationHistory.map((m) => ({ role: m.role, content: m.content || '' }))
         : [],
@@ -179,10 +182,32 @@ export async function sendConciergeMessage(requestBody) {
         geoContext: data.geoContext ?? null,
         rankedVenueBacklog: data.rankedVenueBacklog ?? null,
         conciergeDebug: data.conciergeDebug ?? null,
+        // Present when the server saved a trace of this turn; a thumbs up/down refers to it.
+        traceId: typeof data.trace_id === 'string' && data.trace_id ? data.trace_id : null,
       },
       error: null,
     }
   } catch (err) {
     return { data: null, error: conciergeFetchError(err) }
+  }
+}
+
+/**
+ * POST /api/concierge/feedback: thumbs up or down on one answer.
+ * @param {{ trace_id: string, rating: 'up'|'down', reason?: string, note?: string }} body  from buildConciergeFeedbackBody
+ * @returns {Promise<{ error: { message: string }|null }>}
+ */
+export async function sendConciergeFeedback(body) {
+  const searchApiUrl = resolveSearchApiBaseUrl((config.searchApiUrl || '').replace(/\/$/, ''))
+  if (!searchApiUrl || !body) return { error: { message: 'Feedback is not available.' } }
+  try {
+    const res = await fetchWithTimeout(
+      `${searchApiUrl}/api/concierge/feedback`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+      15000,
+    )
+    return res.ok ? { error: null } : { error: { message: 'Feedback could not be saved.' } }
+  } catch {
+    return { error: { message: 'Feedback could not be saved.' } }
   }
 }
