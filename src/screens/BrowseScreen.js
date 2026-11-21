@@ -524,8 +524,10 @@ export default function BrowseScreen() {
           </View>
         </View>
         <View style={styles.searchCompactBadgeCol}>
-          <View style={styles.ratingBadge}>
-            <Text style={styles.ratingBadgeText}>{formatRating10(venue)}</Text>
+          <View style={[styles.ratingBadge, styles.searchCompactBadge]}>
+            <Text style={styles.ratingBadgeText} numberOfLines={1}>
+              {formatRating10(venue)}
+            </Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -1516,11 +1518,19 @@ const styles = StyleSheet.create({
     marginTop: 6,
     alignItems: 'center',
   },
+  // The column was 36 wide, which left the number about 15 points inside the badge's padding and
+  // border. "9.7" fits in that; "9.5", "8.4" and "8.6" are a little wider and broke onto two lines.
+  // 44 wide with a badge that fills it holds every rating up to "10.0", and keeps the badges the
+  // same width down the list.
   searchCompactBadgeCol: {
-    width: 36,
-    alignItems: 'center',
+    width: 44,
+    flexShrink: 0,
+    alignItems: 'stretch',
     justifyContent: 'center',
     alignSelf: 'stretch',
+  },
+  searchCompactBadge: {
+    paddingHorizontal: 4,
   },
   flexList: { flex: 1 },
   trendingListContent: { paddingHorizontal: spacing.xl, paddingBottom: spacing['3xl'] },
