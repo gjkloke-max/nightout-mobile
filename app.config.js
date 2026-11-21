@@ -78,7 +78,7 @@ module.exports = {
     },
     android: {
       package: 'com.nightout.mobile',
-      versionCode: 7,
+      versionCode: 8,
       ...(googleServicesFile ? { googleServicesFile } : {}),
       config: {
         googleMaps: {
