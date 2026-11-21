@@ -78,7 +78,7 @@ module.exports = {
     },
     android: {
       package: 'com.nightout.mobile',
-      versionCode: 8,
+      versionCode: 9,
       ...(googleServicesFile ? { googleServicesFile } : {}),
       config: {
         googleMaps: {
@@ -137,6 +137,21 @@ module.exports = {
         {
           photosPermission:
             'Brio uses your photo library so you can choose a profile picture.',
+        },
+      ],
+      [
+        // Android release builds are shrunk and obfuscated with R8, and unused resources removed.
+        // Play Console flagged the app's code optimization at 1% ("below our threshold", fix by
+        // February 2027); a shrunk build also uploads the mapping file Play asks for.
+        // R8 removes code it cannot see being used, so a library that reaches classes by name can
+        // break in a release build only. After changing anything here, test a Play internal build:
+        // Google sign-in, maps, push notifications and sign-in by email.
+        'expo-build-properties',
+        {
+          android: {
+            enableMinifyInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
+          },
         },
       ],
     ],
