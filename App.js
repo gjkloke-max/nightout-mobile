@@ -10,6 +10,7 @@ import { AuthProvider } from './src/contexts/AuthContext'
 import { logDevOAuthRedirectUrl } from './src/services/oauthSupabase'
 import { colors } from './src/theme'
 import AppNavigator from './src/navigation/AppNavigator'
+import AppUpdateGate from './src/components/AppUpdateGate'
 import { navigationRef } from './src/navigation/navigationRef'
 // Registers the foreground notification handler at startup.
 import './src/services/pushNotifications'
@@ -42,7 +43,10 @@ function AppContent() {
 
   return (
     <View style={{ flex: 1 }}>
-      <AppNavigator />
+      {/* Asks for an update, or requires one, by the build numbers in app_release_config. */}
+      <AppUpdateGate>
+        <AppNavigator />
+      </AppUpdateGate>
       <StatusBar style="dark" />
     </View>
   )
